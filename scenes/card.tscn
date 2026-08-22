@@ -1,0 +1,48 @@
+[gd_scene format=3 uid="uid://10b3yat0mi0n"]
+
+[ext_resource type="Script" uid="uid://dlbabvpevoqh7" path="res://scripts/card.gd" id="1_d81rb"]
+
+[node name="Card" type="Control" unique_id=963816908]
+custom_minimum_size = Vector2(220, 300)
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_right = -932.0
+offset_bottom = -348.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_d81rb")
+
+[node name="Background" type="ColorRect" parent="." unique_id=378276793]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="NameLabel" type="Label" parent="." unique_id=918435844]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="DescriptionLabel" type="Label" parent="." unique_id=1551827318]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="CostLabel" type="Label" parent="." unique_id=1979725516]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2

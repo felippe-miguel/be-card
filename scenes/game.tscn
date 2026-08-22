@@ -11,7 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_uwrxv")
 
-[node name="Label" type="Label" parent="." unique_id=1777909233]
+[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=856220962]
 layout_mode = 0
 offset_right = 40.0
-offset_bottom = 23.0
+offset_bottom = 40.0
