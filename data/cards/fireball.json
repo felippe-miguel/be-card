@@ -1,0 +1,13 @@
+{
+    "id": "fireball",
+    "name": "Bola de Fogo",
+    "description": "Cause 12 de dano.",
+    "cost": 2,
+    "type": "attack",
+    "effects": [
+        {
+            "type": "damage",
+            "amount": 12
+        }
+    ]
+}

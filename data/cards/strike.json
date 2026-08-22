@@ -1,0 +1,13 @@
+{
+  "id": "strike",
+  "name": "Golpe",
+  "description": "Cause 6 de dano.",
+  "cost": 1,
+  "type": "attack",
+  "effects": [
+    {
+      "type": "damage",
+      "amount": 6
+    }
+  ]
+}
