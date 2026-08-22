@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://df2etd6e886ca"]
+
+[ext_resource type="Script" uid="uid://sh8nhgv0c8i8" path="res://scripts/game.gd" id="1_uwrxv"]
+
+[node name="Game" type="Control" unique_id=943361433]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_uwrxv")
+
+[node name="Label" type="Label" parent="." unique_id=1777909233]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 23.0
