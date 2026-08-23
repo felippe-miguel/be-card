@@ -22,6 +22,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+color = Color(0.18359044, 0.18359044, 0.18359044, 1)
 
 [node name="NameLabel" type="Label" parent="." unique_id=918435844]
 layout_mode = 1
@@ -29,7 +30,7 @@ offset_left = 20.0
 offset_top = 20.0
 offset_right = 200.0
 offset_bottom = 60.0
-theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
 
 [node name="DescriptionLabel" type="Label" parent="." unique_id=1551827318]
 custom_maximum_size = Vector2(180, -1)
@@ -42,7 +43,7 @@ offset_top = -70.0
 offset_right = 200.0
 offset_bottom = 80.0
 grow_vertical = 2
-theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
 autowrap_mode = 3
 
 [node name="CostLabel" type="Label" parent="." unique_id=1979725516]
@@ -55,4 +56,4 @@ offset_top = 20.0
 offset_right = -10.0
 offset_bottom = 60.0
 grow_horizontal = 0
-theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
