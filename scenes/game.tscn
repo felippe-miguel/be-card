@@ -19,9 +19,11 @@ offset_right = 40.0
 offset_bottom = 440.0
 
 [node name="Floors" type="VBoxContainer" parent="." unique_id=2050396104]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 8.0
+grow_horizontal = 2
 
 [node name="BattleFloor1" parent="Floors" unique_id=1530212635 instance=ExtResource("2_yqjtg")]
 layout_mode = 2

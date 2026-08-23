@@ -98,7 +98,7 @@ func setup_enemies() -> void:
 			_on_enemy_selected
 		)
 
-		for unit in floor.units:
+		for unit in floor.enemies:
 			floor_view.create_enemy_view(unit)
 
 func _on_floor_selected(floor_view: BattleFloorView) -> void:

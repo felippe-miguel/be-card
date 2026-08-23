@@ -1,7 +1,8 @@
 class_name BattleFloorView
 extends PanelContainer
 
-@onready var unit_container: HBoxContainer = $HBoxContainer
+@onready var enemy_container: HBoxContainer = $HBoxContainer/EnemyContainer
+@onready var ally_container: HBoxContainer = $HBoxContainer/AllyContainer
 
 var floor_index: int
 
@@ -34,7 +35,17 @@ func create_enemy_view(unit: Unit) -> void:
         "res://scenes/enemy.tscn"
 	).instantiate()
 
-	unit_container.add_child(enemy)
+	var container: HBoxContainer
+
+	if unit.faction == Unit.Faction.ENEMY:
+		container = enemy_container
+	else:
+		container = ally_container
+
+	container.add_child(enemy)
+	
+	if unit.faction == Unit.Faction.ALLY:
+		container.move_child(enemy, 0)
 
 	enemy.setup(unit)
 

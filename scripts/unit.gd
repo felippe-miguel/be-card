@@ -13,6 +13,7 @@ var max_hp: int
 var block: int = 0
 var faction: Faction
 var position_index: int = -1
+var floor_index: int = -1
 
 signal changed
 

@@ -11,13 +11,25 @@ func setup(enemy_unit: Unit) -> void:
 	update_display()
 
 func update_display() -> void:
+	var faction_name = "ALLY"
+
+	if unit.faction == Unit.Faction.ENEMY:
+		faction_name = "ENEMY"
+
 	text = (
 		unit.name
+		+ "\n"
+		+ faction_name
 		+ "\n"
 		+ "HP: "
 		+ str(unit.hp)
 		+ "/"
 		+ str(unit.max_hp)
+		+ "\n"
+		+ "Floor: "
+		+ str(unit.floor_index)
+		+ " | Pos: "
+		+ str(unit.position_index)
 	)
 
 func _pressed() -> void:

@@ -3,10 +3,20 @@
 [ext_resource type="Script" uid="uid://cfaark6lqrw3q" path="res://scripts/battle_floor_view.gd" id="1_fcfhn"]
 
 [node name="BattleFloor" type="PanelContainer" unique_id=1530212635]
-offset_right = 40.0
-offset_bottom = 40.0
+offset_right = 1152.0
+offset_bottom = 100.0
 script = ExtResource("1_fcfhn")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=756733158]
+[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1766081662]
 layout_mode = 2
+
+[node name="AllyContainer" type="HBoxContainer" parent="HBoxContainer" unique_id=714368052]
+layout_mode = 2
+size_flags_horizontal = 3
 mouse_filter = 2
+
+[node name="EnemyContainer" type="HBoxContainer" parent="HBoxContainer" unique_id=756733158]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+alignment = 2

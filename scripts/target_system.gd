@@ -11,6 +11,7 @@ func _init(state: BattleState) -> void:
 
 func get_targets(target_type: String) -> Array[Unit]:
 	match target_type:
+
 		"enemy":
 			return get_enemies()
 
@@ -26,25 +27,77 @@ func get_targets(target_type: String) -> Array[Unit]:
 		"player":
 			return [battle_state.player]
 
+		"front_enemy":
+			return get_front_units(
+				Unit.Faction.ENEMY
+			)
+
+		"rear_enemy":
+			return get_rear_units(
+				Unit.Faction.ENEMY
+			)
+
 		_:
-			print("Tipo de alvo desconhecido: ", target_type)
+			print(
+				"Tipo de alvo desconhecido: ",
+				target_type
+			)
+
 			return []
 
-func _get_all_enemies() -> Array[Unit]:
-	return get_enemies()
 
 func get_enemies() -> Array[Unit]:
-	return get_units_by_faction(Unit.Faction.ENEMY)
+	return get_units_by_faction(
+		Unit.Faction.ENEMY
+	)
+
 
 func get_allies() -> Array[Unit]:
-	return get_units_by_faction(Unit.Faction.ALLY)
+	return get_units_by_faction(
+		Unit.Faction.ALLY
+	)
 
-func get_units_by_faction(faction: Unit.Faction) -> Array[Unit]:
+
+func get_units_by_faction(
+	faction: Unit.Faction
+) -> Array[Unit]:
+
 	var targets: Array[Unit] = []
 
 	for floor in battle_state.battlefield.floors:
-		for unit in floor.units:
-			if unit.faction == faction:
-				targets.append(unit)
+		var units = floor.get_units_for_faction(faction)
+
+		for unit in units:
+			targets.append(unit)
+
+	return targets
+
+
+func get_front_units(
+	faction: Unit.Faction
+) -> Array[Unit]:
+
+	var targets: Array[Unit] = []
+
+	for floor in battle_state.battlefield.floors:
+		var unit = floor.get_front_unit(faction)
+
+		if unit != null:
+			targets.append(unit)
+
+	return targets
+
+
+func get_rear_units(
+	faction: Unit.Faction
+) -> Array[Unit]:
+
+	var targets: Array[Unit] = []
+
+	for floor in battle_state.battlefield.floors:
+		var unit = floor.get_rear_unit(faction)
+
+		if unit != null:
+			targets.append(unit)
 
 	return targets
