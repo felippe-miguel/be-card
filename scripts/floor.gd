@@ -19,21 +19,44 @@ func add_unit(unit: Unit) -> bool:
 	if not can_add_unit():
 		return false
 
+	var position = find_first_free_position()
+
+	if position == -1:
+		return false
+
+	unit.position_index = position
 	units.append(unit)
 
 	print(
 		unit.name,
 		" entrou no andar ",
-		index
+		index,
+		" na posição ",
+		position
 	)
 	
 	unit_added.emit(unit)
 
 	return true
 
+func find_first_free_position() -> int:
+	for position in range(max_units):
+		if get_unit_at(position) == null:
+			return position
+
+	return -1
+
+func get_unit_at(position: int) -> Unit:
+	for unit in units:
+		if unit.position_index == position:
+			return unit
+
+	return null
+
 func remove_unit(unit: Unit) -> void:
 	if unit in units:
 		units.erase(unit)
+		unit.position_index = -1
 		unit_removed.emit(unit)
 
 func get_units() -> Array[Unit]:

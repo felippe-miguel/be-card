@@ -17,10 +17,11 @@ func _init(
 	)
 
 	player = Unit.new(
-		"player",
-		"Jogador",
-		50
-	)
+	"player",
+	"Jogador",
+	50,
+	Unit.Faction.ALLY
+)
 
 	for floor_index in range(battle_definition.floors.size()):
 
@@ -39,14 +40,9 @@ func _init(
 				)
 				continue
 
-			var unit = Unit.new(
-				unit_data.id,
-				unit_data.name,
-				unit_data.max_hp
-			)
+			var unit = create_unit(unit_id, Unit.Faction.ENEMY)
 
 			floor.add_unit(unit)
-
 
 func get_enemy() -> Unit:
 	for floor in battlefield.floors:
@@ -54,3 +50,21 @@ func get_enemy() -> Unit:
 			return unit
 
 	return null
+
+func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
+	var unit_data = unit_database.units.get(unit_id)
+
+	if unit_data == null:
+		print(
+			"Unidade não encontrada: ",
+			unit_id
+		)
+
+		return null
+
+	return Unit.new(
+		unit_data.id,
+		unit_data.name,
+		unit_data.max_hp,
+		faction
+	)

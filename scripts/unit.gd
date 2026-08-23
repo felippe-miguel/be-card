@@ -1,23 +1,32 @@
 class_name Unit
 extends RefCounted
 
+enum Faction {
+	ALLY,
+	ENEMY
+}
+
 var id: String
 var name: String
 var hp: int
 var max_hp: int
 var block: int = 0
+var faction: Faction
+var position_index: int = -1
 
 signal changed
 
 func _init(
 	unit_id: String,
 	unit_name: String,
-	max_health: int
+	max_health: int,
+	unit_faction: Faction
 ) -> void:
 	id = unit_id
 	name = unit_name
 	max_hp = max_health
 	hp = max_health
+	faction = unit_faction
 
 func take_damage(amount: int) -> void:
 	var remaining_damage = amount

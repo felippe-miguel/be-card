@@ -62,10 +62,9 @@ func execute_effect(
 				print("Unidade não encontrada: ", unit_id)
 				return
 
-			var unit = Unit.new(
-				unit_data.id,
-				unit_data.name,
-				unit_data.max_hp
+			var unit = battle_state.create_unit(
+				unit_id,
+				Unit.Faction.ALLY
 			)
 
 			var floor = battle_state.battlefield.get_floor(
