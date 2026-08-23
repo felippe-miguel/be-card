@@ -101,3 +101,41 @@ func get_rear_units(
 			targets.append(unit)
 
 	return targets
+
+func get_targets_for_unit(
+	unit: Unit,
+	target_type: String
+) -> Array[Unit]:
+
+	match target_type:
+
+		"front_enemy":
+			return get_front_enemies_for_unit(unit)
+
+		"rear_enemy":
+			return get_rear_enemies_for_unit(unit)
+
+		_:
+			return get_targets(target_type)
+
+func get_front_enemies_for_unit(
+	unit: Unit
+) -> Array[Unit]:
+
+	var target_faction = Unit.Faction.ENEMY
+
+	if unit.faction == Unit.Faction.ENEMY:
+		target_faction = Unit.Faction.ALLY
+
+	return get_front_units(target_faction)
+
+func get_rear_enemies_for_unit(
+	unit: Unit
+) -> Array[Unit]:
+
+	var target_faction = Unit.Faction.ENEMY
+
+	if unit.faction == Unit.Faction.ENEMY:
+		target_faction = Unit.Faction.ALLY
+
+	return get_rear_units(target_faction)

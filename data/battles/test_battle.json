@@ -1,13 +1,36 @@
 {
   "floors": [
     {
-      "units": ["orc"]
+      "units": [
+        {
+          "id": "slime",
+          "faction": "enemy"
+        },
+        {
+          "id": "skeleton",
+          "faction": "ally"
+        }
+      ]
     },
     {
-      "units": ["slime", "slime", "skeleton"]
+      "units": [
+        {
+          "id": "skeleton",
+          "faction": "enemy"
+        },
+        {
+          "id": "slime",
+          "faction": "ally"
+        }
+      ]
     },
     {
-      "units": ["orc", "orc"]
+      "units": [
+        {
+          "id": "orc",
+          "faction": "enemy"
+        }
+      ]
     }
   ]
 }

@@ -1,5 +1,6 @@
 {
   "id": "orc",
   "name": "Orc",
-  "max_hp": 40
+  "max_hp": 40,
+  "attack": 8
 }

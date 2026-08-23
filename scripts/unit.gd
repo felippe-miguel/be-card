@@ -14,6 +14,7 @@ var block: int = 0
 var faction: Faction
 var position_index: int = -1
 var floor_index: int = -1
+var attack: int
 
 signal changed
 
@@ -21,13 +22,30 @@ func _init(
 	unit_id: String,
 	unit_name: String,
 	max_health: int,
+	unit_attack: int,
 	unit_faction: Faction
 ) -> void:
 	id = unit_id
 	name = unit_name
 	max_hp = max_health
 	hp = max_health
+	attack = unit_attack
 	faction = unit_faction
+
+func attack_unit(target: Unit) -> void:
+	if target == null:
+		return
+
+	print(
+		name,
+		" atacou ",
+		target.name,
+		" causando ",
+		attack,
+        " de dano."
+	)
+
+	target.take_damage(attack)
 
 func take_damage(amount: int) -> void:
 	var remaining_damage = amount

@@ -17,19 +17,11 @@ func update_display() -> void:
 		faction_name = "ENEMY"
 
 	text = (
-		unit.name
-		+ "\n"
-		+ faction_name
-		+ "\n"
-		+ "HP: "
-		+ str(unit.hp)
-		+ "/"
-		+ str(unit.max_hp)
-		+ "\n"
-		+ "Floor: "
-		+ str(unit.floor_index)
-		+ " | Pos: "
-		+ str(unit.position_index)
+		unit.name + "\n"
+		+ faction_name + "\n"
+		+ "HP: " + str(unit.hp) + "/" + str(unit.max_hp) + "\n"
+		+ "ATK: " + str(unit.attack) + "\n"
+		+ "Floor: " + str(unit.floor_index) + " | Pos: " + str(unit.position_index)
 	)
 
 func _pressed() -> void:

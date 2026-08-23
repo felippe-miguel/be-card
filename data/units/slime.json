@@ -1,5 +1,6 @@
 {
   "id": "slime",
   "name": "Slime",
-  "max_hp": 30
+  "max_hp": 30,
+  "attack": 5
 }

@@ -1,5 +1,6 @@
 {
   "id": "dragon",
   "name": "Dragão",
-  "max_hp": 100
+  "max_hp": 100,
+  "attack": 10
 }
