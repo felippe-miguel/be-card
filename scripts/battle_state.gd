@@ -1,35 +1,20 @@
 class_name BattleState
 extends RefCounted
 
+var battlefield: Battlefield
+var player: Unit
 
-var player_hp: int = 50
-var player_max_hp: int = 50
-var player_block: int = 0
+func _init() -> void:
+	battlefield = Battlefield.new(3)
+	player = Unit.new("player", "Jogador", 50)
+	
+	var slime = Unit.new("slime", "Slime", 30)
+	
+	battlefield.get_floor(0).add_unit(slime)
 
-var enemy_hp: int = 30
-var enemy_max_hp: int = 30
-var enemy_block: int = 0
+func get_enemy() -> Unit:
+	for floor in battlefield.floors:
+		for unit in floor.units:
+			return unit
 
-func damage_enemy(amount: int) -> void:
-	enemy_hp -= amount
-
-	if enemy_hp < 0:
-		enemy_hp = 0
-
-	print("Inimigo recebeu ", amount, " de dano.")
-	print("HP do inimigo: ", enemy_hp, "/", enemy_max_hp)
-
-func heal_player(amount: int) -> void:
-	player_hp += amount
-
-	if player_hp > player_max_hp:
-		player_hp = player_max_hp
-
-	print("Jogador recuperou ", amount, " de vida.")
-	print("HP do jogador: ", player_hp, "/", player_max_hp)
-
-func add_player_block(amount: int) -> void:
-	player_block += amount
-
-	print("Jogador ganhou ", amount, " de bloqueio.")
-	print("Bloqueio: ", player_block)
+	return null
