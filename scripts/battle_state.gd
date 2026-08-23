@@ -4,12 +4,13 @@ extends RefCounted
 
 var battlefield: Battlefield
 var player: Unit
-
+var unit_database: UnitDatabase
 
 func _init(
 	battle_definition: BattleDefinition,
 	unit_database: UnitDatabase
 ) -> void:
+	self.unit_database = unit_database
 
 	battlefield = Battlefield.new(
 		battle_definition.floors.size()

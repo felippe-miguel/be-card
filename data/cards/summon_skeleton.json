@@ -1,0 +1,14 @@
+{
+  "id": "summon_skeleton",
+  "name": "Invocar Esqueleto",
+  "description": "Invoque um Esqueleto em um andar.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    {
+      "type": "summon",
+      "target": "selected_floor",
+      "unit": "skeleton"
+    }
+  ]
+}

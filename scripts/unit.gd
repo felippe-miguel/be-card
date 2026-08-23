@@ -3,11 +3,11 @@ extends RefCounted
 
 var id: String
 var name: String
-
 var hp: int
 var max_hp: int
-
 var block: int = 0
+
+signal changed
 
 func _init(
 	unit_id: String,
@@ -45,6 +45,8 @@ func take_damage(amount: int) -> void:
 		"/",
 		max_hp
 	)
+	
+	changed.emit()
 
 func heal(amount: int) -> void:
 	hp += amount
@@ -61,6 +63,8 @@ func heal(amount: int) -> void:
 		"/",
 		max_hp
 	)
+	
+	changed.emit()
 
 func add_block(amount: int) -> void:
 	block += amount
@@ -72,6 +76,8 @@ func add_block(amount: int) -> void:
 		" de bloqueio. Block: ",
 		block
 	)
+	
+	changed.emit()
 
 func is_dead() -> bool:
 	return hp <= 0

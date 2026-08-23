@@ -7,6 +7,7 @@ signal selected(enemy: Enemy)
 
 func setup(enemy_unit: Unit) -> void:
 	unit = enemy_unit
+	unit.changed.connect(_on_unit_changed)
 	update_display()
 
 func update_display() -> void:
@@ -21,3 +22,6 @@ func update_display() -> void:
 
 func _pressed() -> void:
 	selected.emit(self)
+
+func _on_unit_changed() -> void:
+	update_display()

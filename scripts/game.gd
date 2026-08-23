@@ -45,30 +45,73 @@ func _on_card_played(card: Card) -> void:
 
 	print("Carta jogada: ", card.data.name)
 
-	var needs_target = false
+	var required_target = get_required_target(card)
 
-	for effect in card.data.effects:
-		if effect.get("target", "") == "selected_enemy":
-			needs_target = true
-			break
+	if required_target == "enemy":
+		game_state.change_to(
+			GameState.State.TARGETING_ENEMY
+		)
 
-	if needs_target:
-		game_state.change_to(GameState.State.TARGETING_ENEMY)
 		pending_card = card
+
 		print("Escolha um inimigo.")
+		return
+
+	if required_target == "floor":
+		game_state.change_to(
+			GameState.State.TARGETING_FLOOR
+		)
+
+		pending_card = card
+
+		print("Escolha um andar.")
 		return
 
 	execute_card(card)
 
+func get_required_target(card: Card) -> String:
+	for effect in card.data.effects:
+		var target = effect.get("target", "")
+
+		if target == "selected_enemy":
+			return "enemy"
+
+		if target == "selected_floor":
+			return "floor"
+
+	return ""
+
 func setup_enemies() -> void:
 	for floor in battle_state.battlefield.floors:
-		var floor_node = floors_container.get_child(floor.index)
-
+		var floor_view = floors_container.get_child(floor.index)
+		
+		floor_view.setup(floor.index)
+		floor_view.selected.connect(_on_floor_selected)
+		
 		for unit in floor.units:
 			var enemy = preload("res://scenes/enemy.tscn").instantiate()
-			floor_node.add_child(enemy)
+			floor_view.unit_container.add_child(enemy)
 			enemy.setup(unit)
 			enemy.selected.connect(_on_enemy_selected)
+
+func _on_floor_selected(floor_view: BattleFloorView) -> void:
+	if game_state.current != GameState.State.TARGETING_FLOOR:
+		return
+
+	print("Andar escolhido: ", floor_view.floor_index)
+
+	game_state.change_to(
+		GameState.State.PLAYER_ACTION
+	)
+
+	var card = pending_card
+	pending_card = null
+
+	execute_card(
+		card,
+		null,
+		floor_view.floor_index
+	)
 
 func _on_enemy_selected(enemy: Enemy) -> void:
 	if game_state.current != GameState.State.TARGETING_ENEMY:
@@ -82,9 +125,14 @@ func _on_enemy_selected(enemy: Enemy) -> void:
 		pending_card = null
 		execute_card(card, enemy.unit)
 
-func execute_card(card: Card, selected_target: Unit = null) -> void:
+func execute_card(
+	card: Card,
+	selected_target: Unit = null,
+	selected_floor: int = -1
+) -> void:
 	for effect in card.data.effects:
 		effect_system.execute_effect(
 			effect,
-			selected_target
+			selected_target,
+			selected_floor
 		)

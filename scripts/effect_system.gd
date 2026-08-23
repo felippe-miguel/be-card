@@ -11,7 +11,11 @@ func _init(state: BattleState) -> void:
 	target_system = TargetSystem.new(state)
 
 
-func execute_effect(effect: Dictionary, selected_target: Unit = null) -> void:
+func execute_effect(
+	effect: Dictionary,
+	selected_target: Unit = null,
+	selected_floor: int = -1
+) -> void:
 	var type = effect.get("type", "")
 	var target_type = effect.get("target", "")
 
@@ -44,6 +48,43 @@ func execute_effect(effect: Dictionary, selected_target: Unit = null) -> void:
 
 			for target in targets:
 				target.heal(amount)
+
+		"summon":
+			var unit_id = effect.get("unit", "")
+
+			if selected_floor < 0:
+				print("Summon precisa de um andar.")
+				return
+
+			var unit_data = battle_state.unit_database.units.get(unit_id)
+
+			if unit_data == null:
+				print("Unidade não encontrada: ", unit_id)
+				return
+
+			var unit = Unit.new(
+				unit_data.id,
+				unit_data.name,
+				unit_data.max_hp
+			)
+
+			var floor = battle_state.battlefield.get_floor(
+				selected_floor
+			)
+
+			if floor == null:
+				return
+
+			if not floor.add_unit(unit):
+				print("Andar cheio!")
+				return
+
+			print(
+				"Invocado: ",
+				unit.name,
+				" no andar ",
+				selected_floor
+			)
 
 		_:
 			print("Efeito desconhecido: ", type)

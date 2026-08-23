@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://df2etd6e886ca"]
 
 [ext_resource type="Script" uid="uid://sh8nhgv0c8i8" path="res://scripts/game.gd" id="1_uwrxv"]
+[ext_resource type="PackedScene" uid="uid://dtxw2mbs8lwqh" path="res://scenes/battle_floor.tscn" id="2_yqjtg"]
 
 [node name="Game" type="Control" unique_id=943361433]
 layout_mode = 3
@@ -22,14 +23,11 @@ layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
 
-[node name="Floor0" type="HBoxContainer" parent="Floors" unique_id=2012235833]
-custom_minimum_size = Vector2(500, 100)
+[node name="BattleFloor1" parent="Floors" unique_id=1530212635 instance=ExtResource("2_yqjtg")]
 layout_mode = 2
 
-[node name="Floor1" type="HBoxContainer" parent="Floors" unique_id=1737679622]
-custom_minimum_size = Vector2(500, 100)
+[node name="BattleFloor2" parent="Floors" unique_id=467969519 instance=ExtResource("2_yqjtg")]
 layout_mode = 2
 
-[node name="Floor2" type="HBoxContainer" parent="Floors" unique_id=1773111590]
-custom_minimum_size = Vector2(500, 100)
+[node name="BattleFloor3" parent="Floors" unique_id=851788144 instance=ExtResource("2_yqjtg")]
 layout_mode = 2
