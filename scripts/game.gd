@@ -6,18 +6,22 @@ extends Control
 var card_database: CardDatabase
 var effect_system: EffectSystem
 var battle_state: BattleState
+var unit_database: UnitDatabase
 
 var game_state: GameState
 var pending_card: Card = null
 
 func _ready():
-	game_state = GameState.new()
-	
 	card_database = CardDatabase.new()
 	card_database.load_cards()
 	
-	battle_state = BattleState.new()
+	unit_database = UnitDatabase.new()
+	unit_database.load_units()
+	
+	battle_state = BattleState.new(unit_database)
 	effect_system = EffectSystem.new(battle_state)
+	
+	game_state = GameState.new()
 	
 	setup_enemies()
 

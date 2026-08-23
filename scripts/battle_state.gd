@@ -7,7 +7,7 @@ var battlefield: Battlefield
 var player: Unit
 
 
-func _init() -> void:
+func _init(unit_database: UnitDatabase) -> void:
 	battlefield = Battlefield.new(3)
 
 	player = Unit.new(
@@ -15,24 +15,41 @@ func _init() -> void:
 		"Jogador",
 		50
 	)
+	
+	var slime_data = unit_database.units["slime"]
+	var skeleton_data = unit_database.units["skeleton"]
+	var orc_data = unit_database.units["orc"]
 
-	# Andar 0
 	battlefield.get_floor(0).add_unit(
-		Unit.new("slime_1", "Slime", 30)
+		Unit.new(
+			slime_data.id,
+			slime_data.name,
+			slime_data.max_hp
+		)
 	)
 
 	battlefield.get_floor(0).add_unit(
-		Unit.new("slime_2", "Slime", 25)
+		Unit.new(
+			slime_data.id + "_2",
+			slime_data.name,
+			slime_data.max_hp
+		)
 	)
 
-	# Andar 1
 	battlefield.get_floor(1).add_unit(
-		Unit.new("skeleton", "Skeleton", 20)
+		Unit.new(
+			skeleton_data.id,
+			skeleton_data.name,
+			skeleton_data.max_hp
+		)
 	)
 
-	# Andar 2
 	battlefield.get_floor(2).add_unit(
-		Unit.new("orc", "Orc", 40)
+		Unit.new(
+			orc_data.id,
+			orc_data.name,
+			orc_data.max_hp
+		)
 	)
 
 
