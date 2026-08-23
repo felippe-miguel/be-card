@@ -11,7 +11,25 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_uwrxv")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=856220962]
+[node name="Cards" type="HBoxContainer" parent="." unique_id=856220962]
+layout_mode = 0
+offset_top = 400.0
+offset_right = 40.0
+offset_bottom = 440.0
+
+[node name="Floors" type="VBoxContainer" parent="." unique_id=2050396104]
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
+
+[node name="Floor0" type="HBoxContainer" parent="Floors" unique_id=2012235833]
+custom_minimum_size = Vector2(500, 100)
+layout_mode = 2
+
+[node name="Floor1" type="HBoxContainer" parent="Floors" unique_id=1737679622]
+custom_minimum_size = Vector2(500, 100)
+layout_mode = 2
+
+[node name="Floor2" type="HBoxContainer" parent="Floors" unique_id=1773111590]
+custom_minimum_size = Vector2(500, 100)
+layout_mode = 2

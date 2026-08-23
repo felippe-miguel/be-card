@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://bpjt0n12efesw"]
+
+[ext_resource type="Script" uid="uid://cpkyo2oqerb25" path="res://scripts/enemy.gd" id="1_7p1mj"]
+
+[node name="Enemy" type="Button" unique_id=1532495133]
+custom_minimum_size = Vector2(160, 80)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_7p1mj")
