@@ -1,0 +1,13 @@
+{
+  "id": "heal",
+  "name": "Cura",
+  "description": "Recupere 10 de vida.",
+  "cost": 1,
+  "type": "skill",
+  "effects": [
+    {
+      "type": "heal",
+      "amount": 10
+    }
+  ]
+}
