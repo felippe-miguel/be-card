@@ -3,54 +3,48 @@ extends RefCounted
 
 
 var battlefield: Battlefield
-
 var player: Unit
 
 
-func _init(unit_database: UnitDatabase) -> void:
-	battlefield = Battlefield.new(3)
+func _init(
+	battle_definition: BattleDefinition,
+	unit_database: UnitDatabase
+) -> void:
+
+	battlefield = Battlefield.new(
+		battle_definition.floors.size()
+	)
 
 	player = Unit.new(
 		"player",
 		"Jogador",
 		50
 	)
-	
-	var slime_data = unit_database.units["slime"]
-	var skeleton_data = unit_database.units["skeleton"]
-	var orc_data = unit_database.units["orc"]
 
-	battlefield.get_floor(0).add_unit(
-		Unit.new(
-			slime_data.id,
-			slime_data.name,
-			slime_data.max_hp
-		)
-	)
+	for floor_index in range(battle_definition.floors.size()):
 
-	battlefield.get_floor(0).add_unit(
-		Unit.new(
-			slime_data.id + "_2",
-			slime_data.name,
-			slime_data.max_hp
-		)
-	)
+		var floor_definition = battle_definition.floors[floor_index]
 
-	battlefield.get_floor(1).add_unit(
-		Unit.new(
-			skeleton_data.id,
-			skeleton_data.name,
-			skeleton_data.max_hp
-		)
-	)
+		var floor = battlefield.get_floor(floor_index)
 
-	battlefield.get_floor(2).add_unit(
-		Unit.new(
-			orc_data.id,
-			orc_data.name,
-			orc_data.max_hp
-		)
-	)
+		for unit_id in floor_definition.get("units", []):
+
+			var unit_data = unit_database.units.get(unit_id)
+
+			if unit_data == null:
+				print(
+					"Unidade não encontrada: ",
+					unit_id
+				)
+				continue
+
+			var unit = Unit.new(
+				unit_data.id,
+				unit_data.name,
+				unit_data.max_hp
+			)
+
+			floor.add_unit(unit)
 
 
 func get_enemy() -> Unit:

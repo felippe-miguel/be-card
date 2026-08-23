@@ -1,13 +1,13 @@
 {
   "floors": [
     {
-      "units": ["slime", "slime"]
-    },
-    {
-      "units": ["skeleton"]
-    },
-    {
       "units": ["orc"]
+    },
+    {
+      "units": ["slime", "slime", "skeleton"]
+    },
+    {
+      "units": ["orc", "orc"]
     }
   ]
 }

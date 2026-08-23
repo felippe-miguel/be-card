@@ -4,9 +4,10 @@ extends Control
 @onready var floors_container: VBoxContainer = $Floors
 
 var card_database: CardDatabase
+var unit_database: UnitDatabase
+var battle_database: BattleDatabase
 var effect_system: EffectSystem
 var battle_state: BattleState
-var unit_database: UnitDatabase
 
 var game_state: GameState
 var pending_card: Card = null
@@ -18,7 +19,12 @@ func _ready():
 	unit_database = UnitDatabase.new()
 	unit_database.load_units()
 	
-	battle_state = BattleState.new(unit_database)
+	battle_database = BattleDatabase.new()
+	battle_database.load_battles()
+	
+	var battle_definition = battle_database.battles["test_battle"]
+	
+	battle_state = BattleState.new(battle_definition, unit_database)
 	effect_system = EffectSystem.new(battle_state)
 	
 	game_state = GameState.new()
