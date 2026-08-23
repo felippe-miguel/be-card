@@ -7,10 +7,12 @@ var card_database: CardDatabase
 var effect_system: EffectSystem
 var battle_state: BattleState
 
-var targeting: bool = false
+var game_state: GameState
 var pending_card: Card = null
 
 func _ready():
+	game_state = GameState.new()
+	
 	card_database = CardDatabase.new()
 	card_database.load_cards()
 	
@@ -28,6 +30,9 @@ func _ready():
 		card.played.connect(_on_card_played)
 
 func _on_card_played(card: Card) -> void:
+	if game_state.current != GameState.State.PLAYER_ACTION:
+		return
+
 	print("Carta jogada: ", card.data.name)
 
 	var needs_target = false
@@ -38,9 +43,8 @@ func _on_card_played(card: Card) -> void:
 			break
 
 	if needs_target:
-		targeting = true
+		game_state.change_to(GameState.State.TARGETING_ENEMY)
 		pending_card = card
-
 		print("Escolha um inimigo.")
 		return
 
@@ -57,14 +61,15 @@ func setup_enemies() -> void:
 			enemy.selected.connect(_on_enemy_selected)
 
 func _on_enemy_selected(enemy: Enemy) -> void:
+	if game_state.current != GameState.State.TARGETING_ENEMY:
+		return
+
 	print("Inimigo selecionado: ", enemy.unit.name)
 
-	if targeting:
-		targeting = false
-
+	if game_state.current == GameState.State.TARGETING_ENEMY:
+		game_state.change_to(GameState.State.PLAYER_ACTION)
 		var card = pending_card
 		pending_card = null
-
 		execute_card(card, enemy.unit)
 
 func execute_card(card: Card, selected_target: Unit = null) -> void:
