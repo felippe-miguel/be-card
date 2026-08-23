@@ -1,6 +1,9 @@
 class_name BattleFloor
 extends RefCounted
 
+signal unit_added(unit: Unit)
+signal unit_removed(unit: Unit)
+
 var index: int
 var max_units: int = 3
 var units: Array[Unit] = []
@@ -23,11 +26,15 @@ func add_unit(unit: Unit) -> bool:
 		" entrou no andar ",
 		index
 	)
+	
+	unit_added.emit(unit)
 
 	return true
 
 func remove_unit(unit: Unit) -> void:
-	units.erase(unit)
+	if unit in units:
+		units.erase(unit)
+		unit_removed.emit(unit)
 
 func get_units() -> Array[Unit]:
 	return units

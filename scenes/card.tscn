@@ -32,6 +32,7 @@ offset_bottom = 60.0
 theme_override_colors/font_color = Color(0, 0, 0, 1)
 
 [node name="DescriptionLabel" type="Label" parent="." unique_id=1551827318]
+custom_maximum_size = Vector2(180, -1)
 layout_mode = 1
 anchors_preset = 4
 anchor_top = 0.5
@@ -42,6 +43,7 @@ offset_right = 200.0
 offset_bottom = 80.0
 grow_vertical = 2
 theme_override_colors/font_color = Color(0, 0, 0, 1)
+autowrap_mode = 3
 
 [node name="CostLabel" type="Label" parent="." unique_id=1979725516]
 layout_mode = 1

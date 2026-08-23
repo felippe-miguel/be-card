@@ -83,16 +83,23 @@ func get_required_target(card: Card) -> String:
 
 func setup_enemies() -> void:
 	for floor in battle_state.battlefield.floors:
-		var floor_view = floors_container.get_child(floor.index)
-		
+		var floor_view = floors_container.get_child(
+			floor.index
+		)
+
 		floor_view.setup(floor.index)
-		floor_view.selected.connect(_on_floor_selected)
-		
+		floor_view.connect_to_floor(floor)
+
+		floor_view.selected.connect(
+			_on_floor_selected
+		)
+
+		floor_view.enemy_selected.connect(
+			_on_enemy_selected
+		)
+
 		for unit in floor.units:
-			var enemy = preload("res://scenes/enemy.tscn").instantiate()
-			floor_view.unit_container.add_child(enemy)
-			enemy.setup(unit)
-			enemy.selected.connect(_on_enemy_selected)
+			floor_view.create_enemy_view(unit)
 
 func _on_floor_selected(floor_view: BattleFloorView) -> void:
 	if game_state.current != GameState.State.TARGETING_FLOOR:
