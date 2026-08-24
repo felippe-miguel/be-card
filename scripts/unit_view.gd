@@ -1,12 +1,12 @@
-class_name Enemy
+class_name UnitView
 extends Button
 
 var unit: Unit
 
-signal selected(enemy: Enemy)
+signal selected(unit: Unit)
 
-func setup(enemy_unit: Unit) -> void:
-	unit = enemy_unit
+func setup(setup_unit: Unit) -> void:
+	unit = setup_unit
 	unit.changed.connect(_on_unit_changed)
 	update_display()
 
@@ -25,7 +25,7 @@ func update_display() -> void:
 	)
 
 func _pressed() -> void:
-	selected.emit(self)
+	selected.emit(unit)
 
 func _on_unit_changed() -> void:
 	update_display()

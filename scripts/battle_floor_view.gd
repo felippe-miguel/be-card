@@ -7,7 +7,7 @@ extends PanelContainer
 var floor_index: int
 
 signal selected(floor_view: BattleFloorView)
-signal enemy_selected(enemy: Enemy)
+signal unit_selected(unit: Unit)
 
 func setup(index: int) -> void:
 	floor_index = index
@@ -22,7 +22,7 @@ func connect_to_floor(floor: BattleFloor) -> void:
 	floor.unit_removed.connect(_on_unit_removed)
 
 func _on_unit_added(unit: Unit) -> void:
-	create_enemy_view(unit)
+	create_unit_view(unit)
 
 func _on_unit_removed(unit: Unit) -> void:
 	print(
@@ -30,9 +30,9 @@ func _on_unit_removed(unit: Unit) -> void:
 		unit.name
 	)
 
-func create_enemy_view(unit: Unit) -> void:
-	var enemy = preload(
-        "res://scenes/enemy.tscn"
+func create_unit_view(unit: Unit) -> void:
+	var unit_view  = preload(
+        "res://scenes/unit_view.tscn"
 	).instantiate()
 
 	var container: HBoxContainer
@@ -42,16 +42,16 @@ func create_enemy_view(unit: Unit) -> void:
 	else:
 		container = ally_container
 
-	container.add_child(enemy)
+	container.add_child(unit_view)
 	
 	if unit.faction == Unit.Faction.ALLY:
-		container.move_child(enemy, 0)
+		container.move_child(unit_view, 0)
 
-	enemy.setup(unit)
+	unit_view.setup(unit)
 
-	enemy.selected.connect(
-		_on_enemy_selected
+	unit_view.selected.connect(
+		_on_unit_selected
 	)
 
-func _on_enemy_selected(enemy: Enemy) -> void:
-	enemy_selected.emit(enemy)
+func _on_unit_selected(unit: Unit) -> void:
+	unit_selected.emit(unit)

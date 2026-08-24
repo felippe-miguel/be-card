@@ -50,7 +50,8 @@ func _init(
 				floor.add_unit(unit)
 	
 	target_system = TargetSystem.new(self)
-	test_attack()
+	test_enemy_attack()
+	test_ally_attack()
 
 func get_enemy() -> Unit:
 	for floor in battlefield.floors:
@@ -79,9 +80,9 @@ func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 	)
 
 func execute_unit_attack(unit: Unit) -> void:
-	var targets = target_system.get_targets_for_unit(
+	var targets = target_system.get_attack_targets(
 		unit,
-	    "front_enemy"
+		TargetRule.Shape.FRONT
 	)
 
 	if targets.is_empty():
@@ -91,17 +92,7 @@ func execute_unit_attack(unit: Unit) -> void:
 		)
 		return
 
-	var target = get_target_on_same_floor(
-		unit,
-		targets
-	)
-
-	if target == null:
-		print(
-			unit.name,
-            " não encontrou alvo no próprio andar."
-		)
-		return
+	var target = targets[0]
 
 	unit.attack_unit(target)
 
@@ -115,7 +106,7 @@ func get_target_on_same_floor(
 
 	return null
 
-func test_attack() -> void:
+func test_enemy_attack() -> void:
 	var floor = battlefield.get_floor(0)
 
 	var enemy = floor.get_front_unit(
@@ -126,3 +117,15 @@ func test_attack() -> void:
 		return
 
 	execute_unit_attack(enemy)
+
+func test_ally_attack() -> void:
+	var floor = battlefield.get_floor(0)
+
+	var ally = floor.get_front_unit(
+		Unit.Faction.ALLY
+	)
+
+	if ally == null:
+		return
+
+	execute_unit_attack(ally)

@@ -29,7 +29,7 @@ func _ready():
 	
 	game_state = GameState.new()
 	
-	setup_enemies()
+	setup_units()
 
 	for card_id in card_database.cards:
 		var card_data = card_database.cards[card_id]
@@ -81,7 +81,7 @@ func get_required_target(card: Card) -> String:
 
 	return ""
 
-func setup_enemies() -> void:
+func setup_units() -> void:
 	for floor in battle_state.battlefield.floors:
 		var floor_view = floors_container.get_child(
 			floor.index
@@ -94,12 +94,12 @@ func setup_enemies() -> void:
 			_on_floor_selected
 		)
 
-		floor_view.enemy_selected.connect(
-			_on_enemy_selected
+		floor_view.unit_selected.connect(
+			_on_unit_selected
 		)
 
 		for unit in floor.get_units():
-			floor_view.create_enemy_view(unit)
+			floor_view.create_unit_view(unit)
 
 func _on_floor_selected(floor_view: BattleFloorView) -> void:
 	if game_state.current != GameState.State.TARGETING_FLOOR:
@@ -120,17 +120,26 @@ func _on_floor_selected(floor_view: BattleFloorView) -> void:
 		floor_view.floor_index
 	)
 
-func _on_enemy_selected(enemy: Enemy) -> void:
+func _on_unit_selected(unit: Unit) -> void:
 	if game_state.current != GameState.State.TARGETING_ENEMY:
 		return
 
-	print("Inimigo selecionado: ", enemy.unit.name)
+	print(
+		"Unit selecionada: ",
+		unit.name,
+		" | Faction: ",
+		unit.faction,
+		" | Floor: ",
+		unit.floor_index,
+		" | Pos: ",
+		unit.position_index
+	)
 
 	if game_state.current == GameState.State.TARGETING_ENEMY:
 		game_state.change_to(GameState.State.PLAYER_ACTION)
 		var card = pending_card
 		pending_card = null
-		execute_card(card, enemy.unit)
+		execute_card(card, unit)
 
 func execute_card(
 	card: Card,
