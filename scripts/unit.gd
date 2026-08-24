@@ -35,75 +35,46 @@ func _init(
 func attack_unit(target: Unit) -> void:
 	if target == null:
 		return
-
-	print(
-		name,
-		" atacou ",
-		target.name,
-		" causando ",
-		attack,
-        " de dano."
-	)
-
+	
+	print(name, " atacou ", target.name, " causando ", attack, " de dano.")
+	
 	target.take_damage(attack)
 
 func take_damage(amount: int) -> void:
 	var remaining_damage = amount
-
+	
 	if block > 0:
 		var blocked = min(block, remaining_damage)
-
+		
 		block -= blocked
 		remaining_damage -= blocked
-
+		
 		print(name, " bloqueou ", blocked, " de dano.")
-
+	
 	if remaining_damage > 0:
 		hp -= remaining_damage
-
+	
 	if hp < 0:
 		hp = 0
-
-	print(
-		name,
-		" recebeu ",
-		remaining_damage,
-		" de dano. HP: ",
-		hp,
-		"/",
-		max_hp
-	)
+	
+	print(name, " recebeu ", remaining_damage, " de dano. HP: ", hp, "/", max_hp)
 	
 	changed.emit()
 
 func heal(amount: int) -> void:
 	hp += amount
-
+	
 	if hp > max_hp:
 		hp = max_hp
-
-	print(
-		name,
-		" recuperou ",
-		amount,
-		" de vida. HP: ",
-		hp,
-		"/",
-		max_hp
-	)
+	
+	print(name, " recuperou ", amount, " de vida. HP: ", hp, "/", max_hp)
 	
 	changed.emit()
 
 func add_block(amount: int) -> void:
 	block += amount
-
-	print(
-		name,
-		" ganhou ",
-		amount,
-		" de bloqueio. Block: ",
-		block
-	)
+	
+	print(name, " ganhou ", amount, " de bloqueio. Block: ", block)
 	
 	changed.emit()
 

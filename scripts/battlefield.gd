@@ -12,5 +12,5 @@ func _init(number_of_floors: int = 3) -> void:
 func get_floor(index: int) -> BattleFloor:
 	if index < 0 or index >= floors.size():
 		return null
-
+	
 	return floors[index]

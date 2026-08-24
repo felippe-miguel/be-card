@@ -11,7 +11,6 @@ signal played(card: Card)
 
 func setup(card_data: CardData) -> void:
 	data = card_data
-
 	name_label.text = data.name
 	description_label.text = data.description
 	cost_label.text = str(data.cost)

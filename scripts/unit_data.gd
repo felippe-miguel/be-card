@@ -8,10 +8,10 @@ var attack: int
 
 static func from_dict(data: Dictionary) -> UnitData:
 	var unit_data = UnitData.new()
-
+	
 	unit_data.id = data.get("id", "")
 	unit_data.name = data.get("name", "")
 	unit_data.max_hp = data.get("max_hp", 1)
 	unit_data.attack = data.get("attack", 0)
-
+	
 	return unit_data

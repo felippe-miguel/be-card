@@ -13,5 +13,5 @@ var current: State = State.PLAYER_ACTION
 
 func change_to(new_state: State) -> void:
 	current = new_state
-
+	
 	print("Estado do jogo: ", State.keys()[current])
