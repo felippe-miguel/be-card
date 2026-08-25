@@ -29,6 +29,7 @@ func add_unit(unit: Unit) -> bool:
 	unit.position_index = position
 	unit.floor_index = index
 	units.append(unit)
+	unit.changed.connect(_on_unit_changed.bind(unit))
 	
 	print(
 		unit.name,
@@ -67,6 +68,11 @@ func remove_unit(unit: Unit) -> void:
 	var units = get_units_for_faction(unit.faction)
 	
 	if unit in units:
+		var changed_callback = _on_unit_changed.bind(unit)
+
+		if unit.changed.is_connected(changed_callback):
+			unit.changed.disconnect(changed_callback)
+
 		units.erase(unit)
 		unit.position_index = -1
 		unit.floor_index = -1
@@ -105,3 +111,8 @@ func reorder_units(faction: Unit.Faction) -> void:
 	
 	for i in range(units.size()):
 		units[i].position_index = i
+		units[i].changed.emit()
+
+func _on_unit_changed(unit: Unit) -> void:
+	if unit.is_dead():
+		remove_unit(unit)

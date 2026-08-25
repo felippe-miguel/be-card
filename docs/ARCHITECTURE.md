@@ -188,6 +188,10 @@ signal changed
 
 State changes emit this signal.
 
+`BattleFloor` listens to the signal of each Unit in its formations. When a Unit
+reaches 0 HP, the floor removes it, compacts the formation, and emits
+`unit_removed`.
+
 ```text
 Unit.take_damage()
  ↓
@@ -343,6 +347,9 @@ BattleFloorView
 ```
 
 Both contain `UnitView` instances.
+
+When `unit_removed` is emitted, `BattleFloorView` removes the matching view
+and restores visual order from each Unit's logical `position_index`.
 
 ## Battle definitions
 
@@ -573,6 +580,7 @@ Completed:
 - Unit attack targeting is restricted to attacker's floor
 - Battle creation does not execute test attacks
 - Pyre is separate from Unit; current cards target Units only
+- Defeated Units leave their formation and their views are removed
 
 Still to review:
 

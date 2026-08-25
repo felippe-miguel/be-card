@@ -25,25 +25,55 @@ func _on_unit_added(unit: Unit) -> void:
 	create_unit_view(unit)
 
 func _on_unit_removed(unit: Unit) -> void:
-	print("Unidade removida do andar: ", unit.name)
+	var container = get_container_for_faction(unit.faction)
+
+	for child in container.get_children():
+		var unit_view = child as UnitView
+
+		if unit_view != null and unit_view.unit == unit:
+			container.remove_child(unit_view)
+			unit_view.queue_free()
+			break
+
+	reorder_unit_views(unit.faction)
 
 func create_unit_view(unit: Unit) -> void:
 	var unit_view  = preload("res://scenes/unit_view.tscn").instantiate()
-	var container: HBoxContainer
-	
-	if unit.faction == Unit.Faction.ENEMY:
-		container = enemy_container
-	else:
-		container = ally_container
+	var container = get_container_for_faction(unit.faction)
 	
 	container.add_child(unit_view)
-	
-	if unit.faction == Unit.Faction.ALLY:
-		container.move_child(unit_view, 0)
 	
 	unit_view.setup(unit)
 	
 	unit_view.selected.connect(_on_unit_selected)
+	reorder_unit_views(unit.faction)
+
+func get_container_for_faction(faction: Unit.Faction) -> HBoxContainer:
+	if faction == Unit.Faction.ENEMY:
+		return enemy_container
+
+	return ally_container
+
+func reorder_unit_views(faction: Unit.Faction) -> void:
+	var container = get_container_for_faction(faction)
+	var unit_views: Array[UnitView] = []
+
+	for child in container.get_children():
+		var unit_view = child as UnitView
+
+		if unit_view != null:
+			unit_views.append(unit_view)
+
+	unit_views.sort_custom(
+		func(first: UnitView, second: UnitView) -> bool:
+			if faction == Unit.Faction.ALLY:
+				return first.unit.position_index > second.unit.position_index
+
+			return first.unit.position_index < second.unit.position_index
+	)
+
+	for position in range(unit_views.size()):
+		container.move_child(unit_views[position], position)
 
 func _on_unit_selected(unit: Unit) -> void:
 	unit_selected.emit(unit)
