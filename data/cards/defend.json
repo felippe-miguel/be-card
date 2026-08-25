@@ -7,7 +7,7 @@
   "effects": [
     {
       "type": "block",
-      "target": "player",
+      "target": "selected_unit",
       "amount": 5
     }
   ]

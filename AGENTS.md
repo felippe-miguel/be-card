@@ -48,6 +48,7 @@ This applies to every `.gd` file, including new files.
 - Domain code must not depend on UI Nodes.
 - `UnitData` describes a unit type.
 - `Unit` represents a live instance and owns faction.
+- `Pyre` is a separate battle entity, not a `Unit`.
 - `UnitView` represents either an ally or enemy visually.
 - `position_index = 0` means the front of a formation.
 - Visual orientation must not alter logical positions.

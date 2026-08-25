@@ -100,8 +100,6 @@ func get_card_targets(target_type: String, selected_unit: Unit = null) -> Array[
 		"all_allies":
 			return get_units_by_faction(Unit.Faction.ALLY)
 		
-		"player":
-			return [battle_state.player]
 		_:
 			print("Tipo de alvo de carta desconhecido: ", target_type)
 			return []

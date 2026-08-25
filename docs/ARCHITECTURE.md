@@ -45,6 +45,7 @@ Use `RefCounted` for data, state, and systems:
 
 - `CardData`, `CardDatabase`
 - `Unit`, `UnitData`, `UnitDatabase`
+- `Pyre`
 - `BattleDefinition`, `BattleDatabase`, `BattleState`
 - `Battlefield`, `BattleFloor`
 - `EffectSystem`, `TargetSystem`, `GameState`, `TargetRule`
@@ -168,6 +169,14 @@ enum Faction {
 Do not put faction into unit JSON definitions unless explicitly changing this architecture.
 
 `BattleState.create_unit()` is the central Unit creation path.
+
+## Pyre
+
+`Pyre` is a separate battle entity. It has its own health and block, but is
+not a `Unit`: it has no faction, floor, position, or attack targeting.
+
+`BattleState` owns the Pyre. Cards currently target Units only; future effects
+that affect the Pyre must use a distinct target type.
 
 ## Unit signals
 
@@ -465,7 +474,6 @@ selected_unit
 selected_floor
 all_enemies
 all_allies
-player
 ...
 ```
 
@@ -533,7 +541,7 @@ The combat is structurally inspired by Monster Train:
 - summons
 - targeted effects
 - future movement/advancement
-- future player damage rules
+- future Pyre damage rules
 
 Do not blindly copy Monster Train. The final game will have its own mechanics.
 
@@ -546,6 +554,7 @@ Unit name
 Faction
 HP / Max HP
 ATK
+Block
 Floor
 Position
 ```
@@ -562,6 +571,8 @@ Completed:
 - Unit attack targeting uses `TargetRule.Shape`
 - Unit attack targeting determines opposite faction from attacker
 - Unit attack targeting is restricted to attacker's floor
+- Battle creation does not execute test attacks
+- Pyre is separate from Unit; current cards target Units only
 
 Still to review:
 
@@ -570,7 +581,6 @@ Still to review:
 - final `TargetSystem` organization
 - attack API naming
 - position/slot terminology
-- obsolete target helpers
 - stale `Enemy` references
 
 ## AI agent rules

@@ -2,7 +2,7 @@ class_name BattleState
 extends RefCounted
 
 var battlefield: Battlefield
-var player: Unit
+var pyre: Pyre
 var unit_database: UnitDatabase
 var target_system: TargetSystem
 
@@ -11,13 +11,7 @@ func _init(battle_definition: BattleDefinition, database: UnitDatabase) -> void:
 	
 	battlefield = Battlefield.new(battle_definition.floors.size())
 	
-	player = Unit.new(
-		"player",
-		"Jogador",
-		50,
-		0,
-		Unit.Faction.ALLY
-	)
+	pyre = Pyre.new("Pyre", 50)
 
 	for floor_index in range(battle_definition.floors.size()):
 		var floor_definition = battle_definition.floors[floor_index]
@@ -37,15 +31,6 @@ func _init(battle_definition: BattleDefinition, database: UnitDatabase) -> void:
 				battle_floor.add_unit(unit)
 	
 	target_system = TargetSystem.new(self)
-	test_enemy_attack()
-	test_ally_attack()
-
-func get_enemy() -> Unit:
-	for battle_floor in battlefield.floors:
-		for unit in battle_floor.units:
-			return unit
-	
-	return null
 
 func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 	var unit_data = unit_database.units.get(unit_id)
@@ -76,28 +61,3 @@ func execute_unit_attack(unit: Unit) -> void:
 	var target = targets[0]
 	
 	unit.attack_unit(target)
-
-func get_target_on_same_floor(unit: Unit, targets: Array[Unit]) -> Unit:
-	for target in targets:
-		if target.floor_index == unit.floor_index:
-			return target
-	
-	return null
-
-func test_enemy_attack() -> void:
-	var battle_floor = battlefield.get_floor(0)
-	var enemy = battle_floor.get_front_unit(Unit.Faction.ENEMY)
-	
-	if enemy == null:
-		return
-	
-	execute_unit_attack(enemy)
-
-func test_ally_attack() -> void:
-	var battle_floor = battlefield.get_floor(0)
-	var ally = battle_floor.get_front_unit(Unit.Faction.ALLY)
-	
-	if ally == null:
-		return
-	
-	execute_unit_attack(ally)

@@ -7,7 +7,7 @@
   "effects": [
     {
       "type": "heal",
-      "target": "player",
+      "target": "selected_unit",
       "amount": 10
     }
   ]

@@ -21,6 +21,7 @@ func update_display() -> void:
 		+ faction_name + "\n"
 		+ "HP: " + str(unit.hp) + "/" + str(unit.max_hp) + "\n"
 		+ "ATK: " + str(unit.attack) + "\n"
+		+ "Block: " + str(unit.block) + "\n"
 		+ "Floor: " + str(unit.floor_index) + " | Pos: " + str(unit.position_index)
 	)
 
