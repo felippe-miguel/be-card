@@ -48,11 +48,11 @@ func _on_card_played(card: Card) -> void:
 	
 	var required_target = get_required_target(card)
 	
-	if required_target == "enemy":
-		game_state.change_to(GameState.State.TARGETING_ENEMY)
+	if required_target == "unit":
+		game_state.change_to(GameState.State.TARGETING_UNIT)
 		pending_card = card
 		
-		print("Escolha um inimigo.")
+		print("Escolha uma unidade.")
 		return
 	
 	if required_target == "floor":
@@ -69,8 +69,8 @@ func get_required_target(card: Card) -> String:
 	for effect in card.data.effects:
 		var target = effect.get("target", "")
 		
-		if target == "selected_enemy":
-			return "enemy"
+		if target == "selected_unit":
+			return "unit"
 		
 		if target == "selected_floor":
 			return "floor"
@@ -102,7 +102,7 @@ func _on_floor_selected(floor_view: BattleFloorView) -> void:
 	pending_card = null
 
 func _on_unit_selected(unit: Unit) -> void:
-	if game_state.current != GameState.State.TARGETING_ENEMY:
+	if game_state.current != GameState.State.TARGETING_UNIT:
 		return
 	
 	print(
@@ -112,19 +112,19 @@ func _on_unit_selected(unit: Unit) -> void:
 		" | Pos: ", unit.position_index
 	)
 	
-	if game_state.current == GameState.State.TARGETING_ENEMY:
+	if game_state.current == GameState.State.TARGETING_UNIT:
 		game_state.change_to(GameState.State.PLAYER_ACTION)
 		execute_card(pending_card, unit)
 		pending_card = null
 
 func execute_card(
 	card: Card,
-	selected_target: Unit = null,
+	selected_unit: Unit = null,
 	selected_floor: int = -1
 ) -> void:
 	for effect in card.data.effects:
 		effect_system.execute_effect(
 			effect,
-			selected_target,
+			selected_unit,
 			selected_floor
 		)

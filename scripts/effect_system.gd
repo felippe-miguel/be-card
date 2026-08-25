@@ -10,21 +10,19 @@ func _init(state: BattleState) -> void:
 
 func execute_effect(
 	effect: Dictionary,
-	selected_target: Unit = null,
+	selected_unit: Unit = null,
 	selected_floor: int = -1
 ) -> void:
 	var type = effect.get("type", "")
 	var target_type = effect.get("target", "")
 	var targets: Array[Unit] = []
 	
-	if target_type == "selected_enemy":
-		if selected_target != null:
-			targets.append(selected_target)
-		else:
-			print("Efeito precisa de um alvo!")
+	if type != "summon":
+		targets = target_system.get_card_targets(target_type, selected_unit)
+
+		if target_type == "selected_unit" and targets.is_empty():
+			print("Efeito precisa de uma unidade selecionada!")
 			return
-	else:
-		targets = target_system.get_targets(target_type)
 	
 	match type:
 		"damage":

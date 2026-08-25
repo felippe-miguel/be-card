@@ -100,7 +100,10 @@ func get_card_targets(target_type: String, selected_unit: Unit = null) -> Array[
 		"all_allies":
 			return get_units_by_faction(Unit.Faction.ALLY)
 		
+		"player":
+			return [battle_state.player]
 		_:
+			print("Tipo de alvo de carta desconhecido: ", target_type)
 			return []
 
 func get_units_by_faction(faction: Unit.Faction) -> Array[Unit]:
@@ -108,36 +111,5 @@ func get_units_by_faction(faction: Unit.Faction) -> Array[Unit]:
 	
 	for battle_floor in battle_state.battlefield.floors:
 		targets.append_array(battle_floor.get_units_for_faction(faction))
-	
+
 	return targets
-
-func get_targets(target_type: String) -> Array[Unit]:
-	match target_type:
-		"enemy":
-			return get_enemies()
-		
-		"all_enemies":
-			return get_enemies()
-		
-		"ally":
-			return get_allies()
-		
-		"all_allies":
-			return get_allies()
-		
-		"player":
-			return [battle_state.player]
-		
-		_:
-			print(
-				"Tipo de alvo desconhecido: ",
-				target_type
-			)
-			
-			return []
-
-func get_enemies() -> Array[Unit]:
-	return get_units_by_faction(Unit.Faction.ENEMY)
-
-func get_allies() -> Array[Unit]:
-	return get_units_by_faction(Unit.Faction.ALLY)

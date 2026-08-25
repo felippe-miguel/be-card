@@ -7,7 +7,7 @@
   "effects": [
     {
       "type": "damage",
-      "target": "selected_enemy",
+      "target": "selected_unit",
       "amount": 12
     }
   ]
