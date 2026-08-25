@@ -1,41 +1,55 @@
-# Gamejam — Architecture
+# Gamejam — Architecture & AI Context
 
-## 1. Objetivo
+## Purpose
 
-Projeto de um deckbuilder de combate inspirado estruturalmente em jogos como Monster Train e Slay the Spire.
+Primary architectural context for AI coding agents working on this Godot project.
 
-A prioridade inicial é construir um motor de combate data-driven e extensível. Depois que a base estiver funcionando, regras, conceitos e identidade do jogo serão modificados para criar uma experiência própria.
+The project is a data-driven deckbuilder structurally inspired by Monster Train and Slay the Spire. The initial goal is a flexible combat engine; game-specific rules and identity will evolve later.
 
----
+Preserve these architectural decisions unless the user explicitly asks to change them.
 
-## 2. Filosofia de arquitetura
+## Architecture
 
-O projeto separa:
+Separate the project into:
 
-- **Dados/conteúdo**: JSONs que descrevem cartas, unidades e batalhas.
-- **Estado do jogo**: objetos que representam o estado atual da partida.
-- **Lógica**: sistemas que interpretam efeitos, resolvem alvos etc.
-- **Apresentação**: Nodes da Godot responsáveis pela interface e representação visual.
+1. **Data / Content** — JSON definitions for cards, units, battles, and future content.
+2. **Domain / Game State** — `RefCounted` classes representing actual game state.
+3. **Systems / Logic** — effects, targeting, turns, and other rules.
+4. **Presentation** — Godot Nodes/Controls representing state and receiving input.
 
-Objetivo principal: adicionar/modificar conteúdo sem precisar alterar código sempre que possível.
-
-Fluxo conceitual:
+Flow:
 
 ```text
 JSON
-  ↓
-Data
-  ↓
+ ↓
+Data classes
+ ↓
 Game State
-  ↓
+ ↓
 Systems
-  ↓
+ ↓
 Visual Nodes
 ```
 
----
+Domain code must not depend on UI Nodes.
 
-## 3. Estrutura de diretórios atual
+## Node vs RefCounted
+
+Use Nodes for SceneTree/presentation/input:
+
+- `Card` → `Control`
+- `UnitView` → `Button`
+- `BattleFloorView` → `PanelContainer`
+
+Use `RefCounted` for data, state, and systems:
+
+- `CardData`, `CardDatabase`
+- `Unit`, `UnitData`, `UnitDatabase`
+- `BattleDefinition`, `BattleDatabase`, `BattleState`
+- `Battlefield`, `BattleFloor`
+- `EffectSystem`, `TargetSystem`, `GameState`, `TargetRule`
+
+## Directory Structure
 
 ```text
 res://
@@ -43,268 +57,92 @@ res://
 │   ├── cards/
 │   ├── units/
 │   └── battles/
-│
 ├── scenes/
 │   ├── card.tscn
-│   ├── enemy.tscn
+│   ├── unit_view.tscn
 │   └── battle_floor.tscn
-│
-└── scripts/
-    ├── card.gd
-    ├── card_data.gd
-    ├── card_database.gd
-    ├── unit.gd
-    ├── unit_data.gd
-    ├── unit_database.gd
-    ├── battle_definition.gd
-    ├── battle_database.gd
-    ├── battle_state.gd
-    ├── battlefield.gd
-    ├── floor.gd
-    ├── battle_floor_view.gd
-    ├── effect_system.gd
-    ├── target_system.gd
-    ├── game_state.gd
-    └── enemy.gd
+├── scripts/
+│   ├── card.gd
+│   ├── card_data.gd
+│   ├── card_database.gd
+│   ├── unit.gd
+│   ├── unit_data.gd
+│   ├── unit_database.gd
+│   ├── unit_view.gd
+│   ├── battle_definition.gd
+│   ├── battle_database.gd
+│   ├── battle_state.gd
+│   ├── battlefield.gd
+│   ├── floor.gd
+│   ├── battle_floor_view.gd
+│   ├── effect_system.gd
+│   ├── target_rule.gd
+│   ├── target_system.gd
+│   └── game_state.gd
+└── docs/
+    └── ARCHITECTURE.md
 ```
 
----
+The exact list may evolve; preserve responsibilities rather than filenames.
 
-## 4. Godot: Nodes vs RefCounted
+## Data-driven design
 
-### Nodes
+JSON is the content layer. Code is the engine.
 
-Usar `Node` ou especializações quando o objeto faz parte da SceneTree ou possui representação visual.
+Current data:
 
-Exemplos:
-
-- `Card` → `Control`
-- `Enemy` → `Button`
-- `BattleFloorView` → `PanelContainer`
-
-### RefCounted
-
-Usar `RefCounted` para objetos de lógica/estado que não precisam existir na SceneTree.
-
-Exemplos:
-
-- `CardData`
-- `CardDatabase`
-- `Unit`
-- `UnitData`
-- `UnitDatabase`
-- `BattleDefinition`
-- `BattleDatabase`
-- `BattleState`
-- `Battlefield`
-- `BattleFloor`
-- `EffectSystem`
-- `TargetSystem`
-- `GameState`
-
-Essa separação mantém o modelo do jogo independente da interface.
-
----
-
-## 5. Cards
-
-Cartas são definidas em JSON e carregadas pelo `CardDatabase`.
-
-Exemplo:
-
-```json
-{
-    "id": "fireball",
-    "name": "Bola de Fogo",
-    "description": "Cause 12 de dano a um inimigo.",
-    "cost": 2,
-    "type": "attack",
-    "effects": [
-        {
-            "type": "damage",
-            "target": "selected_enemy",
-            "amount": 12
-        }
-    ]
-}
+```text
+data/
+├── cards/
+├── units/
+└── battles/
 ```
 
-Fluxo:
+Future data may reference assets such as artwork, particles, animations, audio, and VFX.
+
+Avoid hardcoding content-specific behavior into generic systems.
+
+## Cards and Effects
+
+Flow:
 
 ```text
 card.json
-   ↓
+ ↓
 CardDatabase
-   ↓
+ ↓
 CardData
-   ↓
+ ↓
 Card (visual)
 ```
 
-O `Card` não contém a lógica específica de dano/cura/etc.
-
----
-
-## 6. Effects
-
-O `EffectSystem` interpreta os efeitos definidos nos JSONs.
-
-Exemplos atuais:
+`EffectSystem` interprets card effects such as:
 
 - `damage`
 - `block`
 - `heal`
 - `summon`
 
-Exemplo:
+Effects modify game state, not UI Nodes.
 
-```json
-{
-    "type": "damage",
-    "target": "selected_enemy",
-    "amount": 12
-}
-```
+The card target schema is still being refined; do not assume the current JSON format is final.
 
-O efeito não altera diretamente a UI.
+## Units
 
-Fluxo:
-
-```text
-Card
- ↓
-Effect
- ↓
-EffectSystem
- ↓
-BattleState / Unit / Battlefield
-```
-
----
-
-## 7. Targets
-
-O `TargetSystem` resolve quais Units são afetadas por um efeito.
-
-Targets já previstos/implementados parcialmente:
-
-- `enemy`
-- `all_enemies`
-- `ally`
-- `all_allies`
-- `player`
-- `front_enemy`
-- `rear_enemy`
-- `selected_enemy`
-- `selected_floor`
-
-Targets que poderão existir futuramente:
-
-- `selected_ally`
-- `front_enemy_on_selected_floor`
-- `rear_enemy_on_selected_floor`
-- `random_enemy`
-- `random_ally`
-- `all_units_on_floor`
-- outros conforme as necessidades do jogo
-
-Um efeito não deve precisar conhecer diretamente a implementação da interface.
-
----
-
-## 8. Targeting e GameState
-
-O jogo possui estados conceituais.
-
-Estados atuais:
-
-```text
-PLAYER_ACTION
-TARGETING_ENEMY
-TARGETING_FLOOR
-TARGETING_POSITION
-ENEMY_ACTION
-```
-
-Fluxo de uma carta que exige alvo:
-
-```text
-PLAYER_ACTION
-    ↓
-jogar carta
-    ↓
-TARGETING_ENEMY
-    ↓
-selecionar inimigo
-    ↓
-executar efeito
-    ↓
-PLAYER_ACTION
-```
-
-O mesmo conceito será usado para:
-
-- selecionar inimigos;
-- selecionar aliados;
-- selecionar andares;
-- selecionar posições;
-- outras escolhas futuras.
-
----
-
-## 9. Units
-
-`UnitData` descreve o que uma unidade é.
-
-Exemplo:
-
-```json
-{
-    "id": "orc",
-    "name": "Orc",
-    "max_hp": 40,
-    "attack": 8
-}
-```
-
-`Unit` representa uma instância daquela definição em uma batalha.
-
-A distinção é importante:
+`UnitData` describes a unit type. `Unit` is a live instance.
 
 ```text
 UnitData
-    ↓
-"o que é um Skeleton?"
-    ↓
+ ↓
+"what is a Skeleton?"
+ ↓
 Unit #1 — ALLY
 Unit #2 — ENEMY
 ```
 
-### Faction
+The same `UnitData` can create either faction.
 
-A faction pertence à instância `Unit`, não à definição `UnitData`.
-
-Atualmente:
-
-```text
-ALLY
-ENEMY
-```
-
-Isso permite que a mesma unidade seja usada por jogadores e inimigos.
-
-Exemplo:
-
-```gdscript
-create_unit("skeleton", Unit.Faction.ALLY)
-create_unit("skeleton", Unit.Faction.ENEMY)
-```
-
----
-
-## 10. Unit State
-
-Uma `Unit` atualmente possui/conceitualmente possui:
+A Unit conceptually contains:
 
 ```text
 id
@@ -312,41 +150,99 @@ name
 faction
 floor_index
 position_index
-
 hp
 max_hp
+attack
 block
 ```
 
-Também possui sinal:
+Faction belongs to `Unit`, NOT `UnitData`.
+
+```gdscript
+enum Faction {
+	ALLY,
+	ENEMY
+}
+```
+
+Do not put faction into unit JSON definitions unless explicitly changing this architecture.
+
+`BattleState.create_unit()` is the central Unit creation path.
+
+## Unit signals
+
+`Unit` currently exposes:
 
 ```gdscript
 signal changed
 ```
 
-Esse sinal é emitido quando HP, Block ou outros dados relevantes mudam.
-
-A UI escuta esse sinal para atualizar sua representação.
-
-Fluxo:
+State changes emit this signal.
 
 ```text
 Unit.take_damage()
-      ↓
+ ↓
 changed.emit()
-      ↓
-Enemy visual
-      ↓
+ ↓
+UnitView
+ ↓
 update_display()
 ```
 
-O modelo não precisa conhecer a existência do botão visual.
+The domain model must not reference `UnitView`.
 
----
+## UnitView
 
-## 11. Battlefield
+The old generic visual class `Enemy` was renamed to `UnitView`.
 
-O `BattleState` possui um `Battlefield`.
+`UnitView` can represent either faction:
+
+```text
+UnitView
+ └── Unit
+      ├── ALLY
+      └── ENEMY
+```
+
+Never use `Enemy` as a generic visual/domain name.
+
+Prefer:
+
+- `Unit`
+- `UnitView`
+- `create_unit_view()`
+- `setup_units()`
+- `unit_selected`
+- `selected_unit`
+
+Avoid:
+
+- `Enemy`
+- `EnemyView`
+- `create_enemy_view()`
+- `setup_enemies()`
+- `enemy_selected`
+- `selected_enemy`
+
+## UI selection
+
+The UI communicates domain objects, not visual Nodes:
+
+```text
+UnitView
+ ↓
+selected(Unit)
+ ↓
+BattleFloorView
+ ↓
+unit_selected(Unit)
+ ↓
+Game
+```
+
+The gameplay layer decides whether the selected Unit is a valid target.
+
+## Battlefield and floors
 
 ```text
 BattleState
@@ -356,13 +252,7 @@ BattleState
     └── Floor 2
 ```
 
-O número de floors é definido pela `BattleDefinition`.
-
----
-
-## 12. BattleFloor
-
-Cada andar possui duas formações independentes:
+Each `BattleFloor` has two independent formations:
 
 ```text
 BattleFloor
@@ -370,152 +260,132 @@ BattleFloor
 └── enemies[]
 ```
 
-Cada formação possui posições lógicas:
+`position_index = 0` always means the logical **front** of that faction.
+
+Visual orientation is different:
 
 ```text
-position 0 = frente
-position 1 = segunda posição
-position 2 = terceira posição
-...
+Enemies: [0] [1] [2] [3]
+          ↑ front
+
+Allies:  [3] [2] [1] [0]
+                      ↑ front
 ```
 
-A posição lógica é independente da orientação visual.
+Do not change logical indexes to compensate for visual orientation.
 
-### Inimigos
+## Positioning
 
-Visualmente:
-
-```text
-[0] [1] [2] [3]
- ↑
- frente
-```
-
-Os inimigos começam visualmente mais à esquerda e avançam para a direita.
-
-### Aliados
-
-Visualmente:
-
-```text
-[3] [2] [1] [0]
-             ↑
-           frente
-```
-
-Os aliados começam visualmente mais à direita e avançam para a esquerda.
-
-Assim, em ambos os casos:
-
-```text
-position_index == 0
-```
-
-significa a unidade da frente.
-
-Não alterar `position_index` apenas para acomodar a orientação visual.
-
----
-
-## 13. Positioning
-
-Ao adicionar uma unidade atualmente:
+Current `add_unit()` behavior:
 
 ```text
 add_unit()
-    ↓
+ ↓
 find_first_free_position()
-    ↓
-primeiro slot vazio
+ ↓
+first free slot
 ```
 
-Isso significa que um summon normal não insere automaticamente uma unidade no meio da formação.
+Normal summons do not insert into the middle.
 
-Exemplo:
+After removal, `reorder_units()` compacts the remaining formation.
 
-```text
-[0] [1] [2]
- A   B   C
-```
+Future operations may include:
 
-Se B morrer e as unidades forem reorganizadas:
+- `add_unit_at(position)`
+- `insert_unit_at(position)`
+- `move_unit(from, to)`
+- push/pull/reposition mechanics
 
-```text
-[0] [1]
- A   C
-```
+Not implemented yet.
 
-A função `reorder_units()` atualiza os índices.
-
-### Futuro
-
-Poderemos implementar operações diferentes:
-
-```text
-add_unit()
-add_unit_at(position)
-insert_unit_at(position)
-remove_unit()
-move_unit(from, to)
-```
-
-Especialmente para:
-
-- invocar atrás de uma unidade;
-- invocar em uma posição específica;
-- empurrar unidades;
-- puxar unidades;
-- reorganizar formação.
-
-Isso não faz parte da implementação atual.
-
----
-
-## 14. Battlefield Events
-
-`BattleFloor` emite sinais:
+## BattleFloor signals
 
 ```gdscript
 signal unit_added(unit: Unit)
 signal unit_removed(unit: Unit)
 ```
 
-Isso permite que a interface reaja a mudanças no estado.
-
-Fluxo de summon:
+Summon flow:
 
 ```text
-summon effect
-    ↓
+EffectSystem
+ ↓
 BattleFloor.add_unit()
-    ↓
+ ↓
 unit_added.emit()
-    ↓
+ ↓
 BattleFloorView
-    ↓
-cria representação visual da Unit
+ ↓
+create_unit_view()
+ ↓
+UnitView
 ```
 
-O `Game` não precisa recriar toda a interface depois de cada alteração.
+## BattleFloorView
 
----
-
-## 15. Summon
-
-Summon já possui o seguinte fluxo conceitual:
+Current visual structure:
 
 ```text
-Carta
+BattleFloorView
+└── HBoxContainer
+	├── AllyContainer
+	└── EnemyContainer
+```
+
+Both contain `UnitView` instances.
+
+## Battle definitions
+
+Battles are data-driven. Faction is assigned per instance by the battle definition:
+
+```json
+{
+  "floors": [
+    {
+      "units": [
+        {
+          "id": "slime",
+          "faction": "enemy"
+        },
+        {
+          "id": "skeleton",
+          "faction": "ally"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Flow:
+
+```text
+battle.json
+ ↓
+BattleDatabase
+ ↓
+BattleDefinition
+ ↓
+BattleState
+ ↓
+Battlefield
+```
+
+## Summoning
+
+Current flow:
+
+```text
+Card
  ↓
 summon effect
  ↓
 TARGETING_FLOOR
  ↓
-jogador escolhe andar
+player selects floor
  ↓
-UnitDatabase
- ↓
-cria Unit
+BattleState.create_unit()
  ↓
 Faction.ALLY
  ↓
@@ -523,187 +393,197 @@ BattleFloor.add_unit()
  ↓
 unit_added
  ↓
-UI
+UnitView
 ```
 
-Exemplo:
+Default summon uses first free slot.
 
-```json
-{
-    "id": "summon_skeleton",
-    "name": "Invocar Esqueleto",
-    "description": "Invoque um Esqueleto em um andar.",
-    "cost": 2,
-    "type": "unit",
-    "effects": [
-        {
-            "type": "summon",
-            "target": "selected_floor",
-            "unit": "skeleton"
-        }
-    ]
-}
-```
+## Targeting architecture
 
-O `Skeleton` pode ser usado tanto por aliados quanto por inimigos porque sua faction é definida quando a `Unit` é criada.
+Unit attack targeting and card targeting are separate concepts.
 
----
+### Unit attacks
 
-## 16. Battle Definitions
-
-A composição inicial de uma batalha também é data-driven.
-
-Exemplo:
-
-```json
-{
-    "floors": [
-        {
-            "units": [
-                "slime",
-                "slime"
-            ]
-        },
-        {
-            "units": [
-                "skeleton"
-            ]
-        },
-        {
-            "units": [
-                "orc"
-            ]
-        }
-    ]
-}
-```
-
-Fluxo:
+Use a shape/rule:
 
 ```text
-battle.json
-    ↓
-BattleDatabase
-    ↓
-BattleDefinition
-    ↓
-BattleState
-    ↓
-Battlefield
+FRONT
+REAR
+ALL
+RANDOM
+SELECTED
 ```
 
-O `BattleState` não deve precisar conhecer nomes específicos de unidades.
+For normal attacks, the target faction is the **opposite faction of the attacker**.
 
----
+Avoid names such as `front_enemy` or `rear_enemy` for attack rules.
 
-## 17. Visual Debug
-
-Durante o desenvolvimento, os botões das Units mostram:
-
-```text
-nome
-faction
-HP atual / máximo
-floor
-position
-```
-
-Exemplo:
-
-```text
-Skeleton
-ALLY
-HP: 20/20
-Floor: 1 | Pos: 0
-```
-
-Essa informação é deliberadamente mantida durante o desenvolvimento para facilitar testes de posicionamento, targeting e combate.
-
----
-
-## 18. Design de combate pretendido
-
-A referência estrutural principal é Monster Train.
-
-O combate deverá ter:
-
-- múltiplos andares;
-- unidades aliadas e inimigas;
-- formações com posições;
-- unidade da frente;
-- unidades na retaguarda;
-- cartas que afetam unidades;
-- cartas que invocam unidades;
-- seleção de alvo;
-- seleção de andar;
-- futuramente seleção de posição;
-- turnos/ações automáticas das unidades;
-- movimentação/avanço entre andares conforme as regras definidas futuramente.
-
-A implementação deve permanecer genérica o suficiente para permitir alterações posteriores nas regras.
-
----
-
-## 19. Próximo passo planejado
-
-Adicionar **Attack** às unidades.
-
-Primeira evolução:
-
-```json
-{
-    "id": "orc",
-    "name": "Orc",
-    "max_hp": 40,
-    "attack": 8
-}
-```
-
-E no modelo:
+Flow:
 
 ```text
 Unit
-├── attack
-├── HP
-├── Block
-└── ...
+ ↓
+attack shape
+ ↓
+TargetSystem
+ ↓
+opposite faction
+ ↓
+same floor
+ ↓
+targets
 ```
 
-Depois:
+`TargetRule` currently has:
+
+```gdscript
+enum Shape {
+	FRONT,
+	REAR,
+	ALL,
+	RANDOM,
+	SELECTED
+}
+```
+
+Only implemented shapes should be used.
+
+`TargetSystem` conceptually exposes:
+
+```gdscript
+get_attack_targets(attacker, shape)
+```
+
+It determines opposite faction and limits the search to the attacker's floor.
+
+### Card targeting
+
+Cards may need:
 
 ```text
-Unit.attack()
-    ↓
-TargetSystem
-    ↓
-unidade alvo
-    ↓
-take_damage()
+selected_unit
+selected_floor
+all_enemies
+all_allies
+player
+...
 ```
 
-Inicialmente, o ataque deverá testar a regra:
+`TargetSystem.get_card_targets(target_type, selected_unit)` is the single
+resolver for targets that are Units. `selected_floor` is consumed by effects
+that require a floor and is handled by the UI flow.
 
-> Uma unidade inimiga ataca a unidade aliada da frente no mesmo andar.
+`selected_unit` means the Unit chosen by the UI. It does not encode a faction;
+future card rules can validate the selected Unit without reintroducing names
+such as `selected_enemy`.
 
-A partir daí será construído o sistema de turnos/ações automáticas.
+## GameState
 
----
+Current interaction concepts include:
 
-## 20. Decisões importantes
+```text
+PLAYER_ACTION
+TARGETING_UNIT
+TARGETING_FLOOR
+ENEMY_ACTION
+```
 
-- O projeto será data-driven.
-- JSON é usado para conteúdo configurável.
-- `UnitData` não define faction.
-- `Unit` define faction por instância.
-- A mesma unidade pode ser aliada ou inimiga.
-- `position_index = 0` sempre representa a frente lógica.
-- Aliados são visualmente ordenados da direita para a esquerda.
-- Inimigos são visualmente ordenados da esquerda para a direita.
-- Summon padrão ocupa o primeiro slot vazio.
-- Inserção em posição específica será implementada posteriormente.
-- Modelo/estado não deve depender da UI.
-- UI reage ao estado por sinais.
-- `EffectSystem` interpreta efeitos.
-- `TargetSystem` resolve alvos.
-- `GameState` controla estados de interação.
-- A composição das batalhas é definida externamente.
+The targeting state names are under review.
+
+Important distinction:
+
+```text
+UI event:
+	"a Unit was selected"
+
+Game state:
+	"the game is asking for a Unit target"
+```
+
+
+## Combat
+
+Current intended flow:
+
+```text
+BattleState
+ ↓
+TargetSystem.get_attack_targets(attacker, shape)
+ ↓
+target
+ ↓
+Unit.attack(target)
+ ↓
+target.take_damage()
+```
+
+A Unit should not search the battlefield to choose its own target.
+
+Next major combat feature: automatic Unit actions/turns.
+
+## Design direction
+
+The combat is structurally inspired by Monster Train:
+
+- multiple floors
+- ally/enemy formations
+- front/rear positions
+- automatic unit attacks
+- cards
+- summons
+- targeted effects
+- future movement/advancement
+- future player damage rules
+
+Do not blindly copy Monster Train. The final game will have its own mechanics.
+
+## Debugging
+
+During development, `UnitView` displays:
+
+```text
+Unit name
+Faction
+HP / Max HP
+ATK
+Floor
+Position
+```
+
+Keep this while the combat model is being developed.
+
+## Current refactoring status
+
+Completed:
+
+- `Enemy` visual → `UnitView`
+- `enemy_selected` → `unit_selected`
+- UI selection now passes `Unit`, not the visual Node
+- Unit attack targeting uses `TargetRule.Shape`
+- Unit attack targeting determines opposite faction from attacker
+- Unit attack targeting is restricted to attacker's floor
+
+Still to review:
+
+- remaining `enemy` terminology
+- final card target schema
+- final `TargetSystem` organization
+- attack API naming
+- position/slot terminology
+- obsolete target helpers
+- stale `Enemy` references
+
+## AI agent rules
+
+Before structural changes:
+
+1. Read this document.
+2. Inspect the current repository files.
+3. Search all references to concepts being renamed.
+4. Preserve domain/system/presentation separation.
+5. Avoid leaving old and new abstractions active simultaneously.
+6. Make small, testable changes.
+7. Run/test the relevant Godot scene after meaningful changes.
+8. Update this document after important architectural decisions.
+
+If this document conflicts with the user's explicit request, follow the user's request and then update the document to reflect the new decision.
