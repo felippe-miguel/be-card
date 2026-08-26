@@ -6,7 +6,7 @@ var target_system: TargetSystem
 
 func _init(state: BattleState) -> void:
 	battle_state = state
-	target_system = TargetSystem.new(state)
+	target_system = state.target_system
 
 func execute_effect(
 	effect: Dictionary,
