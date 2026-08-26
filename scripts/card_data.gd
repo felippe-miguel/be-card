@@ -6,7 +6,7 @@ var name: String
 var description: String
 var cost: int
 var type: String
-var effects: Array
+var effects: Array[Dictionary] = []
 
 static func from_dict(data: Dictionary) -> CardData:
 	var card = CardData.new()
@@ -16,6 +16,6 @@ static func from_dict(data: Dictionary) -> CardData:
 	card.description = data.get("description", "")
 	card.cost = data.get("cost", 0)
 	card.type = data.get("type", "")
-	card.effects = data.get("effects", [])
+	card.effects.assign(data.get("effects", []))
 	
 	return card
