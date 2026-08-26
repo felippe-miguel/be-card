@@ -14,16 +14,12 @@ func _init(pyre_name: String, max_health: int) -> void:
 	hp = max_health
 
 func take_damage(amount: int) -> void:
-	var remaining_damage = amount
+	var result = CombatMath.apply_block(amount, block)
 
-	if block > 0:
-		var blocked = min(block, remaining_damage)
+	block = result.remaining_block
 
-		block -= blocked
-		remaining_damage -= blocked
-
-	if remaining_damage > 0:
-		hp -= remaining_damage
+	if result.remaining_damage > 0:
+		hp -= result.remaining_damage
 
 	if hp < 0:
 		hp = 0

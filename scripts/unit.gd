@@ -41,16 +41,15 @@ func attack_unit(target: Unit) -> void:
 	target.take_damage(attack)
 
 func take_damage(amount: int) -> void:
-	var remaining_damage = amount
-	
-	if block > 0:
-		var blocked = min(block, remaining_damage)
-		
-		block -= blocked
-		remaining_damage -= blocked
-		
-		print(name, " bloqueou ", blocked, " de dano.")
-	
+	var had_block = block > 0
+	var result = CombatMath.apply_block(amount, block)
+
+	block = result.remaining_block
+	var remaining_damage = result.remaining_damage
+
+	if had_block:
+		print(name, " bloqueou ", result.blocked, " de dano.")
+
 	if remaining_damage > 0:
 		hp -= remaining_damage
 	
