@@ -49,6 +49,7 @@ Use `RefCounted` for data, state, and systems:
 - `BattleDefinition`, `BattleDatabase`, `BattleState`
 - `Battlefield`, `BattleFloor`
 - `EffectSystem`, `TargetSystem`, `GameState`, `TargetRule`
+- `CombatMath` (shared damage/block resolution used by `Unit` and `Pyre`)
 
 ## Directory Structure
 
@@ -74,12 +75,15 @@ res://
 │   ├── battle_database.gd
 │   ├── battle_state.gd
 │   ├── battlefield.gd
-│   ├── floor.gd
+│   ├── battle_floor.gd
 │   ├── battle_floor_view.gd
 │   ├── effect_system.gd
 │   ├── target_rule.gd
 │   ├── target_system.gd
-│   └── game_state.gd
+│   ├── combat_math.gd
+│   ├── pyre.gd
+│   ├── game_state.gd
+│   └── game.gd
 └── docs/
     └── ARCHITECTURE.md
 ```
@@ -125,6 +129,10 @@ Card (visual)
 - `summon`
 
 Effects modify game state, not UI Nodes.
+
+`EffectSystem` reuses `BattleState.target_system` rather than creating its own
+`TargetSystem` instance — there should only ever be one `TargetSystem` per
+`BattleState`.
 
 The card target schema is still being refined; do not assume the current JSON format is final.
 
@@ -177,6 +185,12 @@ not a `Unit`: it has no faction, floor, position, or attack targeting.
 
 `BattleState` owns the Pyre. Cards currently target Units only; future effects
 that affect the Pyre must use a distinct target type.
+
+`Unit` and `Pyre` both resolve block absorption through
+`CombatMath.apply_block()` to avoid duplicating that math in two places.
+`Unit.is_dead()` and `Pyre.is_destroyed()` are deliberately named
+differently — a `Pyre` is not a `Unit` and does not "die" the same way.
+Do not unify them into a shared interface without an explicit decision to do so.
 
 ## Unit signals
 
@@ -462,7 +476,10 @@ enum Shape {
 }
 ```
 
-Only implemented shapes should be used.
+Only implemented shapes should be used. `RANDOM` and `SELECTED` are
+intentionally declared but not yet implemented in
+`TargetSystem.get_attack_targets()` — they are reserved for future attack
+rules, not dead code to prune.
 
 `TargetSystem` conceptually exposes:
 
@@ -503,7 +520,13 @@ TARGETING_FLOOR
 ENEMY_ACTION
 ```
 
-The targeting state names are under review.
+The targeting state names are under review. `TARGETING_POSITION` is declared
+but not yet driven by any flow — reserved for future position-targeting
+effects, not dead code. `ENEMY_ACTION` is declared but never transitioned to
+yet — reserved for automatic Unit turns (see Combat below). The
+`PLAYER_ACTION` / `ENEMY_ACTION` vocabulary does not match `Unit.Faction`'s
+`ALLY` / `ENEMY` naming; this mismatch is a known open question left for when
+the turn/automatic-action design is decided, not an oversight to silently fix.
 
 Important distinction:
 
@@ -533,6 +556,10 @@ target.take_damage()
 ```
 
 A Unit should not search the battlefield to choose its own target.
+
+`BattleState.execute_unit_attack(unit)` already implements this flow but is
+not yet called from any turn loop — it is reserved for the automatic Unit
+actions/turns feature below, not dead code to remove.
 
 Next major combat feature: automatic Unit actions/turns.
 
@@ -583,6 +610,13 @@ Completed:
 - Defeated Units leave their formation and their views are removed
 - Generic visual `Enemy` nomenclature removed
 - Card effects restrict selected Units with `target_faction`
+- `EffectSystem` reuses `BattleState.target_system` instead of creating a
+  second `TargetSystem` instance
+- `Unit` and `Pyre` share block-absorption math via `CombatMath`
+- `UnitView` derives its faction label from `Unit.Faction.keys()` instead of
+  duplicating the enum as strings
+- `BattleDefinition.floors` and `CardData.effects` are typed `Array[Dictionary]`,
+  consistent with the rest of the typed collections in the domain layer
 
 Still to review:
 
@@ -590,6 +624,10 @@ Still to review:
 - final `TargetSystem` organization
 - attack API naming
 - position/slot terminology
+- `PLAYER_ACTION` / `ENEMY_ACTION` vocabulary vs `Unit.Faction` naming
+- wiring `BattleState.execute_unit_attack()`, `TargetRule.Shape.RANDOM`/`SELECTED`,
+  and `GameState.State.ENEMY_ACTION`/`TARGETING_POSITION` into an actual
+  automatic-turn flow
 
 ## AI agent rules
 

@@ -153,15 +153,32 @@ Do not add `Co-authored-by` trailers unless the user explicitly requests one.
 
 ## Current priority
 
-The project is currently in an architecture-cleanup phase:
+The architecture-cleanup phase is done for now. Focus is back on features.
 
-1. Remove remaining inappropriate `Enemy` terminology.
-2. Clean legacy selection/target names.
-3. Separate Unit attack target rules from Card target rules.
-4. Review `TargetSystem`.
-5. Review targeting state names.
-6. Update `docs/ARCHITECTURE.md`.
-7. Resume new combat features only after cleanup is coherent.
+Resolved in the last review pass:
+
+1. No remaining inappropriate `Enemy` terminology found (`enemies[]`,
+   `EnemyContainer` are legitimate per-faction collections, not violations).
+2. Legacy selection/target names are clean.
+3. Unit attack target rules (`TargetRule.Shape`) and Card target rules
+   (`TargetSystem.get_card_targets`) are separate.
+4. `TargetSystem` reviewed: `EffectSystem` now reuses `BattleState.target_system`
+   instead of creating a second instance.
+5. Targeting/game state names reviewed; see `docs/ARCHITECTURE.md` for the one
+   open naming question left (`PLAYER_ACTION`/`ENEMY_ACTION` vs `Unit.Faction`).
+6. `docs/ARCHITECTURE.md` updated.
+
+Intentionally kept, not dead code — reserved for upcoming features, do not
+prune without discussion:
+
+- `BattleState.execute_unit_attack()` — not yet wired into a turn loop.
+- `GameState.State.ENEMY_ACTION` / `TARGETING_POSITION` — reserved for
+  automatic Unit turns and future position-targeting effects.
+- `TargetRule.Shape.RANDOM` / `SELECTED` — declared, not yet implemented in
+  `TargetSystem.get_attack_targets()`.
+
+Next: resume feature work. Per `docs/ARCHITECTURE.md`, the next major combat
+feature is automatic Unit actions/turns.
 
 ## Testing
 
