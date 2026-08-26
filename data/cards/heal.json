@@ -8,6 +8,7 @@
     {
       "type": "heal",
       "target": "selected_unit",
+      "target_faction": "ally",
       "amount": 10
     }
   ]

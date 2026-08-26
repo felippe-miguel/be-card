@@ -86,12 +86,19 @@ func get_units_on_floor(faction: Unit.Faction, floor_index: int) -> Array[Unit]:
 # ==========================================
 # CARD TARGETING
 # ==========================================
-func get_card_targets(target_type: String, selected_unit: Unit = null) -> Array[Unit]:
+func get_card_targets(
+	target_type: String,
+	selected_unit: Unit = null,
+	target_faction: String = ""
+) -> Array[Unit]:
 	match target_type:
 		"selected_unit":
 			if selected_unit == null:
 				return []
-			
+
+			if not matches_target_faction(selected_unit, target_faction):
+				return []
+
 			return [selected_unit]
 		
 		"all_enemies":
@@ -103,6 +110,21 @@ func get_card_targets(target_type: String, selected_unit: Unit = null) -> Array[
 		_:
 			print("Tipo de alvo de carta desconhecido: ", target_type)
 			return []
+
+func matches_target_faction(unit: Unit, target_faction: String) -> bool:
+	if target_faction.is_empty():
+		return true
+
+	match target_faction:
+		"ally":
+			return unit.faction == Unit.Faction.ALLY
+
+		"enemy":
+			return unit.faction == Unit.Faction.ENEMY
+
+		_:
+			print("Facção de alvo de carta desconhecida: ", target_faction)
+			return false
 
 func get_units_by_faction(faction: Unit.Faction) -> Array[Unit]:
 	var targets: Array[Unit] = []

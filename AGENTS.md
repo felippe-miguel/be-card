@@ -119,7 +119,7 @@ The attacker's faction determines the opposing faction.
 
 Avoid hardcoding `front_enemy` / `rear_enemy` into generic Unit attack rules.
 
-Card targeting is separate and may use concepts such as `selected_unit`, `selected_floor`, `all_enemies`, or `all_allies`. The final card target schema is still under design.
+Card targeting is separate and may use concepts such as `selected_unit`, `selected_floor`, `all_enemies`, or `all_allies`. Use optional `target_faction` values of `ally` or `enemy` to restrict `selected_unit` without creating faction-specific target names.
 
 ## Incremental workflow
 

@@ -484,13 +484,13 @@ all_allies
 ...
 ```
 
-`TargetSystem.get_card_targets(target_type, selected_unit)` is the single
-resolver for targets that are Units. `selected_floor` is consumed by effects
-that require a floor and is handled by the UI flow.
+`TargetSystem.get_card_targets(target_type, selected_unit, target_faction)` is
+the single resolver for targets that are Units. `selected_floor` is consumed by
+effects that require a floor and is handled by the UI flow.
 
-`selected_unit` means the Unit chosen by the UI. It does not encode a faction;
-future card rules can validate the selected Unit without reintroducing names
-such as `selected_enemy`.
+`selected_unit` means the Unit chosen by the UI. Use the optional
+`target_faction` field to limit it to `ally` or `enemy`, without reintroducing
+names such as `selected_enemy`.
 
 ## GameState
 
@@ -581,15 +581,15 @@ Completed:
 - Battle creation does not execute test attacks
 - Pyre is separate from Unit; current cards target Units only
 - Defeated Units leave their formation and their views are removed
+- Generic visual `Enemy` nomenclature removed
+- Card effects restrict selected Units with `target_faction`
 
 Still to review:
 
-- remaining `enemy` terminology
 - final card target schema
 - final `TargetSystem` organization
 - attack API naming
 - position/slot terminology
-- stale `Enemy` references
 
 ## AI agent rules
 

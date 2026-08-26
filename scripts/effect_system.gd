@@ -15,10 +15,15 @@ func execute_effect(
 ) -> void:
 	var type = effect.get("type", "")
 	var target_type = effect.get("target", "")
+	var target_faction: String = effect.get("target_faction", "")
 	var targets: Array[Unit] = []
 	
 	if type != "summon":
-		targets = target_system.get_card_targets(target_type, selected_unit)
+		targets = target_system.get_card_targets(
+			target_type,
+			selected_unit,
+			target_faction
+		)
 
 		if target_type == "selected_unit" and targets.is_empty():
 			print("Efeito precisa de uma unidade selecionada!")
@@ -70,3 +75,16 @@ func execute_effect(
 		
 		_:
 			print("Efeito desconhecido: ", type)
+
+func can_target_selected_unit(effect: Dictionary, selected_unit: Unit) -> bool:
+	if effect.get("target", "") != "selected_unit":
+		return true
+
+	var target_faction: String = effect.get("target_faction", "")
+	var targets = target_system.get_card_targets(
+		"selected_unit",
+		selected_unit,
+		target_faction
+	)
+
+	return not targets.is_empty()

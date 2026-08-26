@@ -8,6 +8,7 @@
     {
       "type": "damage",
       "target": "selected_unit",
+      "target_faction": "enemy",
       "amount": 6
     }
   ]

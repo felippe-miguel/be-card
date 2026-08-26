@@ -104,6 +104,10 @@ func _on_floor_selected(floor_view: BattleFloorView) -> void:
 func _on_unit_selected(unit: Unit) -> void:
 	if game_state.current != GameState.State.TARGETING_UNIT:
 		return
+
+	if not can_select_unit_for_card(pending_card, unit):
+		print("A unidade selecionada não é um alvo válido para esta carta.")
+		return
 	
 	print(
 		"Unit selecionada: ", unit.name,
@@ -116,6 +120,13 @@ func _on_unit_selected(unit: Unit) -> void:
 		game_state.change_to(GameState.State.PLAYER_ACTION)
 		execute_card(pending_card, unit)
 		pending_card = null
+
+func can_select_unit_for_card(card: Card, unit: Unit) -> bool:
+	for effect in card.data.effects:
+		if not effect_system.can_target_selected_unit(effect, unit):
+			return false
+
+	return true
 
 func execute_card(
 	card: Card,

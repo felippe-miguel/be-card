@@ -1,7 +1,7 @@
 {
   "id": "fireball",
   "name": "Bola de Fogo",
-  "description": "Cause 12 de dano a um inimigo.",
+  "description": "Cause 12 de dano a uma unidade.",
   "cost": 2,
   "type": "attack",
   "effects": [
