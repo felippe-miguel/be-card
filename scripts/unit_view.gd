@@ -11,10 +11,7 @@ func setup(setup_unit: Unit) -> void:
 	update_display()
 
 func update_display() -> void:
-	var faction_name = "ALLY"
-
-	if unit.faction == Unit.Faction.ENEMY:
-		faction_name = "ENEMY"
+	var faction_name = Unit.Faction.keys()[unit.faction]
 
 	text = (
 		unit.name + "\n"
