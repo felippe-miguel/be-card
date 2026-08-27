@@ -1,0 +1,6 @@
+{
+  "id": "goblin",
+  "name": "Goblin",
+  "max_hp": 15,
+  "attack": 4
+}

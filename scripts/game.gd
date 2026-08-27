@@ -18,8 +18,13 @@ var battle_state: BattleState
 var game_state: GameState
 var deck: Deck
 var mana: Mana
+var enemy_spawner: EnemySpawner
 
 var pending_card: Card = null
+
+## Turno atual (1-indexado). Avança a cada vez que o combate automático
+## termina e o jogo volta para PLAYER_ACTION.
+var current_turn: int = 1
 
 const STARTING_HAND_SIZE = 5
 const CARDS_DRAWN_PER_TURN = 2
@@ -41,6 +46,7 @@ const GAME_STATE_LABELS = {
 	GameState.State.TARGETING_FLOOR: "Escolha um andar",
 	GameState.State.TARGETING_POSITION: "Escolha uma posição",
 	GameState.State.COMBAT_PHASE: "Fase de combate...",
+	GameState.State.SPAWN_PHASE: "Invocando inimigos...",
 	GameState.State.BATTLE_OVER: "Batalha encerrada"
 }
 
@@ -58,12 +64,16 @@ func _ready():
 	
 	battle_state = BattleState.new(battle_definition, unit_database)
 	effect_system = EffectSystem.new(battle_state)
-	
+	enemy_spawner = EnemySpawner.new(battle_state)
+
 	game_state = GameState.new()
 	game_state.changed.connect(_on_game_state_changed)
 	_on_game_state_changed()
 
 	setup_units()
+
+	spawn_enemies_if_needed()
+	game_state.change_to(GameState.State.PLAYER_ACTION)
 
 	var all_cards: Array[CardData] = []
 
@@ -95,10 +105,26 @@ func _on_end_turn_pressed() -> void:
 	if check_battle_result():
 		return
 
+	current_turn += 1
+
+	spawn_enemies_if_needed()
 	game_state.change_to(GameState.State.PLAYER_ACTION)
 
 	mana.refill()
 	deck.draw(CARDS_DRAWN_PER_TURN)
+
+## Passa pela fase de spawn (EnemySpawner.MAX_SPAWN_TURNS primeiros
+## turnos) se ainda estiver dentro da janela de spawn; do contrário não
+## faz nada. Não volta para PLAYER_ACTION sozinha — quem chama decide
+## isso, para funcionar tanto no início da batalha quanto ao fim de um
+## turno.
+func spawn_enemies_if_needed() -> void:
+	if not enemy_spawner.should_spawn(current_turn):
+		return
+
+	game_state.change_to(GameState.State.SPAWN_PHASE)
+
+	enemy_spawner.spawn_wave(current_turn)
 
 ## Verifica se a batalha terminou e, se sim, encerra a partida. Retorna
 ## true quando a batalha acabou, para os chamadores pularem a volta ao

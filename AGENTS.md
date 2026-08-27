@@ -222,6 +222,19 @@ unaffordable cost in red (`Card.set_affordable()`). `STARTING_MANA = 3` is a
 tunable default, not a fixed design decision — revisit if it feels wrong in
 play.
 
+Resolved: automatic enemy spawning. New `EnemySpawner` (owned by `Game`):
+for the first `MAX_SPAWN_TURNS` turns (3), spawns one random enemy per
+floor with room, from a fixed `ENEMY_POOL` (excludes `dragon` — reserved as
+boss-tier, not a random early spawn). `Game.current_turn` tracks the turn
+number; `Game.spawn_enemies_if_needed()` runs the wave (via a new
+`GameState.State.SPAWN_PHASE`) once at battle start and once at the end of
+every `_on_end_turn_pressed()`, before returning to `PLAYER_ACTION`.
+`test_battle.json` no longer pre-places enemies — only the player's
+starting `ally` units remain, per explicit user decision, since removing
+allies too would make `BattleState.is_defeat()` fire immediately (see
+`docs/ARCHITECTURE.md`). Added 5 new unit types for spawn variety: goblin,
+wolf (Lobo), bat (Morcego), troll, bandit (Bandido).
+
 Next: no feature decided yet — candidates include Pyre-targeting effects,
 per-battle deck composition (vs. today's "every card in CardDatabase is the
 deck"), or card type distinctions (attack/skill/unit) affecting Deck

@@ -52,6 +52,7 @@ Use `RefCounted` for data, state, and systems:
 - `CombatMath` (shared damage/block resolution used by `Unit` and `Pyre`)
 - `Deck` (draw pile / hand / discard pile of `CardData`)
 - `Mana` (current/max mana, refilled per turn, spent to play cards)
+- `EnemySpawner` (spawns enemy `Unit`s automatically for the first few turns)
 
 ## Directory Structure
 
@@ -73,6 +74,7 @@ res://
 │   ├── card_pile_view.gd
 │   ├── deck.gd
 │   ├── mana.gd
+│   ├── enemy_spawner.gd
 │   ├── unit.gd
 │   ├── unit_data.gd
 │   ├── unit_database.gd
@@ -470,10 +472,6 @@ Battles are data-driven. Faction is assigned per instance by the battle definiti
     {
       "units": [
         {
-          "id": "slime",
-          "faction": "enemy"
-        },
-        {
           "id": "skeleton",
           "faction": "ally"
         }
@@ -482,6 +480,17 @@ Battles are data-driven. Faction is assigned per instance by the battle definiti
   ]
 }
 ```
+
+`test_battle.json` currently only lists `ally` units (the player's starting
+party) per floor — no `enemy` entries. Enemies are no longer pre-placed in
+the battle definition; they come from `EnemySpawner` instead (see Enemy
+spawning below). A battle definition can still list `enemy` units directly
+if a future battle wants specific hand-placed enemies (e.g. a boss) — the
+schema supports it — but the default content going forward spawns enemies
+dynamically. Keeping at least one `ally` per starting floor is deliberate:
+`BattleState.is_defeat()` checks for zero allies across the whole
+battlefield, so a battle with no starting allies and no way to summon one
+before the first `Encerrar turno` would defeat the player immediately.
 
 Flow:
 
@@ -614,6 +623,7 @@ TARGETING_UNIT
 TARGETING_FLOOR
 TARGETING_POSITION
 COMBAT_PHASE
+SPAWN_PHASE
 ```
 
 `TARGETING_POSITION` is declared but not yet driven by any flow — reserved
@@ -663,16 +673,44 @@ calls `execute_unit_attack()` for each living Unit — ally and enemy alike.
 Trigger: an explicit "Encerrar turno" button in `game.tscn`
 (`Game._on_end_turn_pressed()`), only while `GameState.current` is
 `PLAYER_ACTION`. It transitions to `COMBAT_PHASE`, runs
-`BattleState.execute_combat_phase()`, then transitions back to
-`PLAYER_ACTION`. The phase currently resolves synchronously (no per-attack
-animation/pacing yet — combat feedback is still `print()`-based, consistent
-with `UnitView`'s current debug-first display).
+`BattleState.execute_combat_phase()`, checks `Game.check_battle_result()`,
+then (if the battle isn't over) advances `Game.current_turn`, runs
+`Game.spawn_enemies_if_needed()` (see Enemy spawning below — a no-op most
+turns), and transitions back to `PLAYER_ACTION`. The phase currently
+resolves synchronously (no per-attack animation/pacing yet — combat
+feedback is still `print()`-based, consistent with `UnitView`'s current
+debug-first display).
 
 Not yet implemented: turn order within/across floors beyond
 `BattleFloor.get_units()` order (allies then enemies, each in
-`position_index` order), and any battle victory/defeat condition — combat
-can currently run to "all Units on one side dead" with no end-of-battle
-detection.
+`position_index` order).
+
+## Enemy spawning
+
+`EnemySpawner` (owned by `Game`, alongside `Deck`/`Mana`) automatically
+populates the battlefield with enemies for the first
+`EnemySpawner.MAX_SPAWN_TURNS` turns (currently 3) — battle definitions no
+longer pre-place enemies (see Battle definitions above). Each spawning turn,
+`EnemySpawner.spawn_wave()` tries to add one enemy `Unit` to every
+`BattleFloor` that still has room (`BattleFloor.can_add_unit()`), picked
+randomly from `EnemySpawner.ENEMY_POOL`. With the default 3-slot floors,
+three spawning turns naturally fill every floor to capacity — that's a
+deliberate consequence of `MAX_SPAWN_TURNS` matching `BattleFloor.max_units`,
+not a coincidence to preserve blindly if either number changes.
+`EnemySpawner.should_spawn(turn_number)` gates this — turns beyond the
+window are a no-op.
+
+`Game.current_turn` (1-indexed) drives this: `Game.spawn_enemies_if_needed()`
+transitions `GameState` to `SPAWN_PHASE` and runs the wave only when
+`EnemySpawner.should_spawn()` is true; otherwise it does nothing and the
+caller moves straight to `PLAYER_ACTION`. It runs once at the very start of
+the battle (`Game._ready()`, turn 1 — before the starting hand is drawn) and
+once at the end of every `Game._on_end_turn_pressed()` after `current_turn`
+is incremented.
+
+`Dragão` is deliberately excluded from `ENEMY_POOL` — it's boss-tier
+(100 HP / 10 ATK vs. everything else in the 12–50 HP range) and reserved
+for a future explicit/special spawn, not the random early pool.
 
 ## Design direction
 

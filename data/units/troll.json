@@ -1,0 +1,6 @@
+{
+  "id": "troll",
+  "name": "Troll",
+  "max_hp": 50,
+  "attack": 9
+}

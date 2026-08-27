@@ -3,10 +3,6 @@
     {
       "units": [
         {
-          "id": "slime",
-          "faction": "enemy"
-        },
-        {
           "id": "skeleton",
           "faction": "ally"
         }
@@ -15,22 +11,13 @@
     {
       "units": [
         {
-          "id": "skeleton",
-          "faction": "enemy"
-        },
-        {
           "id": "slime",
           "faction": "ally"
         }
       ]
     },
     {
-      "units": [
-        {
-          "id": "orc",
-          "faction": "enemy"
-        }
-      ]
+      "units": []
     }
   ]
 }
