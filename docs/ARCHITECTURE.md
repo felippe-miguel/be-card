@@ -517,16 +517,18 @@ Current interaction concepts include:
 PLAYER_ACTION
 TARGETING_UNIT
 TARGETING_FLOOR
-ENEMY_ACTION
+TARGETING_POSITION
+COMBAT_PHASE
 ```
 
-The targeting state names are under review. `TARGETING_POSITION` is declared
-but not yet driven by any flow — reserved for future position-targeting
-effects, not dead code. `ENEMY_ACTION` is declared but never transitioned to
-yet — reserved for automatic Unit turns (see Combat below). The
-`PLAYER_ACTION` / `ENEMY_ACTION` vocabulary does not match `Unit.Faction`'s
-`ALLY` / `ENEMY` naming; this mismatch is a known open question left for when
-the turn/automatic-action design is decided, not an oversight to silently fix.
+`TARGETING_POSITION` is declared but not yet driven by any flow — reserved
+for future position-targeting effects, not dead code.
+
+`ENEMY_ACTION` was renamed to `COMBAT_PHASE`: the phase runs every living
+Unit's automatic attack, ally and enemy alike (see Combat below), not just
+enemy Units, so a faction-specific name no longer described it. This also
+resolves the previous `PLAYER_ACTION` / `ENEMY_ACTION` vs `Unit.Faction`
+naming mismatch — `COMBAT_PHASE` does not imply a faction at all.
 
 Important distinction:
 
@@ -557,11 +559,25 @@ target.take_damage()
 
 A Unit should not search the battlefield to choose its own target.
 
-`BattleState.execute_unit_attack(unit)` already implements this flow but is
-not yet called from any turn loop — it is reserved for the automatic Unit
-actions/turns feature below, not dead code to remove.
+`BattleState.execute_unit_attack(unit)` implements that flow for a single
+Unit. `BattleState.execute_combat_phase()` drives the automatic-turn feature:
+it walks every `BattleFloor`, snapshots that floor's Units via
+`get_units()` (so mid-phase deaths/removals don't affect the iteration), and
+calls `execute_unit_attack()` for each living Unit — ally and enemy alike.
 
-Next major combat feature: automatic Unit actions/turns.
+Trigger: an explicit "Encerrar turno" button in `game.tscn`
+(`Game._on_end_turn_pressed()`), only while `GameState.current` is
+`PLAYER_ACTION`. It transitions to `COMBAT_PHASE`, runs
+`BattleState.execute_combat_phase()`, then transitions back to
+`PLAYER_ACTION`. The phase currently resolves synchronously (no per-attack
+animation/pacing yet — combat feedback is still `print()`-based, consistent
+with `UnitView`'s current debug-first display).
+
+Not yet implemented: turn order within/across floors beyond
+`BattleFloor.get_units()` order (allies then enemies, each in
+`position_index` order), and any battle victory/defeat condition — combat
+can currently run to "all Units on one side dead" with no end-of-battle
+detection.
 
 ## Design direction
 
@@ -617,6 +633,11 @@ Completed:
   duplicating the enum as strings
 - `BattleDefinition.floors` and `CardData.effects` are typed `Array[Dictionary]`,
   consistent with the rest of the typed collections in the domain layer
+- Automatic Unit turns: `GameState.State.ENEMY_ACTION` renamed to
+  `COMBAT_PHASE`; `BattleState.execute_combat_phase()` runs every living
+  Unit's attack (ally and enemy) each phase; triggered by an explicit
+  "Encerrar turno" button, resolving the `PLAYER_ACTION`/`ENEMY_ACTION` vs
+  `Unit.Faction` naming mismatch
 
 Still to review:
 
@@ -624,10 +645,11 @@ Still to review:
 - final `TargetSystem` organization
 - attack API naming
 - position/slot terminology
-- `PLAYER_ACTION` / `ENEMY_ACTION` vocabulary vs `Unit.Faction` naming
-- wiring `BattleState.execute_unit_attack()`, `TargetRule.Shape.RANDOM`/`SELECTED`,
-  and `GameState.State.ENEMY_ACTION`/`TARGETING_POSITION` into an actual
-  automatic-turn flow
+- `TargetRule.Shape.RANDOM` / `SELECTED` still not implemented in
+  `TargetSystem.get_attack_targets()`
+- `GameState.State.TARGETING_POSITION` still not driven by any flow
+- battle victory/defeat condition — not implemented yet
+- turn order within/across floors beyond current formation order
 
 ## AI agent rules
 

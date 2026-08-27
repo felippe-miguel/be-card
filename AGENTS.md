@@ -171,14 +171,21 @@ Resolved in the last review pass:
 Intentionally kept, not dead code — reserved for upcoming features, do not
 prune without discussion:
 
-- `BattleState.execute_unit_attack()` — not yet wired into a turn loop.
-- `GameState.State.ENEMY_ACTION` / `TARGETING_POSITION` — reserved for
-  automatic Unit turns and future position-targeting effects.
+- `GameState.State.TARGETING_POSITION` — reserved for future
+  position-targeting effects.
 - `TargetRule.Shape.RANDOM` / `SELECTED` — declared, not yet implemented in
   `TargetSystem.get_attack_targets()`.
 
-Next: resume feature work. Per `docs/ARCHITECTURE.md`, the next major combat
-feature is automatic Unit actions/turns.
+Resolved: automatic Unit turns. `GameState.State.ENEMY_ACTION` was renamed to
+`COMBAT_PHASE` — during this phase every living Unit (ally and enemy) attacks
+once, not just enemies, resolving the `PLAYER_ACTION`/`ENEMY_ACTION` vs
+`Unit.Faction` naming mismatch. Triggered by an explicit "Encerrar turno"
+button (`Game._on_end_turn_pressed()`), which calls
+`BattleState.execute_combat_phase()`. See `docs/ARCHITECTURE.md` for details.
+
+Next: candidates for the following feature include a battle victory/defeat
+condition, Pyre-targeting effects, or card mana-cost validation — none
+decided yet, ask the user before picking one.
 
 ## Testing
 

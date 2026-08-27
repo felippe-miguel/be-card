@@ -53,11 +53,24 @@ func execute_unit_attack(unit: Unit) -> void:
 		unit,
 		TargetRule.Shape.FRONT
 	)
-	
+
 	if targets.is_empty():
 		print(unit.name, " não encontrou nenhum alvo.")
 		return
-	
+
 	var target = targets[0]
-	
+
 	unit.attack_unit(target)
+
+## Fase de combate automática: cada Unit viva (aliada ou inimiga) ataca uma
+## vez, andar por andar. Usa um snapshot de get_units() por andar para não
+## ser afetado por remoções de unidades derrotadas durante a própria fase.
+func execute_combat_phase() -> void:
+	for battle_floor in battlefield.floors:
+		var units = battle_floor.get_units()
+
+		for unit in units:
+			if unit.is_dead():
+				continue
+
+			execute_unit_attack(unit)
