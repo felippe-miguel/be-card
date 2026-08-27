@@ -242,10 +242,23 @@ the `unit` id off a `summon` effect (pure data, "" if not a summon card).
 cards, or if no `unit_database` was passed to `Card.setup()`).
 `Game.render_hand()` passes its `unit_database` into `card.setup()`.
 
-Next: no feature decided yet — candidates include Pyre-targeting effects,
-per-battle deck composition (vs. today's "every card in CardDatabase is the
-deck"), or card type distinctions (attack/skill/unit) affecting Deck
-behavior. Ask the user before picking one.
+Next: user-defined plan (2026-08-26), not started yet:
+
+1. Summon into a specific slot (front/middle/rear), not always
+   `find_first_free_position()`. Existing units in the way get pushed aside
+   instead of the summon failing. Needs new `BattleFloor` operations (see
+   `docs/ARCHITECTURE.md`'s Positioning section — `insert_unit_at()` /
+   push mechanics were already anticipated there, just not implemented).
+2. While picking a floor for a summon (`TARGETING_FLOOR`), hovering a slot
+   on that floor should preview where the unit would land.
+3. While a card effect is pending on a unit (`TARGETING_UNIT`), hovering a
+   candidate target should preview the result of the effect on it — e.g.
+   resulting HP after damage/heal, resulting block after a block effect —
+   not just whether it's a legal target.
+
+Discuss slot/positioning terminology and the exact preview UX with the user
+before implementing — both are UI-heavy and likely need a few small
+back-and-forth decisions (see Incremental workflow above).
 
 ## Testing
 
