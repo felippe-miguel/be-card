@@ -4,6 +4,8 @@ extends Control
 @onready var floors_container: VBoxContainer = $Layout/Floors
 @onready var end_turn_button: Button = $Layout/BottomBar/EndTurnButton
 @onready var result_label: Label = $Layout/ResultLabel
+@onready var deck_pile_view: CardPileView = $Layout/BottomBar/DeckPileView
+@onready var discard_pile_view: CardPileView = $Layout/BottomBar/DiscardPileView
 
 var card_database: CardDatabase
 var unit_database: UnitDatabase
@@ -12,8 +14,12 @@ var battle_database: BattleDatabase
 var effect_system: EffectSystem
 var battle_state: BattleState
 var game_state: GameState
+var deck: Deck
 
 var pending_card: Card = null
+
+const STARTING_HAND_SIZE = 5
+const CARDS_DRAWN_PER_TURN = 2
 
 func _ready():
 	card_database = CardDatabase.new()
@@ -34,13 +40,18 @@ func _ready():
 
 	setup_units()
 
-	for card_id in card_database.cards:
-		var card_data = card_database.cards[card_id]
-		var card = preload("res://scenes/card.tscn").instantiate()
+	var all_cards: Array[CardData] = []
 
-		card_container.add_child(card)
-		card.setup(card_data)
-		card.played.connect(_on_card_played)
+	for card_id in card_database.cards:
+		all_cards.append(card_database.cards[card_id])
+
+	deck = Deck.new(all_cards)
+	deck.changed.connect(_on_deck_changed)
+
+	deck_pile_view.setup("Baralho")
+	discard_pile_view.setup("Descarte")
+
+	deck.draw(STARTING_HAND_SIZE)
 
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 
@@ -56,6 +67,8 @@ func _on_end_turn_pressed() -> void:
 		return
 
 	game_state.change_to(GameState.State.PLAYER_ACTION)
+
+	deck.draw(CARDS_DRAWN_PER_TURN)
 
 ## Verifica se a batalha terminou e, se sim, encerra a partida. Retorna
 ## true quando a batalha acabou, para os chamadores pularem a volta ao
@@ -116,6 +129,26 @@ func get_required_target(card: Card) -> String:
 			return "floor"
 	
 	return ""
+
+func _on_deck_changed() -> void:
+	render_hand()
+
+	deck_pile_view.set_count(deck.draw_pile.size())
+	discard_pile_view.set_count(deck.discard_pile.size())
+
+## Reconstrói os cards visuais da mão a partir de deck.hand. A mão é
+## pequena o suficiente para reconstruir por completo a cada mudança,
+## em vez de sincronizar node a node.
+func render_hand() -> void:
+	for child in card_container.get_children():
+		child.queue_free()
+
+	for card_data in deck.hand:
+		var card = preload("res://scenes/card.tscn").instantiate()
+
+		card_container.add_child(card)
+		card.setup(card_data)
+		card.played.connect(_on_card_played)
 
 func setup_units() -> void:
 	for battle_floor in battle_state.battlefield.floors:
@@ -179,5 +212,7 @@ func execute_card(
 			selected_unit,
 			selected_floor
 		)
+
+	deck.discard(card.data)
 
 	check_battle_result()

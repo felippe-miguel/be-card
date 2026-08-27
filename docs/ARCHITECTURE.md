@@ -50,6 +50,7 @@ Use `RefCounted` for data, state, and systems:
 - `Battlefield`, `BattleFloor`
 - `EffectSystem`, `TargetSystem`, `GameState`, `TargetRule`
 - `CombatMath` (shared damage/block resolution used by `Unit` and `Pyre`)
+- `Deck` (draw pile / hand / discard pile of `CardData`)
 
 ## Directory Structure
 
@@ -61,12 +62,15 @@ res://
 │   └── battles/
 ├── scenes/
 │   ├── card.tscn
+│   ├── card_pile_view.tscn
 │   ├── unit_view.tscn
 │   └── battle_floor.tscn
 ├── scripts/
 │   ├── card.gd
 │   ├── card_data.gd
 │   ├── card_database.gd
+│   ├── card_pile_view.gd
+│   ├── deck.gd
 │   ├── unit.gd
 │   ├── unit_data.gd
 │   ├── unit_database.gd
@@ -135,6 +139,59 @@ Effects modify game state, not UI Nodes.
 `BattleState`.
 
 The card target schema is still being refined; do not assume the current JSON format is final.
+
+## Deck, hand and discard
+
+`Deck` is a `RefCounted` owned directly by `Game` (not by `BattleState` —
+it is a meta-game concept, not battle/floor state). It holds three
+`Array[CardData]`:
+
+```text
+draw_pile
+hand
+discard_pile
+```
+
+Flow:
+
+```text
+CardDatabase.cards (all CardData)
+ ↓
+Deck._init() — copies into draw_pile, shuffles
+ ↓
+Deck.draw(amount) — moves cards from draw_pile into hand
+ ↓
+Game.render_hand() — rebuilds Card visual nodes from deck.hand
+ ↓
+player plays a Card
+ ↓
+Game.execute_card() resolves the effect(s), then Deck.discard(card.data)
+ ↓
+Deck.discard_pile
+```
+
+`Deck.draw()` reshuffles `discard_pile` back into `draw_pile` when the draw
+pile runs out (`reshuffle_discard_into_draw_pile()`), so play can continue
+indefinitely instead of stalling once the draw pile is empty.
+
+Current rules (see `Game._ready()` / `Game._on_end_turn_pressed()`):
+
+- 5 cards drawn at battle start (`STARTING_HAND_SIZE`).
+- 2 cards drawn at the start of each turn, right after `COMBAT_PHASE`
+  returns to `PLAYER_ACTION` (`CARDS_DRAWN_PER_TURN`).
+- Every card currently in `CardDatabase` is a single copy in the deck —
+  there is no per-battle deck list/composition yet, and no duplicate
+  copies of a card.
+
+`Deck` does not distinguish `CardData.type` (`attack`/`skill`/`unit`) —
+every card is drawn from the same pile and discarded to the same pile.
+Type-based deck rules (e.g. separate piles, deck-building/composition
+screens) are a future feature, not implemented.
+
+`CardPileView` (`Control`, `res://scenes/card_pile_view.tscn`) is a
+generic visual for a pile: it only shows a title and a card count, no
+individual cards. `Game` owns two instances, `DeckPileView` and
+`DiscardPileView`, updated whenever `Deck.changed` fires.
 
 ## Units
 

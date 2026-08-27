@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://sh8nhgv0c8i8" path="res://scripts/game.gd" id="1_uwrxv"]
 [ext_resource type="PackedScene" uid="uid://dtxw2mbs8lwqh" path="res://scenes/battle_floor.tscn" id="2_yqjtg"]
+[ext_resource type="PackedScene" path="res://scenes/card_pile_view.tscn" id="3_pile"]
 
 [node name="Game" type="Control" unique_id=943361433]
 layout_mode = 3
@@ -48,10 +49,16 @@ size_flags_vertical = 3
 layout_mode = 2
 theme_override_constants/separation = 24
 
+[node name="DeckPileView" parent="Layout/BottomBar" unique_id=300111555 instance=ExtResource("3_pile")]
+layout_mode = 2
+
 [node name="Cards" type="HBoxContainer" parent="Layout/BottomBar" unique_id=856220962]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 12
+
+[node name="DiscardPileView" parent="Layout/BottomBar" unique_id=300111666 instance=ExtResource("3_pile")]
+layout_mode = 2
 
 [node name="EndTurnButton" type="Button" parent="Layout/BottomBar" unique_id=1204558873]
 custom_minimum_size = Vector2(180, 60)

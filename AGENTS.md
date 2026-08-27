@@ -181,11 +181,27 @@ Resolved: automatic Unit turns. `GameState.State.ENEMY_ACTION` was renamed to
 once, not just enemies, resolving the `PLAYER_ACTION`/`ENEMY_ACTION` vs
 `Unit.Faction` naming mismatch. Triggered by an explicit "Encerrar turno"
 button (`Game._on_end_turn_pressed()`), which calls
-`BattleState.execute_combat_phase()`. See `docs/ARCHITECTURE.md` for details.
+`BattleState.execute_combat_phase()`.
 
-Next: candidates for the following feature include a battle victory/defeat
-condition, Pyre-targeting effects, or card mana-cost validation — none
-decided yet, ask the user before picking one.
+Resolved: battle victory/defeat. `BattleState.is_victory()`/`is_defeat()`
+check unit counts per faction across all floors (Pyre not included yet).
+`Game.check_battle_result()` runs after every card and after the combat
+phase; on end it moves `GameState` to the new `BATTLE_OVER` state and shows
+`ResultLabel`.
+
+Resolved: deck/hand/discard. New `Deck` (owned by `Game`) holds
+`draw_pile`/`hand`/`discard_pile` of `CardData`. 5 cards drawn at battle
+start, 2 per turn, reshuffles discard into draw pile when it empties. Cards
+are discarded once their effect resolves in `Game.execute_card()`.
+`CardPileView` shows pile counts only — no card-type distinction yet (all
+cards share one deck/discard pile, per explicit user decision). Card count
+in `data/cards/` grew from 5 to 15 example cards. See
+`docs/ARCHITECTURE.md` for the full flow.
+
+Next: no feature decided yet — candidates include Pyre-targeting effects,
+card mana-cost validation, per-battle deck composition (vs. today's "every
+card in CardDatabase is the deck"), or card type distinctions (attack/skill/
+unit) affecting Deck behavior. Ask the user before picking one.
 
 ## Testing
 
