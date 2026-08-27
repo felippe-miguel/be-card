@@ -4,6 +4,7 @@ extends Control
 @onready var name_label: Label = $NameLabel
 @onready var description_label: Label = $DescriptionLabel
 @onready var cost_label: Label = $CostLabel
+@onready var target_label: Label = $TargetLabel
 
 var data: CardData
 
@@ -14,6 +15,7 @@ func setup(card_data: CardData) -> void:
 	name_label.text = data.name
 	description_label.text = data.description
 	cost_label.text = str(data.cost)
+	target_label.text = "Alvo: " + data.get_target_description()
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:

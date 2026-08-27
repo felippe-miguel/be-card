@@ -17,5 +17,47 @@ static func from_dict(data: Dictionary) -> CardData:
 	card.cost = data.get("cost", 0)
 	card.type = data.get("type", "")
 	card.effects.assign(data.get("effects", []))
-	
+
 	return card
+
+## Descrição legível dos alvos desta carta, derivada de effects. Usada pela
+## visual Card para mostrar o alvo sem precisar olhar o console.
+func get_target_description() -> String:
+	var descriptions: PackedStringArray = []
+
+	for effect in effects:
+		var target_description = describe_effect_target(effect)
+
+		if target_description != "" and not descriptions.has(target_description):
+			descriptions.append(target_description)
+
+	if descriptions.is_empty():
+		return "-"
+
+	return ", ".join(descriptions)
+
+func describe_effect_target(effect: Dictionary) -> String:
+	var target: String = effect.get("target", "")
+	var target_faction: String = effect.get("target_faction", "")
+
+	match target:
+		"selected_unit":
+			match target_faction:
+				"ally":
+					return "unidade aliada"
+				"enemy":
+					return "unidade inimiga"
+				_:
+					return "unidade"
+
+		"selected_floor":
+			return "andar"
+
+		"all_enemies":
+			return "todos os inimigos"
+
+		"all_allies":
+			return "todos os aliados"
+
+		_:
+			return ""

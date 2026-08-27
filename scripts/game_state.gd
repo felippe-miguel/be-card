@@ -1,6 +1,8 @@
 class_name GameState
 extends RefCounted
 
+signal changed
+
 enum State {
 	PLAYER_ACTION,
 	TARGETING_UNIT,
@@ -14,5 +16,7 @@ var current: State = State.PLAYER_ACTION
 
 func change_to(new_state: State) -> void:
 	current = new_state
-	
+
 	print("Estado do jogo: ", State.keys()[current])
+
+	changed.emit()

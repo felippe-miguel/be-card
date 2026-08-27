@@ -4,6 +4,7 @@ extends Control
 @onready var floors_container: VBoxContainer = $Layout/Floors
 @onready var end_turn_button: Button = $Layout/BottomBar/EndTurnButton
 @onready var result_label: Label = $Layout/ResultLabel
+@onready var game_state_label: Label = $Layout/GameStateLabel
 @onready var deck_pile_view: CardPileView = $Layout/BottomBar/DeckPileView
 @onready var discard_pile_view: CardPileView = $Layout/BottomBar/DiscardPileView
 
@@ -21,6 +22,15 @@ var pending_card: Card = null
 const STARTING_HAND_SIZE = 5
 const CARDS_DRAWN_PER_TURN = 2
 
+const GAME_STATE_LABELS = {
+	GameState.State.PLAYER_ACTION: "Sua vez",
+	GameState.State.TARGETING_UNIT: "Escolha uma unidade",
+	GameState.State.TARGETING_FLOOR: "Escolha um andar",
+	GameState.State.TARGETING_POSITION: "Escolha uma posição",
+	GameState.State.COMBAT_PHASE: "Fase de combate...",
+	GameState.State.BATTLE_OVER: "Batalha encerrada"
+}
+
 func _ready():
 	card_database = CardDatabase.new()
 	card_database.load_cards()
@@ -37,6 +47,8 @@ func _ready():
 	effect_system = EffectSystem.new(battle_state)
 	
 	game_state = GameState.new()
+	game_state.changed.connect(_on_game_state_changed)
+	_on_game_state_changed()
 
 	setup_units()
 
@@ -129,6 +141,9 @@ func get_required_target(card: Card) -> String:
 			return "floor"
 	
 	return ""
+
+func _on_game_state_changed() -> void:
+	game_state_label.text = GAME_STATE_LABELS.get(game_state.current, "")
 
 func _on_deck_changed() -> void:
 	render_hand()
