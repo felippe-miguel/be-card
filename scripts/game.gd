@@ -7,6 +7,7 @@ extends Control
 @onready var game_state_label: Label = $Layout/GameStateLabel
 @onready var deck_pile_view: CardPileView = $Layout/BottomBar/DeckPileView
 @onready var discard_pile_view: CardPileView = $Layout/BottomBar/DiscardPileView
+@onready var mana_label: Label = $Layout/BottomBar/ManaLabel
 
 var card_database: CardDatabase
 var unit_database: UnitDatabase
@@ -16,26 +17,23 @@ var effect_system: EffectSystem
 var battle_state: BattleState
 var game_state: GameState
 var deck: Deck
+var mana: Mana
 
 var pending_card: Card = null
 
-## Próximo z_index a dar para uma carta ao ser passada o mouse por cima,
-## sempre maior que qualquer z_index já distribuído nesta mão — assim a
-## última carta a receber hover permanece por cima, mesmo em repouso, até
-## outra carta ser passada o mouse ou a mão ser reconstruída.
-var next_hand_z_index: int = 0
-
 const STARTING_HAND_SIZE = 5
 const CARDS_DRAWN_PER_TURN = 2
+const STARTING_MANA = 3
 
 ## Layout da mão (Cards é um Control simples, não um HBoxContainer, para
 ## poder sobrepor cartas em vez de deixá-las vazar da tela quando a mão
 ## está cheia). HAND_CARD_WIDTH deve bater com custom_minimum_size.x do
 ## card.tscn. HAND_AREA_WIDTH é o espaço que Cards recebe dentro de
-## BottomBar (ajustado à mão para o layout atual dessa barra).
+## BottomBar (ajustado à mão para o layout atual dessa barra — reveja se
+## outro irmão de Cards em BottomBar mudar de tamanho).
 const HAND_CARD_WIDTH = 220.0
 const HAND_CARD_GAP = 20.0
-const HAND_AREA_WIDTH = 1100.0
+const HAND_AREA_WIDTH = 900.0
 
 const GAME_STATE_LABELS = {
 	GameState.State.PLAYER_ACTION: "Sua vez",
@@ -75,6 +73,10 @@ func _ready():
 	deck = Deck.new(all_cards)
 	deck.changed.connect(_on_deck_changed)
 
+	mana = Mana.new(STARTING_MANA)
+	mana.changed.connect(_on_mana_changed)
+	_on_mana_changed()
+
 	deck_pile_view.setup("Baralho")
 	discard_pile_view.setup("Descarte")
 
@@ -95,6 +97,7 @@ func _on_end_turn_pressed() -> void:
 
 	game_state.change_to(GameState.State.PLAYER_ACTION)
 
+	mana.refill()
 	deck.draw(CARDS_DRAWN_PER_TURN)
 
 ## Verifica se a batalha terminou e, se sim, encerra a partida. Retorna
@@ -123,7 +126,11 @@ func end_battle(message: String) -> void:
 func _on_card_played(card: Card) -> void:
 	if game_state.current != GameState.State.PLAYER_ACTION:
 		return
-	
+
+	if not mana.can_afford(card.data.cost):
+		print("Mana insuficiente para jogar ", card.data.name, ".")
+		return
+
 	print("Carta jogada: ", card.data.name)
 	
 	var required_target = get_required_target(card)
@@ -160,6 +167,9 @@ func get_required_target(card: Card) -> String:
 func _on_game_state_changed() -> void:
 	game_state_label.text = GAME_STATE_LABELS.get(game_state.current, "")
 
+func _on_mana_changed() -> void:
+	mana_label.text = "Mana: %d/%d" % [mana.current, mana.max_mana]
+
 func _on_deck_changed() -> void:
 	render_hand()
 
@@ -180,6 +190,7 @@ func render_hand() -> void:
 
 		card_container.add_child(card)
 		card.setup(card_data)
+		card.set_affordable(mana.can_afford(card_data.cost))
 		card.played.connect(_on_card_played)
 
 		card_views.append(card)
@@ -189,12 +200,10 @@ func render_hand() -> void:
 ## Posiciona as cartas da mão da esquerda para a direita, sobrepondo-as
 ## quando não há espaço suficiente para separá-las por completo. A carta
 ## mais à direita fica com o maior z_index (por cima) em repouso; passar
-## o mouse sobre qualquer carta a traz para o topo permanentemente (ver
-## _on_card_hovered()), até a mão ser reconstruída.
+## o mouse sobre qualquer carta a traz para o topo enquanto o cursor
+## estiver sobre ela (ver Card._on_mouse_entered/_exited()).
 func layout_hand(card_views: Array[Card]) -> void:
 	var count = card_views.size()
-
-	next_hand_z_index = count
 
 	if count == 0:
 		return
@@ -207,16 +216,6 @@ func layout_hand(card_views: Array[Card]) -> void:
 
 	for i in range(count):
 		card_views[i].set_hand_position(Vector2(i * step, 0), i)
-		card_views[i].hovered.connect(_on_card_hovered)
-
-## Traz a carta passada o mouse para o topo da pilha de forma permanente
-## (até a mão ser reconstruída): cada hover recebe um z_index maior que
-## qualquer um já distribuído, então a última carta passada o mouse
-## continua por cima mesmo depois de o mouse sair dela.
-func _on_card_hovered(card: Card) -> void:
-	card.bring_to_front(next_hand_z_index)
-
-	next_hand_z_index += 1
 
 func setup_units() -> void:
 	for battle_floor in battle_state.battlefield.floors:
@@ -281,6 +280,7 @@ func execute_card(
 			selected_floor
 		)
 
+	mana.spend(card.data.cost)
 	deck.discard(card.data)
 
 	check_battle_result()

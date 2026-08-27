@@ -51,6 +51,7 @@ Use `RefCounted` for data, state, and systems:
 - `EffectSystem`, `TargetSystem`, `GameState`, `TargetRule`
 - `CombatMath` (shared damage/block resolution used by `Unit` and `Pyre`)
 - `Deck` (draw pile / hand / discard pile of `CardData`)
+- `Mana` (current/max mana, refilled per turn, spent to play cards)
 
 ## Directory Structure
 
@@ -71,6 +72,7 @@ res://
 │   ├── card_database.gd
 │   ├── card_pile_view.gd
 │   ├── deck.gd
+│   ├── mana.gd
 │   ├── unit.gd
 │   ├── unit_data.gd
 │   ├── unit_database.gd
@@ -192,6 +194,42 @@ screens) are a future feature, not implemented.
 generic visual for a pile: it only shows a title and a card count, no
 individual cards. `Game` owns two instances, `DeckPileView` and
 `DiscardPileView`, updated whenever `Deck.changed` fires.
+
+Hand size is capped at `Deck.MAX_HAND_SIZE` (currently 7): drawing beyond
+that is a no-op, the card stays in `draw_pile` until there's room.
+
+## Hand layout
+
+`Cards` (the node holding hand `Card` views) is a plain `Control`, not an
+`HBoxContainer` — a real `Container` would fight any manual positioning by
+re-sorting children every layout pass. `Game.layout_hand()` positions each
+`Card` explicitly: cards fan out left-to-right, spaced by
+`Game.HAND_CARD_GAP` when there's room, and overlap (reduced spacing) once
+the hand no longer fits `Game.HAND_AREA_WIDTH` — never escaping past that
+reserved width, however large the hand gets. `Game.HAND_AREA_WIDTH` is
+hardcoded to the space `BottomBar`'s layout currently leaves for `Cards`;
+it must be revisited if a sibling of `Cards` in `BottomBar` changes size.
+
+Stacking order is fixed and left-to-right: `Card.z_index` = hand index (via
+`set_hand_position()`), so the rightmost card is always on top at rest.
+Hovering a card raises it to `Card.HOVERED_Z_INDEX` (temporarily above
+everything) and lowers it back to its own `rest_z_index` on mouse-exit —
+hover never permanently changes the resting order. A "last-hovered card
+stays on top after the mouse leaves" variant was tried and reverted per
+explicit user feedback: it made the stacking order feel arbitrary instead
+of a fixed, predictable left-to-right fan.
+
+## Mana
+
+`Mana` (owned by `Game`, alongside `Deck`) tracks `current`/`max_mana`.
+`Game._on_end_turn_pressed()` calls `Mana.refill()` at the start of each
+turn — mana does not carry over between turns. `Game._on_card_played()`
+checks `Mana.can_afford(card.data.cost)` before entering any targeting
+state, so an unaffordable card never starts a target-selection flow; the
+actual `Mana.spend()` happens in `Game.execute_card()`, at the same point
+`Deck.discard()` runs. `Card.set_affordable()` colors the cost label red
+when the card can't currently be played. `Game.STARTING_MANA = 3` is a
+tunable default, not settled game design.
 
 ## Units
 

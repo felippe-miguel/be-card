@@ -2,16 +2,22 @@ class_name Card
 extends Control
 
 ## Ajuste visual de hover: a carta sob o mouse cresce um pouco, sobe um
-## pouco e ganha um contorno mais claro. A borda/sombra normal já ajuda a
-## perceber a ordem de empilhamento mesmo sem hover.
+## pouco, ganha um contorno mais claro e vai para o topo da pilha
+## enquanto o mouse estiver sobre ela. Ao sair, volta ao z_index de
+## repouso (fixo, definido por set_hand_position) — não fica "grudada"
+## no topo.
 const HOVER_SCALE = 1.12
 const HOVER_LIFT = 24.0
 const HOVER_ANIMATION_DURATION = 0.1
+const HOVERED_Z_INDEX = 100
 
 const BACKGROUND_COLOR = Color(0.18359044, 0.18359044, 0.18359044, 1)
 const BORDER_COLOR = Color(0.4, 0.4, 0.4, 1)
 const HOVER_BORDER_COLOR = Color(0.95, 0.85, 0.55, 0.9)
 const SHADOW_COLOR = Color(0, 0, 0, 0.3)
+
+const AFFORDABLE_COST_COLOR = Color(1, 1, 1, 1)
+const UNAFFORDABLE_COST_COLOR = Color(1, 0.4, 0.4, 1)
 
 @onready var background: Panel = $Background
 @onready var name_label: Label = $NameLabel
@@ -21,19 +27,16 @@ const SHADOW_COLOR = Color(0, 0, 0, 0.3)
 
 var data: CardData
 
-## Posição de repouso na mão, definida por quem organiza a mão
-## (Game.layout_hand()). O hover anima a partir/para esse valor.
+## Posição/z-index de repouso na mão, definidos por quem organiza a mão
+## (Game.layout_hand()). O hover anima a partir/para esses valores.
 var rest_position: Vector2 = Vector2.ZERO
+var rest_z_index: int = 0
 
 var normal_style: StyleBoxFlat
 var hover_style: StyleBoxFlat
 
 var hover_tween: Tween
 
-## Emitido ao entrar o mouse, para quem organiza a mão decidir a ordem de
-## empilhamento (ver Game._on_card_hovered()) — a carta em si não sabe
-## z-index de nenhuma outra carta.
-signal hovered(card: Card)
 signal played(card: Card)
 
 func _ready() -> void:
@@ -66,28 +69,33 @@ func setup(card_data: CardData) -> void:
 	cost_label.text = str(data.cost)
 	target_label.text = "Alvo: " + data.get_target_description()
 
-## Define a posição de repouso da carta na mão. Não mexe em z_index —
-## quem controla a ordem de empilhamento é Game (ver bring_to_front()).
+## Destaca o custo em vermelho quando o jogador não tem mana suficiente
+## para jogar esta carta agora.
+func set_affordable(affordable: bool) -> void:
+	var color = AFFORDABLE_COST_COLOR if affordable else UNAFFORDABLE_COST_COLOR
+
+	cost_label.add_theme_color_override("font_color", color)
+
+## Define a posição/z-index de repouso da carta na mão (ordem de
+## empilhamento fixa: cartas mais à direita recebem z_index maior).
 func set_hand_position(new_position: Vector2, z: int) -> void:
 	rest_position = new_position
+	rest_z_index = z
 
 	position = new_position
-	z_index = z
-
-## Traz a carta para o topo da pilha, permanentemente (até a mão ser
-## reconstruída), sem mexer em posição/escala.
-func bring_to_front(z: int) -> void:
 	z_index = z
 
 func _on_mouse_entered() -> void:
 	background.add_theme_stylebox_override("panel", hover_style)
 
-	hovered.emit(self)
+	z_index = HOVERED_Z_INDEX
 
 	animate_to(rest_position - Vector2(0, HOVER_LIFT), HOVER_SCALE)
 
 func _on_mouse_exited() -> void:
 	background.add_theme_stylebox_override("panel", normal_style)
+
+	z_index = rest_z_index
 
 	animate_to(rest_position, 1.0)
 

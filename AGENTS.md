@@ -198,10 +198,34 @@ cards share one deck/discard pile, per explicit user decision). Card count
 in `data/cards/` grew from 5 to 15 example cards. See
 `docs/ARCHITECTURE.md` for the full flow.
 
+Resolved: hand size limit and hand layout. `Deck.MAX_HAND_SIZE = 7`; drawing
+beyond that is a no-op (card stays in the draw pile). `Game`'s `Cards` node
+is a plain `Control` (not `HBoxContainer`), manually laid out by
+`Game.layout_hand()`: cards fan out left-to-right and overlap once the hand
+doesn't fit `HAND_AREA_WIDTH`. Resting z-index is fixed and left-to-right
+(`Card.set_hand_position()`, rightmost on top); hover raises a card to
+`Card.HOVERED_Z_INDEX` only while the mouse is over it, then it drops back
+to its own resting z-index on mouse-exit. (A "last-hovered card stays on
+top permanently" variant was tried and reverted per user feedback — felt
+arbitrary rather than a predictable fan.) `Card` also got a bordered/
+shadowed `Panel` background (`StyleBoxFlat`) so overlapping cards are
+readable, plus a hover border highlight. `CostLabel` moved from the
+top-right to the top-left corner of the card, since the left edge is the
+part that stays visible even when a card is overlapped by the one to its
+right.
+
+Resolved: mana cost validation. New `Mana` (owned by `Game`): `current`/
+`max_mana`, refilled to `max_mana` every turn (no carryover), spent when a
+card resolves in `Game.execute_card()`. `Game._on_card_played()` blocks
+playing a card it can't afford before any targeting state starts. Cards show
+unaffordable cost in red (`Card.set_affordable()`). `STARTING_MANA = 3` is a
+tunable default, not a fixed design decision — revisit if it feels wrong in
+play.
+
 Next: no feature decided yet — candidates include Pyre-targeting effects,
-card mana-cost validation, per-battle deck composition (vs. today's "every
-card in CardDatabase is the deck"), or card type distinctions (attack/skill/
-unit) affecting Deck behavior. Ask the user before picking one.
+per-battle deck composition (vs. today's "every card in CardDatabase is the
+deck"), or card type distinctions (attack/skill/unit) affecting Deck
+behavior. Ask the user before picking one.
 
 ## Testing
 

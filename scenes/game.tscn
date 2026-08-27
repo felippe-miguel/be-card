@@ -66,6 +66,14 @@ size_flags_horizontal = 3
 [node name="DiscardPileView" parent="Layout/BottomBar" unique_id=300111666 instance=ExtResource("3_pile")]
 layout_mode = 2
 
+[node name="ManaLabel" type="Label" parent="Layout/BottomBar" unique_id=300111888]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_font_sizes/font_size = 22
+horizontal_alignment = 1
+text = "Mana: 3/3"
+
 [node name="EndTurnButton" type="Button" parent="Layout/BottomBar" unique_id=1204558873]
 custom_minimum_size = Vector2(180, 60)
 layout_mode = 2
