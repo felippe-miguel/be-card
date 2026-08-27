@@ -1,0 +1,14 @@
+{
+  "id": "summon_orc",
+  "name": "Invocar Orc",
+  "description": "Invoque um Orc em um andar.",
+  "cost": 3,
+  "type": "unit",
+  "effects": [
+    {
+      "type": "summon",
+      "target": "selected_floor",
+      "unit": "orc"
+    }
+  ]
+}

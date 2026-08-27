@@ -1,0 +1,15 @@
+{
+  "id": "iron_shield",
+  "name": "Escudo de Ferro",
+  "description": "Ganhe 10 de Bloqueio.",
+  "cost": 2,
+  "type": "skill",
+  "effects": [
+    {
+      "type": "block",
+      "target": "selected_unit",
+      "target_faction": "ally",
+      "amount": 10
+    }
+  ]
+}

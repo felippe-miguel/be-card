@@ -1,0 +1,14 @@
+{
+  "id": "war_cry",
+  "name": "Grito de Guerra",
+  "description": "Todos os aliados ganham 3 de Bloqueio.",
+  "cost": 1,
+  "type": "skill",
+  "effects": [
+    {
+      "type": "block",
+      "target": "all_allies",
+      "amount": 3
+    }
+  ]
+}

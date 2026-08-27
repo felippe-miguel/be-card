@@ -1,0 +1,14 @@
+{
+  "id": "summon_slime",
+  "name": "Invocar Slime",
+  "description": "Invoque um Slime em um andar.",
+  "cost": 1,
+  "type": "unit",
+  "effects": [
+    {
+      "type": "summon",
+      "target": "selected_floor",
+      "unit": "slime"
+    }
+  ]
+}

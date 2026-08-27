@@ -1,0 +1,15 @@
+{
+  "id": "heavy_strike",
+  "name": "Investida",
+  "description": "Cause 14 de dano a uma unidade.",
+  "cost": 2,
+  "type": "attack",
+  "effects": [
+    {
+      "type": "damage",
+      "target": "selected_unit",
+      "target_faction": "enemy",
+      "amount": 14
+    }
+  ]
+}
