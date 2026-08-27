@@ -1,6 +1,6 @@
 extends Control
 
-@onready var card_container: HBoxContainer = $Layout/BottomBar/Cards
+@onready var card_container: Control = $Layout/BottomBar/Cards
 @onready var floors_container: VBoxContainer = $Layout/Floors
 @onready var end_turn_button: Button = $Layout/BottomBar/EndTurnButton
 @onready var result_label: Label = $Layout/ResultLabel
@@ -19,8 +19,23 @@ var deck: Deck
 
 var pending_card: Card = null
 
+## Próximo z_index a dar para uma carta ao ser passada o mouse por cima,
+## sempre maior que qualquer z_index já distribuído nesta mão — assim a
+## última carta a receber hover permanece por cima, mesmo em repouso, até
+## outra carta ser passada o mouse ou a mão ser reconstruída.
+var next_hand_z_index: int = 0
+
 const STARTING_HAND_SIZE = 5
 const CARDS_DRAWN_PER_TURN = 2
+
+## Layout da mão (Cards é um Control simples, não um HBoxContainer, para
+## poder sobrepor cartas em vez de deixá-las vazar da tela quando a mão
+## está cheia). HAND_CARD_WIDTH deve bater com custom_minimum_size.x do
+## card.tscn. HAND_AREA_WIDTH é o espaço que Cards recebe dentro de
+## BottomBar (ajustado à mão para o layout atual dessa barra).
+const HAND_CARD_WIDTH = 220.0
+const HAND_CARD_GAP = 20.0
+const HAND_AREA_WIDTH = 1100.0
 
 const GAME_STATE_LABELS = {
 	GameState.State.PLAYER_ACTION: "Sua vez",
@@ -158,12 +173,50 @@ func render_hand() -> void:
 	for child in card_container.get_children():
 		child.queue_free()
 
+	var card_views: Array[Card] = []
+
 	for card_data in deck.hand:
 		var card = preload("res://scenes/card.tscn").instantiate()
 
 		card_container.add_child(card)
 		card.setup(card_data)
 		card.played.connect(_on_card_played)
+
+		card_views.append(card)
+
+	layout_hand(card_views)
+
+## Posiciona as cartas da mão da esquerda para a direita, sobrepondo-as
+## quando não há espaço suficiente para separá-las por completo. A carta
+## mais à direita fica com o maior z_index (por cima) em repouso; passar
+## o mouse sobre qualquer carta a traz para o topo permanentemente (ver
+## _on_card_hovered()), até a mão ser reconstruída.
+func layout_hand(card_views: Array[Card]) -> void:
+	var count = card_views.size()
+
+	next_hand_z_index = count
+
+	if count == 0:
+		return
+
+	var step = HAND_CARD_WIDTH + HAND_CARD_GAP
+
+	if count > 1:
+		var max_step = (HAND_AREA_WIDTH - HAND_CARD_WIDTH) / float(count - 1)
+		step = min(step, max_step)
+
+	for i in range(count):
+		card_views[i].set_hand_position(Vector2(i * step, 0), i)
+		card_views[i].hovered.connect(_on_card_hovered)
+
+## Traz a carta passada o mouse para o topo da pilha de forma permanente
+## (até a mão ser reconstruída): cada hover recebe um z_index maior que
+## qualquer um já distribuído, então a última carta passada o mouse
+## continua por cima mesmo depois de o mouse sair dela.
+func _on_card_hovered(card: Card) -> void:
+	card.bring_to_front(next_hand_z_index)
+
+	next_hand_z_index += 1
 
 func setup_units() -> void:
 	for battle_floor in battle_state.battlefield.floors:

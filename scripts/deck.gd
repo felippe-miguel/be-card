@@ -6,6 +6,10 @@ extends RefCounted
 
 signal changed
 
+## Limite de cartas na mão. Compras além disso não acontecem; as cartas
+## permanecem na pilha de compra até haver espaço na mão.
+const MAX_HAND_SIZE = 7
+
 var draw_pile: Array[CardData] = []
 var discard_pile: Array[CardData] = []
 var hand: Array[CardData] = []
@@ -21,6 +25,10 @@ func draw(amount: int) -> void:
 	changed.emit()
 
 func draw_single_card() -> void:
+	if hand.size() >= MAX_HAND_SIZE:
+		print("Mão cheia (", MAX_HAND_SIZE, ") - carta não comprada.")
+		return
+
 	if draw_pile.is_empty():
 		reshuffle_discard_into_draw_pile()
 

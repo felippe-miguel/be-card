@@ -5,16 +5,11 @@
 [node name="Card" type="Control" unique_id=963816908]
 custom_minimum_size = Vector2(220, 300)
 layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_right = -932.0
-offset_bottom = -348.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_right = 220.0
+offset_bottom = 300.0
 script = ExtResource("1_d81rb")
 
-[node name="Background" type="ColorRect" parent="." unique_id=378276793]
+[node name="Background" type="Panel" parent="." unique_id=378276793]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -22,7 +17,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.18359044, 0.18359044, 0.18359044, 1)
 
 [node name="NameLabel" type="Label" parent="." unique_id=918435844]
 layout_mode = 1

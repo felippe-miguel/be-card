@@ -58,10 +58,10 @@ theme_override_constants/separation = 24
 [node name="DeckPileView" parent="Layout/BottomBar" unique_id=300111555 instance=ExtResource("3_pile")]
 layout_mode = 2
 
-[node name="Cards" type="HBoxContainer" parent="Layout/BottomBar" unique_id=856220962]
+[node name="Cards" type="Control" parent="Layout/BottomBar" unique_id=856220962]
+custom_minimum_size = Vector2(0, 300)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 12
 
 [node name="DiscardPileView" parent="Layout/BottomBar" unique_id=300111666 instance=ExtResource("3_pile")]
 layout_mode = 2
