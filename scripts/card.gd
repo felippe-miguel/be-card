@@ -24,6 +24,7 @@ const UNAFFORDABLE_COST_COLOR = Color(1, 0.4, 0.4, 1)
 @onready var description_label: Label = $DescriptionLabel
 @onready var cost_label: Label = $CostLabel
 @onready var target_label: Label = $TargetLabel
+@onready var summon_preview_label: Label = $SummonPreviewLabel
 
 var data: CardData
 
@@ -62,12 +63,34 @@ func build_style(border_color: Color, border_width: int) -> StyleBoxFlat:
 
 	return style
 
-func setup(card_data: CardData) -> void:
+func setup(card_data: CardData, unit_database: UnitDatabase = null) -> void:
 	data = card_data
 	name_label.text = data.name
 	description_label.text = data.description
 	cost_label.text = str(data.cost)
 	target_label.text = "Alvo: " + data.get_target_description()
+
+	update_summon_preview(unit_database)
+
+## Mostra ATK/HP base da unidade invocada, para cartas de invocação, sem
+## precisar abrir data/units/*.json ou jogar a carta pra descobrir. Não
+## mostra nada se a carta não invoca unidade ou se unit_database não foi
+## passado (chamador que não tem acesso a ele, ex: preview fora do jogo).
+func update_summon_preview(unit_database: UnitDatabase) -> void:
+	var unit_id = data.get_summon_unit_id()
+
+	if unit_id == "" or unit_database == null:
+		summon_preview_label.visible = false
+		return
+
+	var unit_data: UnitData = unit_database.units.get(unit_id)
+
+	if unit_data == null:
+		summon_preview_label.visible = false
+		return
+
+	summon_preview_label.text = "ATK %d / HP %d" % [unit_data.attack, unit_data.max_hp]
+	summon_preview_label.visible = true
 
 ## Destaca o custo em vermelho quando o jogador não tem mana suficiente
 ## para jogar esta carta agora.

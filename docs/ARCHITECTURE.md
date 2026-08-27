@@ -530,6 +530,13 @@ unit_added
 UnitView
 ```
 
+Before the card is even played, `Card` shows a stat preview for summon
+cards: `CardData.get_summon_unit_id()` reads the `unit` id off the
+`summon` effect (pure data derivation, same style as
+`get_target_description()`), and `Card.update_summon_preview()` resolves
+that id against `UnitDatabase` (passed into `Card.setup()` by
+`Game.render_hand()`) to show base ATK/HP. Hidden for non-summon cards.
+
 Default summon uses first free slot.
 
 ## Targeting architecture

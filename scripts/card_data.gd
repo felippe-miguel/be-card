@@ -61,3 +61,13 @@ func describe_effect_target(effect: Dictionary) -> String:
 
 		_:
 			return ""
+
+## Id da UnitData invocada por esta carta ("" se não for uma carta de
+## invocação). Só o id — resolver a UnitData em si é responsabilidade de
+## quem tem acesso ao UnitDatabase (ver Card.update_summon_preview()).
+func get_summon_unit_id() -> String:
+	for effect in effects:
+		if effect.get("type", "") == "summon":
+			return effect.get("unit", "")
+
+	return ""

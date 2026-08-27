@@ -215,7 +215,7 @@ func render_hand() -> void:
 		var card = preload("res://scenes/card.tscn").instantiate()
 
 		card_container.add_child(card)
-		card.setup(card_data)
+		card.setup(card_data, unit_database)
 		card.set_affordable(mana.can_afford(card_data.cost))
 		card.played.connect(_on_card_played)
 

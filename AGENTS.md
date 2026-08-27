@@ -235,6 +235,13 @@ allies too would make `BattleState.is_defeat()` fire immediately (see
 `docs/ARCHITECTURE.md`). Added 5 new unit types for spawn variety: goblin,
 wolf (Lobo), bat (Morcego), troll, bandit (Bandido).
 
+Resolved: summon card stat preview. `CardData.get_summon_unit_id()` reads
+the `unit` id off a `summon` effect (pure data, "" if not a summon card).
+`Card.update_summon_preview(unit_database)` resolves that id against
+`UnitDatabase` and shows "ATK X / HP Y" on the card (hidden for non-summon
+cards, or if no `unit_database` was passed to `Card.setup()`).
+`Game.render_hand()` passes its `unit_database` into `card.setup()`.
+
 Next: no feature decided yet — candidates include Pyre-targeting effects,
 per-battle deck composition (vs. today's "every card in CardDatabase is the
 deck"), or card type distinctions (attack/skill/unit) affecting Deck
