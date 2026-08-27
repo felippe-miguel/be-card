@@ -3,6 +3,7 @@ extends Control
 @onready var card_container: HBoxContainer = $Layout/BottomBar/Cards
 @onready var floors_container: VBoxContainer = $Layout/Floors
 @onready var end_turn_button: Button = $Layout/BottomBar/EndTurnButton
+@onready var result_label: Label = $Layout/ResultLabel
 
 var card_database: CardDatabase
 var unit_database: UnitDatabase
@@ -51,7 +52,33 @@ func _on_end_turn_pressed() -> void:
 
 	battle_state.execute_combat_phase()
 
+	if check_battle_result():
+		return
+
 	game_state.change_to(GameState.State.PLAYER_ACTION)
+
+## Verifica se a batalha terminou e, se sim, encerra a partida. Retorna
+## true quando a batalha acabou, para os chamadores pularem a volta ao
+## estado PLAYER_ACTION.
+func check_battle_result() -> bool:
+	if battle_state.is_defeat():
+		end_battle("Derrota...")
+		return true
+
+	if battle_state.is_victory():
+		end_battle("Vitória!")
+		return true
+
+	return false
+
+func end_battle(message: String) -> void:
+	game_state.change_to(GameState.State.BATTLE_OVER)
+
+	result_label.text = message
+	result_label.visible = true
+	end_turn_button.disabled = true
+
+	print(message)
 
 func _on_card_played(card: Card) -> void:
 	if game_state.current != GameState.State.PLAYER_ACTION:
@@ -152,3 +179,5 @@ func execute_card(
 			selected_unit,
 			selected_floor
 		)
+
+	check_battle_result()

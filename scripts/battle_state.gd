@@ -74,3 +74,20 @@ func execute_combat_phase() -> void:
 				continue
 
 			execute_unit_attack(unit)
+
+func count_units_for_faction(faction: Unit.Faction) -> int:
+	var count = 0
+
+	for battle_floor in battlefield.floors:
+		count += battle_floor.get_units_for_faction(faction).size()
+
+	return count
+
+## Derrota: nenhum aliado restou vivo em nenhum andar. O Pyre ainda não
+## participa dessa conta — cartas/ataques ainda não conseguem miná-lo.
+func is_defeat() -> bool:
+	return count_units_for_faction(Unit.Faction.ALLY) == 0
+
+## Vitória: nenhum inimigo restou vivo em nenhum andar.
+func is_victory() -> bool:
+	return count_units_for_faction(Unit.Faction.ENEMY) == 0
