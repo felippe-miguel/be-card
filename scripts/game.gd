@@ -1,7 +1,8 @@
 extends Control
 
-@onready var card_container: HBoxContainer = $Cards
-@onready var floors_container: VBoxContainer = $Floors
+@onready var card_container: HBoxContainer = $Layout/BottomBar/Cards
+@onready var floors_container: VBoxContainer = $Layout/Floors
+@onready var end_turn_button: Button = $Layout/BottomBar/EndTurnButton
 
 var card_database: CardDatabase
 var unit_database: UnitDatabase
@@ -29,16 +30,28 @@ func _ready():
 	effect_system = EffectSystem.new(battle_state)
 	
 	game_state = GameState.new()
-	
+
 	setup_units()
-	
+
 	for card_id in card_database.cards:
 		var card_data = card_database.cards[card_id]
 		var card = preload("res://scenes/card.tscn").instantiate()
-		
+
 		card_container.add_child(card)
 		card.setup(card_data)
 		card.played.connect(_on_card_played)
+
+	end_turn_button.pressed.connect(_on_end_turn_pressed)
+
+func _on_end_turn_pressed() -> void:
+	if game_state.current != GameState.State.PLAYER_ACTION:
+		return
+
+	game_state.change_to(GameState.State.COMBAT_PHASE)
+
+	battle_state.execute_combat_phase()
+
+	game_state.change_to(GameState.State.PLAYER_ACTION)
 
 func _on_card_played(card: Card) -> void:
 	if game_state.current != GameState.State.PLAYER_ACTION:

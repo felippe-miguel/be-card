@@ -12,24 +12,43 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_uwrxv")
 
-[node name="Cards" type="HBoxContainer" parent="." unique_id=856220962]
-layout_mode = 0
-offset_top = 400.0
-offset_right = 40.0
-offset_bottom = 440.0
-
-[node name="Floors" type="VBoxContainer" parent="." unique_id=2050396104]
+[node name="Layout" type="VBoxContainer" parent="." unique_id=300111222]
 layout_mode = 1
-anchors_preset = 10
+anchors_preset = 15
 anchor_right = 1.0
-offset_bottom = 8.0
+anchor_bottom = 1.0
 grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
 
-[node name="BattleFloor1" parent="Floors" unique_id=1530212635 instance=ExtResource("2_yqjtg")]
+[node name="Floors" type="VBoxContainer" parent="Layout" unique_id=2050396104]
 layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
 
-[node name="BattleFloor2" parent="Floors" unique_id=467969519 instance=ExtResource("2_yqjtg")]
+[node name="BattleFloor1" parent="Layout/Floors" unique_id=1530212635 instance=ExtResource("2_yqjtg")]
 layout_mode = 2
+size_flags_vertical = 3
 
-[node name="BattleFloor3" parent="Floors" unique_id=851788144 instance=ExtResource("2_yqjtg")]
+[node name="BattleFloor2" parent="Layout/Floors" unique_id=467969519 instance=ExtResource("2_yqjtg")]
 layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BattleFloor3" parent="Layout/Floors" unique_id=851788144 instance=ExtResource("2_yqjtg")]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BottomBar" type="HBoxContainer" parent="Layout" unique_id=300111333]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="Cards" type="HBoxContainer" parent="Layout/BottomBar" unique_id=856220962]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="EndTurnButton" type="Button" parent="Layout/BottomBar" unique_id=1204558873]
+custom_minimum_size = Vector2(180, 60)
+layout_mode = 2
+size_flags_vertical = 4
+text = "Encerrar turno"
