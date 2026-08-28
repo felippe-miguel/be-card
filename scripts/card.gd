@@ -14,6 +14,7 @@ const HOVERED_Z_INDEX = 100
 const BACKGROUND_COLOR = Color(0.18359044, 0.18359044, 0.18359044, 1)
 const BORDER_COLOR = Color(0.4, 0.4, 0.4, 1)
 const HOVER_BORDER_COLOR = Color(0.95, 0.85, 0.55, 0.9)
+const PENDING_BORDER_COLOR = Color(0.35, 0.75, 1.0, 1)
 const SHADOW_COLOR = Color(0, 0, 0, 0.3)
 
 const AFFORDABLE_COST_COLOR = Color(1, 1, 1, 1)
@@ -35,6 +36,21 @@ var rest_z_index: int = 0
 
 var normal_style: StyleBoxFlat
 var hover_style: StyleBoxFlat
+var pending_style: StyleBoxFlat
+
+## true enquanto esta carta é a jogada aguardando alvo (Game.pending_card).
+## Muda a cor de repouso da borda para se distinguir das demais na mão, e
+## trava o estado de hover (maior, deslocada pra cima) mesmo sem o mouse
+## em cima.
+var is_pending: bool = false
+
+## Compartilhado entre todas as cartas da mão — só pode haver uma carta
+## pendente por vez (Game.pending_card), então uma flag estática simples
+## já basta para bloquear o hover das demais enquanto isso durar.
+## Game.render_hand() zera isso a cada reconstrução da mão, já que a
+## carta pendente nunca chama set_pending(false) sozinha — o nó dela é
+## destruído junto (ver docs/ARCHITECTURE.md).
+static var any_card_pending: bool = false
 
 var hover_tween: Tween
 
@@ -45,6 +61,7 @@ func _ready() -> void:
 
 	normal_style = build_style(BORDER_COLOR, 2)
 	hover_style = build_style(HOVER_BORDER_COLOR, 3)
+	pending_style = build_style(PENDING_BORDER_COLOR, 4)
 	background.add_theme_stylebox_override("panel", normal_style)
 
 	mouse_entered.connect(_on_mouse_entered)
@@ -108,7 +125,35 @@ func set_hand_position(new_position: Vector2, z: int) -> void:
 	position = new_position
 	z_index = z
 
+## Marca/desmarca esta carta como a que está aguardando alvo. Chamado por
+## Game ao entrar em TARGETING_UNIT/TARGETING_FLOOR/TARGETING_POSITION.
+## Trava a carta no estado "grande e elevada" do hover — não solta mais
+## até deixar de estar pendente — e, enquanto isso durar, nenhuma carta
+## (nem esta) reage a hover de verdade (ver any_card_pending).
+func set_pending(pending: bool) -> void:
+	is_pending = pending
+	any_card_pending = pending
+
+	apply_resting_style()
+
+	if pending:
+		z_index = HOVERED_Z_INDEX
+		animate_to(rest_position - Vector2(0, HOVER_LIFT), HOVER_SCALE)
+	else:
+		z_index = rest_z_index
+		animate_to(rest_position, 1.0)
+
+## Estilo de "repouso" (fora de hover): pending_style se esta carta está
+## aguardando alvo, senão normal_style. O hover sempre tem prioridade
+## visual, mas ao sair do hover volta para este estado, não direto para
+## normal_style — assim a carta pendente não perde o destaque.
+func apply_resting_style() -> void:
+	background.add_theme_stylebox_override("panel", pending_style if is_pending else normal_style)
+
 func _on_mouse_entered() -> void:
+	if any_card_pending:
+		return
+
 	background.add_theme_stylebox_override("panel", hover_style)
 
 	z_index = HOVERED_Z_INDEX
@@ -116,7 +161,10 @@ func _on_mouse_entered() -> void:
 	animate_to(rest_position - Vector2(0, HOVER_LIFT), HOVER_SCALE)
 
 func _on_mouse_exited() -> void:
-	background.add_theme_stylebox_override("panel", normal_style)
+	if any_card_pending:
+		return
+
+	apply_resting_style()
 
 	z_index = rest_z_index
 

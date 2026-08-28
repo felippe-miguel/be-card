@@ -46,6 +46,7 @@ const GAME_STATE_LABELS = {
 	GameState.State.TARGETING_UNIT: "Escolha uma unidade",
 	GameState.State.TARGETING_FLOOR: "Escolha um andar",
 	GameState.State.TARGETING_POSITION: "Escolha uma posição",
+	GameState.State.CONFIRM_EFFECT: "Clique em qualquer lugar para confirmar",
 	GameState.State.COMBAT_PHASE: "Fase de combate...",
 	GameState.State.SPAWN_PHASE: "Invocando inimigos...",
 	GameState.State.BATTLE_OVER: "Batalha encerrada"
@@ -94,6 +95,77 @@ func _ready():
 	deck.draw(STARTING_HAND_SIZE)
 
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
+
+## ESC ("ui_cancel") ou clique direito cancelam a carta pendente; em
+## CONFIRM_EFFECT, clique esquerdo em qualquer lugar confirma. Usa
+## _input() (não _gui_input()) de propósito: roda antes do sistema de
+## GUI despachar o clique para o que estiver sob o mouse (ex: outra
+## carta, uma UnitView), então funciona em qualquer lugar da tela, não
+## só em áreas "vazias" sem Controls por cima.
+func _input(event: InputEvent) -> void:
+	if not is_targeting_state():
+		return
+
+	if event.is_action_pressed("ui_cancel"):
+		cancel_pending_card()
+		get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			cancel_pending_card()
+			get_viewport().set_input_as_handled()
+			return
+
+		if event.button_index == MOUSE_BUTTON_LEFT and game_state.current == GameState.State.CONFIRM_EFFECT:
+			confirm_pending_card()
+			get_viewport().set_input_as_handled()
+
+func is_targeting_state() -> bool:
+	return (
+		game_state.current == GameState.State.TARGETING_UNIT
+		or game_state.current == GameState.State.TARGETING_FLOOR
+		or game_state.current == GameState.State.TARGETING_POSITION
+		or game_state.current == GameState.State.CONFIRM_EFFECT
+	)
+
+## Desiste da carta pendente sem jogá-la: nenhuma mana gasta, nenhum
+## efeito executado, a carta continua na mão normalmente.
+func cancel_pending_card() -> void:
+	if pending_card == null:
+		return
+
+	print("Cancelado: ", pending_card.data.name)
+
+	match game_state.current:
+		GameState.State.TARGETING_UNIT, GameState.State.CONFIRM_EFFECT:
+			disarm_all_unit_previews()
+		GameState.State.TARGETING_POSITION:
+			end_placement_preview()
+
+	pending_card.set_pending(false)
+	pending_card = null
+
+	game_state.change_to(GameState.State.PLAYER_ACTION)
+
+## Confirma a carta pendente sem alvo específico (efeito "all_enemies"/
+## "all_allies"): joga de fato, como um clique de alvo válido faria nos
+## outros fluxos de targeting.
+func confirm_pending_card() -> void:
+	if pending_card == null:
+		return
+
+	var card = pending_card
+
+	print("Confirmado: ", card.data.name)
+
+	disarm_all_unit_previews()
+	card.set_pending(false)
+	pending_card = null
+
+	game_state.change_to(GameState.State.PLAYER_ACTION)
+
+	execute_card(card)
 
 func _on_end_turn_pressed() -> void:
 	if game_state.current != GameState.State.PLAYER_ACTION:
@@ -165,15 +237,17 @@ func _on_card_played(card: Card) -> void:
 	if required_target == "unit":
 		game_state.change_to(GameState.State.TARGETING_UNIT)
 		pending_card = card
+		pending_card.set_pending(true)
 		begin_unit_effect_preview(card.data)
 
 		print("Escolha uma unidade.")
 		return
-	
+
 	if required_target == "floor":
 		game_state.change_to(GameState.State.TARGETING_FLOOR)
 
 		pending_card = card
+		pending_card.set_pending(true)
 
 		print("Escolha um andar.")
 		return
@@ -182,9 +256,20 @@ func _on_card_played(card: Card) -> void:
 		game_state.change_to(GameState.State.TARGETING_POSITION)
 
 		pending_card = card
+		pending_card.set_pending(true)
 		begin_placement_preview(card.data)
 
 		print("Escolha uma posição.")
+		return
+
+	if required_target == "confirm":
+		game_state.change_to(GameState.State.CONFIRM_EFFECT)
+
+		pending_card = card
+		pending_card.set_pending(true)
+		begin_aoe_effect_preview(card.data)
+
+		print("Clique em qualquer lugar para confirmar.")
 		return
 
 	execute_card(card)
@@ -201,6 +286,9 @@ func get_required_target(card: Card) -> String:
 
 		if target == "selected_position":
 			return "position"
+
+		if target == "all_enemies" or target == "all_allies":
+			return "confirm"
 
 	return ""
 
@@ -222,6 +310,11 @@ func _on_deck_changed() -> void:
 func render_hand() -> void:
 	for child in card_container.get_children():
 		child.queue_free()
+
+	## A carta pendente nunca chama Card.set_pending(false) sozinha (seu
+	## nó é destruído junto, no queue_free() acima); zera aqui pra
+	## garantir que a flag estática nunca fique travada em true.
+	Card.any_card_pending = false
 
 	var card_views: Array[Card] = []
 
@@ -316,7 +409,9 @@ func end_placement_preview() -> void:
 ## "selected_unit" da carta, um preview do resultado desse efeito
 ## (HP/block resultante) ao passar o mouse — ver UnitView.arm_effect_
 ## preview(). Reaproveita EffectSystem.can_target_selected_unit(), a
-## mesma checagem usada para validar o clique de fato.
+## mesma checagem usada para validar o clique de fato. Não mostra nada
+## até o jogador passar o mouse: faz sentido aqui, já que ele está
+## escolhendo entre várias unidades possíveis.
 func begin_unit_effect_preview(card_data: CardData) -> void:
 	for floor_view in floor_views:
 		for unit_view in floor_view.get_all_unit_views():
@@ -332,7 +427,35 @@ func begin_unit_effect_preview(card_data: CardData) -> void:
 			if not eligible_effects.is_empty():
 				unit_view.arm_effect_preview(eligible_effects)
 
-func end_unit_effect_preview() -> void:
+## Mostra, imediatamente e sem precisar de hover, o preview de um efeito
+## "all_enemies"/"all_allies" em toda unidade da facção afetada — ao
+## contrário do preview de "selected_unit", aqui não há escolha: todas as
+## unidades daquela facção serão atingidas, então já mostra o resultado
+## em todas de uma vez.
+func begin_aoe_effect_preview(card_data: CardData) -> void:
+	var enemy_effects: Array[Dictionary] = []
+	var ally_effects: Array[Dictionary] = []
+
+	for effect in card_data.effects:
+		match effect.get("target", ""):
+			"all_enemies":
+				enemy_effects.append(effect)
+			"all_allies":
+				ally_effects.append(effect)
+
+	if enemy_effects.is_empty() and ally_effects.is_empty():
+		return
+
+	for floor_view in floor_views:
+		for unit_view in floor_view.get_all_unit_views():
+			var effects = enemy_effects if unit_view.unit.faction == Unit.Faction.ENEMY else ally_effects
+
+			if not effects.is_empty():
+				unit_view.arm_effect_preview(effects, true)
+
+## Desarma qualquer preview de efeito de unidade, veio ele de
+## begin_unit_effect_preview() ou begin_aoe_effect_preview().
+func disarm_all_unit_previews() -> void:
 	for floor_view in floor_views:
 		for unit_view in floor_view.get_all_unit_views():
 			unit_view.disarm_effect_preview()
@@ -354,7 +477,7 @@ func _on_unit_selected(unit: Unit) -> void:
 
 	if game_state.current == GameState.State.TARGETING_UNIT:
 		game_state.change_to(GameState.State.PLAYER_ACTION)
-		end_unit_effect_preview()
+		disarm_all_unit_previews()
 		execute_card(pending_card, unit)
 		pending_card = null
 

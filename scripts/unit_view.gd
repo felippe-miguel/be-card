@@ -22,6 +22,12 @@ var unit: Unit
 var pending_effects: Array[Dictionary] = []
 var effect_armed: bool = false
 
+## true quando o preview foi mostrado de imediato (arm_effect_preview()
+## com show_now=true — efeitos "all_enemies"/"all_allies", sem escolha
+## de unidade). Nesse caso o preview não deve sumir ao tirar o mouse,
+## diferente do caso "selected_unit" (hover-only).
+var persistent_preview: bool = false
+
 signal selected(unit: Unit)
 
 func setup(setup_unit: Unit) -> void:
@@ -64,13 +70,23 @@ func get_delta_color(destination_value: int, current_value: int) -> Color:
 
 	return NORMAL_COLOR
 
-func arm_effect_preview(effects: Array[Dictionary]) -> void:
+## show_now=true mostra o preview de imediato (efeitos "all_enemies"/
+## "all_allies", onde não há escolha — todas as unidades afetadas
+## já sabem o resultado sem precisar de hover). Por padrão só arma;
+## o preview aparece ao passar o mouse (efeitos "selected_unit", onde
+## faz sentido comparar unidades antes de escolher).
+func arm_effect_preview(effects: Array[Dictionary], show_now: bool = false) -> void:
 	pending_effects = effects
 	effect_armed = true
+	persistent_preview = show_now
+
+	if show_now:
+		show_effect_preview()
 
 func disarm_effect_preview() -> void:
 	pending_effects = []
 	effect_armed = false
+	persistent_preview = false
 	update_display()
 
 func _on_mouse_entered() -> void:
@@ -78,7 +94,7 @@ func _on_mouse_entered() -> void:
 		show_effect_preview()
 
 func _on_mouse_exited() -> void:
-	if effect_armed:
+	if effect_armed and not persistent_preview:
 		update_display()
 
 ## Simula, na ordem em que os efeitos da carta seriam resolvidos de

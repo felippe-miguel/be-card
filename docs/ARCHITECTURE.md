@@ -144,6 +144,34 @@ Effects modify game state, not UI Nodes.
 
 The card target schema is still being refined; do not assume the current JSON format is final.
 
+## Card visual states
+
+`Card`'s border color has three resting states — `normal_style` (default),
+`pending_style` (this card is `Game.pending_card`, waiting on a target),
+and a transient `hover_style`. `Card.set_pending(true)` is called right
+after `Game._on_card_played()` sets `pending_card = card`, at all 3
+targeting entry points (`TARGETING_UNIT`/`TARGETING_FLOOR`/
+`TARGETING_POSITION`). There's no explicit "un-pending" call — the
+pending card's node is always `queue_free()`d shortly after it resolves
+anyway, as part of the hand rebuild `Game.render_hand()` runs once
+`Deck.discard()` fires.
+
+Per user feedback, a pending card doesn't just get a different border —
+it stays locked in the hovered scale/position/z-index (bigger, lifted)
+for as long as it's pending, and every card in hand (pending or not)
+stops reacting to real mouse hover while that's happening. This needed
+one small piece of cross-instance state: `static var
+Card.any_card_pending`, set by `set_pending()`. Since only one card is
+ever `Game.pending_card` at a time, a single shared flag is enough — no
+need to track which specific card. `Card._on_mouse_entered()`/
+`_on_mouse_exited()` both no-op whenever `any_card_pending` is true,
+including for the pending card itself (its locked state is driven
+directly by `set_pending()`, not by the mouse). Because the pending
+card's node is destroyed without ever calling `set_pending(false)` (see
+above), `Game.render_hand()` resets `Card.any_card_pending = false`
+unconditionally at the start of every rebuild — the one place guaranteed
+to run whenever a pending card's targeting actually resolves.
+
 ## Deck, hand and discard
 
 `Deck` is a `RefCounted` owned directly by `Game` (not by `BattleState` —
@@ -578,9 +606,69 @@ with both `selected_floor` and `selected_position` → `EffectSystem`'s
 `"summon"` branch calls `BattleFloor.insert_unit_at()` instead of
 `add_unit()` whenever `selected_position >= 0`.
 
-No cancel flow exists for `TARGETING_POSITION` (matching the pre-existing
-gap for `TARGETING_UNIT`/`TARGETING_FLOOR` — once a summon card is played,
-the player must complete it by clicking a slot on some floor with room).
+A cancel flow now exists for all 3 targeting states — see Canceling a
+pending card below.
+
+## Confirming a no-specific-target card
+
+Cards whose effect targets `"all_enemies"`/`"all_allies"` used to execute
+the instant they were played — no pending state, no preview, nothing to
+click. They now go pending like every other card, via a 4th targeting
+state, `GameState.State.CONFIRM_EFFECT`: `Game.get_required_target()`
+returns `"confirm"` for them, same as `"unit"`/`"floor"`/`"position"` for
+the others.
+
+`Game.begin_aoe_effect_preview(card_data)` shows the effect preview on
+every `UnitView` of the affected faction — *immediately*, not hover-gated
+the way `"selected_unit"` previews are (see Unit effect preview above).
+That's deliberate: with `"selected_unit"` the player is choosing among
+several possible targets, so comparing them one at a time via hover makes
+sense; with `"all_enemies"`/`"all_allies"` there's no choice at all, every
+matching unit will be hit, so showing the result on all of them at once
+is more useful than making the player hover each one individually. This
+needed one addition to `UnitView`: `arm_effect_preview(effects,
+show_now=true)` calls `show_effect_preview()` immediately, and sets
+`persistent_preview = true` so `mouse_exited` won't revert it the way it
+would for a hover-only preview.
+
+Confirming actually plays the card: any left click anywhere while
+`CONFIRM_EFFECT` calls `Game.confirm_pending_card()`, which mirrors what
+`_on_unit_selected()`/`_on_floor_selected()`/`_on_position_selected()` do
+for the other 3 targeting states — disarm previews, un-pend the card,
+return to `PLAYER_ACTION`, then `execute_card()`.
+
+## Canceling a pending card
+
+`Esc` (the built-in `"ui_cancel"` action) or a right mouse click cancel
+whichever card is `Game.pending_card`, from any of the 4 targeting states
+(`TARGETING_UNIT`/`TARGETING_FLOOR`/`TARGETING_POSITION`/
+`CONFIRM_EFFECT`) — no mana spent, no `EffectSystem.execute_effect()`
+call, the card simply becomes playable again.
+
+Both this and confirming (above) are implemented in `Game._input(event)`,
+not `_gui_input()`. `_input()` runs before the SceneTree's GUI system
+routes a click to whatever `Control` is under the cursor, so it
+intercepts a click anywhere on screen — including on top of another
+`Card`, a `UnitView`, or an `AllyHoverZones` zone (all of which have
+`mouse_filter = STOP` and would otherwise absorb the click before it ever
+reached `_unhandled_input()`). This also means a left click on, say,
+another `Card` in hand while `CONFIRM_EFFECT` is active confirms the
+pending card instead of reaching that other card's own click handler —
+consistent with treating the click as a global "confirm" gesture, not a
+click on a specific element. `Game.is_targeting_state()` gates all of
+this to the 4 targeting states, so `Esc`/right-click/left-click-to-confirm
+do nothing during `PLAYER_ACTION`/`COMBAT_PHASE`/`SPAWN_PHASE`/
+`BATTLE_OVER`.
+
+`Game.cancel_pending_card()` undoes exactly whatever the matching
+`begin_*_preview()` armed for the current state —
+`Game.disarm_all_unit_previews()` for `TARGETING_UNIT`/`CONFIRM_EFFECT`
+(shared between the `"selected_unit"` and AOE preview paths — it was
+called `end_unit_effect_preview()` before `CONFIRM_EFFECT` existed),
+`end_placement_preview()` for `TARGETING_POSITION`, nothing extra for
+`TARGETING_FLOOR` (nothing is armed for it) — then calls
+`pending_card.set_pending(false)`, clears `pending_card`, and returns
+`GameState` to `PLAYER_ACTION`.
 
 ## BattleFloor signals
 
@@ -799,6 +887,7 @@ PLAYER_ACTION
 TARGETING_UNIT
 TARGETING_FLOOR
 TARGETING_POSITION
+CONFIRM_EFFECT
 COMBAT_PHASE
 SPAWN_PHASE
 ```

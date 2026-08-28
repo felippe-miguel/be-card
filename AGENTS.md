@@ -319,6 +319,56 @@ hit 0. This required restructuring `unit_view.tscn` from a single
 `Button.text` string into per-field `Label`s (`HpLabel`/`BlockLabel` need
 independent `font_color` overrides) — see `docs/ARCHITECTURE.md`.
 
+Resolved: pending card highlight. `Card` now has a third border state
+(`Card.pending_style`, alongside `normal_style`/`hover_style`) — the card
+`Game.pending_card` is waiting on a target for
+(`TARGETING_UNIT`/`TARGETING_FLOOR`/`TARGETING_POSITION`) shows a distinct
+border color even without hover, via `Card.set_pending(true)` called
+right after `pending_card = card` at all 3 call sites in
+`Game._on_card_played()`. No explicit "un-pending" call was needed: the
+pending card's node is always `queue_free()`d moments later anyway, as
+part of the hand rebuild `Deck.discard()` triggers once the card actually
+resolves.
+
+Follow-up (same day, user feedback): `set_pending(true)` also locks the
+card into the hovered scale/position (bigger, lifted) permanently while
+pending, not just the border — and while any card is pending, every
+card's `mouse_entered`/`mouse_exited` handlers no-op via a shared
+`static var Card.any_card_pending`, so hovering other cards in hand does
+nothing. Since a pending card's node is destroyed without ever calling
+`set_pending(false)` (see above), something has to clear that static flag
+independently — `Game.render_hand()` resets it unconditionally at the
+start of every hand rebuild.
+
+Resolved: cancel a pending card. `Esc` (`"ui_cancel"`) or right-click now
+cancel whichever card is pending — no mana spent, no effect executed, the
+card just goes back to being playable. `Game._input(event)` (not
+`_gui_input()` — deliberately, so it fires before the GUI system routes
+the click to whatever's under the cursor, e.g. another `Card` or a
+`UnitView`, not just empty screen space) checks this only while
+`Game.is_targeting_state()`. `Game.cancel_pending_card()` mirrors whatever
+`begin_*_preview()` was armed for the current state
+(`disarm_all_unit_previews()` for `TARGETING_UNIT`/`CONFIRM_EFFECT`,
+`end_placement_preview()` for `TARGETING_POSITION`), calls
+`pending_card.set_pending(false)`, clears `pending_card`, and returns
+`GameState` to `PLAYER_ACTION`.
+
+Resolved: cards with no specific target (`"all_enemies"`/`"all_allies"`)
+now go pending too, instead of executing instantly — new
+`GameState.State.CONFIRM_EFFECT`. `Game.begin_aoe_effect_preview()` shows
+the effect preview on every unit of the affected faction *immediately*
+(not hover-gated like `"selected_unit"` — there's no choice to make, all
+of them will be hit), via `UnitView.arm_effect_preview(effects,
+show_now=true)`. This needed a new `UnitView.persistent_preview` flag: a
+`show_now=true` preview must not revert on `mouse_exited` the way a
+hover-only preview does. Confirming plays the card for real: any left
+click anywhere (`Game._input()`, same "before GUI routing" trick as
+cancel) while `CONFIRM_EFFECT` calls `Game.confirm_pending_card()`.
+`Esc`/right-click still cancel it like any other pending card.
+`Game.end_unit_effect_preview()` was renamed to
+`Game.disarm_all_unit_previews()` since it's now shared between the
+`"selected_unit"` and AOE preview paths.
+
 ## Testing
 
 After meaningful changes:
