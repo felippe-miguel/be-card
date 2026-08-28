@@ -53,6 +53,9 @@ func describe_effect_target(effect: Dictionary) -> String:
 		"selected_floor":
 			return "andar"
 
+		"selected_position":
+			return "posição no andar"
+
 		"all_enemies":
 			return "todos os inimigos"
 

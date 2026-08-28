@@ -11,7 +11,8 @@ func _init(state: BattleState) -> void:
 func execute_effect(
 	effect: Dictionary,
 	selected_unit: Unit = null,
-	selected_floor: int = -1
+	selected_floor: int = -1,
+	selected_position: int = -1
 ) -> void:
 	var type = effect.get("type", "")
 	var target_type = effect.get("target", "")
@@ -63,15 +64,26 @@ func execute_effect(
 			
 			var unit = battle_state.create_unit(unit_id, Unit.Faction.ALLY)
 			var battle_floor = battle_state.battlefield.get_floor(selected_floor)
-			
+
 			if battle_floor == null:
 				return
-			
-			if not battle_floor.add_unit(unit):
+
+			var placed: bool
+
+			if selected_position >= 0:
+				placed = battle_floor.insert_unit_at(unit, selected_position)
+			else:
+				placed = battle_floor.add_unit(unit)
+
+			if not placed:
 				print("Andar cheio!")
 				return
-			
-			print("Invocado: ", unit.name, " no andar ", selected_floor)
+
+			print(
+				"Invocado: ", unit.name,
+				" no andar ", selected_floor,
+				" na posição ", unit.position_index
+			)
 		
 		_:
 			print("Efeito desconhecido: ", type)

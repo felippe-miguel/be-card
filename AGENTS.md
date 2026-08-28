@@ -242,23 +242,66 @@ the `unit` id off a `summon` effect (pure data, "" if not a summon card).
 cards, or if no `unit_database` was passed to `Card.setup()`).
 `Game.render_hand()` passes its `unit_database` into `card.setup()`.
 
-Next: user-defined plan (2026-08-26), not started yet:
+Resolved (1 & 2 of the 2026-08-26 plan): summon-to-slot + slot preview.
+Summon cards now target `"selected_position"` (not `"selected_floor"`):
+the player picks a specific slot — front/middle/rear
+(`position_index` 0/1/2) — in one click, via `GameState.State
+.TARGETING_POSITION`. `BattleFloor.insert_unit_at(unit, position)` pushes
+existing units aside (`Array.insert()` semantics); `add_unit()` is now just
+`insert_unit_at(unit, <end>)`. `find_first_free_position()` was removed
+(dead after the refactor — the formation is always compact).
 
-1. Summon into a specific slot (front/middle/rear), not always
-   `find_first_free_position()`. Existing units in the way get pushed aside
-   instead of the summon failing. Needs new `BattleFloor` operations (see
-   `docs/ARCHITECTURE.md`'s Positioning section — `insert_unit_at()` /
-   push mechanics were already anticipated there, just not implemented).
-2. While picking a floor for a summon (`TARGETING_FLOOR`), hovering a slot
-   on that floor should preview where the unit would land.
-3. While a card effect is pending on a unit (`TARGETING_UNIT`), hovering a
-   candidate target should preview the result of the effect on it — e.g.
-   resulting HP after damage/heal, resulting block after a block effect —
-   not just whether it's a legal target.
+Per explicit user decision, this stays inactive outside a pending summon
+(`Game.begin_placement_preview()` / `end_placement_preview()`) — no
+permanent change to the floor UI otherwise. First pass used 3 separate
+slot buttons showing text only; per user feedback ("não gostei da
+disposição com esses botões... o elemento visual da unidade deve se mover
+para o lado"), replaced with a live reflow: hovering previews the real
+`UnitView`s sliding aside plus a ghost stat-preview `Button` (name/ATK/HP)
+right where the new unit would land. Hover *detection* uses a separate,
+never-moving 3-zone overlay (`AllyHoverZones`) precisely so the reflow
+underneath can't destabilize its own trigger (see `docs/ARCHITECTURE.md`'s
+Positioning section for why that matters and the full flow).
 
-Discuss slot/positioning terminology and the exact preview UX with the user
-before implementing — both are UI-heavy and likely need a few small
-back-and-forth decisions (see Incremental workflow above).
+Follow-up fixes (same day, user feedback), in order:
+
+1. Ally `UnitView`s only got `EXPAND_FILL` sizing *while placement was
+   active*, so they visibly resized the instant a summon card was played
+   — jarring. Fixed by making ally slot sizing (`EXPAND_FILL` units +
+   invisible spacer `Button`s) permanent, in sync on every add/remove, not
+   placement-only.
+2. That in turn made both factions' front lines flush against each other
+   at the center (no gap) once ally sizing was always full-width, so
+   added `CenterSpacer` (fixed-width `Control`) between the ally and enemy
+   areas.
+3. Enemies still looked compact/inconsistent next to now-always-expanded
+   allies, so the same treatment (`EXPAND_FILL` + spacers) was generalized
+   to `ENEMY` too — `sync_ally_slots()`/`layout_ally_slots()` became
+   faction-generic `sync_slots(faction)`/`layout_slots(faction)`, and the
+   old ally-only `reorder_unit_views()` was removed (superseded, both
+   factions now go through the same slot-sync path). Enemies still have
+   no placement UI (no `EnemyHoverZones`) — this was purely visual
+   consistency, not new interaction.
+4. A sparse formation crowded toward the center (a lone unit sat at the
+   front-most screen column) — per user feedback, inverted: occupied
+   slots now anchor to the edge *farthest* from center and grow toward
+   the center as more units arrive, so a lone unit sits at the outermost
+   slot instead. `position_index` 0 (front) is unchanged as a domain
+   concept (still "the most-central of whatever's present", still what
+   `TargetSystem.get_front_unit()` reads) — only the screen-column mapping
+   changed, in `layout_slots()`/`preview_arrangement()`. Because that
+   mapping now depends on live unit count, the hover-zone-to-insert-index
+   translation could no longer be precomputed once in `_ready()` (as it
+   was originally) — `zone_index_to_insert_position()` recalculates it on
+   every hover/click instead.
+
+See `docs/ARCHITECTURE.md`.
+
+Next: item 3 of the 2026-08-26 plan, not started — while a card effect is
+pending on a unit (`TARGETING_UNIT`), hovering a candidate target should
+preview the effect's result on it (resulting HP after damage/heal,
+resulting block after a block effect), not just whether it's a legal
+target. Discuss the exact preview UX with the user before implementing.
 
 ## Testing
 

@@ -398,30 +398,147 @@ Allies:  [3] [2] [1] [0]
 
 Do not change logical indexes to compensate for visual orientation.
 
+This diagram is the *full-floor* layout — `position_index` maps to those
+exact screen columns only once a faction's formation is full. Below that,
+`BattleFloorView` anchors occupied slots to the edge farthest from center
+(so a sparse formation doesn't crowd toward the middle) — see Summon-to-slot
+UI below for why and how.
+
 ## Positioning
 
-Current `add_unit()` behavior:
+`BattleFloor.insert_unit_at(unit, position)` is the general insertion
+operation: it clamps `position` to `[0, current size]` and uses
+`Array.insert()`, which naturally shifts every unit from that index
+onward — this is the "push" mechanic summon-into-a-slot relies on.
+`add_unit(unit)` is just `insert_unit_at(unit, <current size>)`, i.e.
+"insert after everyone" — the old default-summon behavior, now a thin
+wrapper instead of its own `find_first_free_position()` logic (removed;
+the formation is always compact, so "after everyone" and "first free
+slot" were always the same slot anyway).
 
-```text
-add_unit()
- ↓
-find_first_free_position()
- ↓
-first free slot
-```
+Both operations still refuse to add a unit past `max_units` for that
+faction — pushing existing units aside doesn't create a new slot, it only
+reorders the slots that already fit.
 
-Normal summons do not insert into the middle.
+After removal, `reorder_units()` compacts the remaining formation (unchanged).
 
-After removal, `reorder_units()` compacts the remaining formation.
+Not yet implemented: `move_unit(from, to)`, and any push/pull mechanics
+that aren't summon-driven (e.g. a card that shoves an existing unit
+without adding a new one).
 
-Future operations may include:
+### Summon-to-slot UI
 
-- `add_unit_at(position)`
-- `insert_unit_at(position)`
-- `move_unit(from, to)`
-- push/pull/reposition mechanics
+Summon cards target `"selected_position"` (see Card targeting below), not
+`"selected_floor"` — the player picks one of 3 fixed conceptual slots
+(front/middle/rear = `position_index` 0/1/2) directly, in one interaction,
+rather than picking a floor and then defaulting to the first free slot.
 
-Not implemented yet.
+**Screen columns and `position_index` are not fixed to each other** — a
+faction's occupied units anchor to the edge farthest from the center and
+grow toward the center as more are added (see Battlefield and floors
+above for why: `layout_slots()`/`preview_arrangement()`, not a fixed
+`max_units`-wide mapping). A lone unit sits at the outermost slot,
+not the front-most screen column; it only reaches the true front-most
+column once the floor is full. Per explicit user feedback, this was
+changed from an earlier version that always mapped `position_index` 0 to
+a fixed screen column regardless of how many units existed — which made a
+sparse floor's unit(s) crowd toward the center instead of the edge. The
+hover-zone-to-insert-index translation
+(`BattleFloorView.zone_index_to_insert_position()`) depends on this same
+anchoring and therefore on live unit count, so — unlike the original
+version — it can no longer be computed once and bound in `_ready()`; it's
+recalculated on every hover/click.
+
+Per an explicit user decision, this is inactive outside a pending summon —
+`BattleFloorView` keeps showing only the present `UnitView`s day-to-day,
+same as before this feature. What activates during placement mode
+(`BattleFloorView.begin_placement(unit_data)`, called by
+`Game.begin_placement_preview()` when a summon card's `TARGETING_POSITION`
+starts; deactivated by `end_placement()`) is described below. A floor
+that's already full for `ALLY` never activates (nothing to push into).
+
+**Hover/click detection is deliberately decoupled from the visual content
+it previews**, to avoid a real instability: if the thing you're hovering
+to trigger a preview is also the thing that visually *moves* as a result
+of that preview (e.g. hovering a unit's own `UnitView` to insert before
+it, which then slides that same `UnitView` out from under a stationary
+mouse), you get `mouse_exited` → preview reverts → the view slides back
+under the mouse → `mouse_entered` → preview reapplies → infinite flicker.
+This was tried and rejected during development for exactly that reason.
+
+The fix: `AllyHoverZones` (3 invisible, always-equal-width `Button`s,
+`Zone0`/`Zone1`/`Zone2` in `battle_floor.tscn`) sit in a `Control` overlay
+(`AllyArea`) stacked on the exact same rect as `AllyContainer`, purely for
+hit-testing. They are never reordered, never recreated, and their
+`mouse_filter` toggles `IGNORE`↔`STOP` only in `begin_placement()`/
+`end_placement()` — completely inert outside a pending summon. Content
+underneath (`AllyContainer`'s real `UnitView`s, plus a lazily-created
+ghost `Button`) can be freely reordered via `move_child()` in response to
+a zone's hover, because the thing detecting the hover is a node that
+itself never moves.
+
+For the 3 ally hover zones (each `size_flags_horizontal = EXPAND_FILL`,
+evenly splitting `AllyArea`'s width) to line up with the real content,
+that content must divide the same width the same way. So every `UnitView`
+— **both factions**, not just allies — gets `size_flags_horizontal =
+EXPAND_FILL` (set once in `create_unit_view()`), and both `ally_container`
+and `enemy_container` always hold exactly `battle_floor.max_units`
+elements: real `UnitView`s plus invisible `Button` "spacers"
+(`get_spacer_views_for_faction()`) filling out empty slots, kept in sync
+by `sync_slots(faction)` on every add/remove of that faction, whether or
+not placement is active. This went through two prior iterations: first,
+units only switched to `EXPAND_FILL` *during* placement, visibly resizing
+the instant a summon card was played (jarring); fixed by making ally
+sizing permanent — which then made both factions' front lines flush
+against each other at the center once ally content always filled its
+whole half (see `CenterSpacer` below); finally, enemies got the same
+always-`EXPAND_FILL` + spacer treatment as allies too, per user feedback,
+purely for visual consistency between the two sides (enemies still have
+no placement UI at all — `EnemyHoverZones` don't exist, only
+`AllyHoverZones` does). `layout_slots(faction)` positions a faction's
+`max_units` slots — front is position 0, rendered rightmost for `ALLY`
+and leftmost for `ENEMY` (see Battlefield and floors above). Spacers are
+invisible (`modulate` alpha 0) at all times for enemies, and for allies
+outside placement; tinted visible (`EMPTY_SLOT_COLOR`, "Vazio" text) only
+while `begin_placement()`/`end_placement()` toggle the ally ones — but
+they exist permanently either way, so a real `UnitView`'s width truly
+never changes for either faction. A floor with zero units of some faction
+from the start (true for every floor's `ENEMY` side today, since
+`EnemySpawner` populates it) never goes through `create_unit_view()` at
+setup, so never calls `sync_slots()` on its own — see the guard in
+`connect_to_floor()`, which now runs for both factions independently.
+
+Making both `AllyContainer` and `EnemyContainer` always expand to fill
+their half renders the two factions' front lines flush against each
+other with no gap at the center, which is why `CenterSpacer` (a
+fixed-width, non-expanding `Control`, `battle_floor.tscn`) sits between
+`AllyArea` and `EnemyContainer` in the outer `HBoxContainer` — a
+guaranteed minimum gap regardless of how either side's content behaves.
+
+`BattleFloorView.preview_arrangement(target_position)` does the actual
+hover-preview work: simulate the insert on a duplicated array (no real
+`BattleFloor` mutation — a stat-preview ghost `Button` stands in for the
+new unit, per explicit user decision to show name/ATK/HP, not just
+highlight a slot), then apply that simulated order to `AllyContainer` via
+`move_child()` — real `UnitView`s slide to their pushed-aside position,
+the ghost appears exactly where the new unit would land, and spacers are
+hidden/shown as needed to keep the row at a constant `max_units` elements.
+`layout_slots(Unit.Faction.ALLY)` is the same placement without a ghost —
+the "nothing hovered" resting arrangement, used both for normal
+(non-placement) sync and on `mouse_exited`.
+
+Card target flow (summon): `Card` played → `Game.get_required_target()`
+returns `"position"` → `GameState.State.TARGETING_POSITION` →
+`Game.begin_placement_preview()` activates every eligible floor → player
+clicks a hover zone → `BattleFloorView.position_selected(floor_index,
+position_index)` → `Game._on_position_selected()` → `Game.execute_card()`
+with both `selected_floor` and `selected_position` → `EffectSystem`'s
+`"summon"` branch calls `BattleFloor.insert_unit_at()` instead of
+`add_unit()` whenever `selected_position >= 0`.
+
+No cancel flow exists for `TARGETING_POSITION` (matching the pre-existing
+gap for `TARGETING_UNIT`/`TARGETING_FLOOR` — once a summon card is played,
+the player must complete it by clicking a slot on some floor with room).
 
 ## BattleFloor signals
 
@@ -513,17 +630,17 @@ Current flow:
 ```text
 Card
  ↓
-summon effect
+summon effect (target: selected_position)
  ↓
-TARGETING_FLOOR
+TARGETING_POSITION
  ↓
-player selects floor
+player selects a floor + slot (front/middle/rear)
  ↓
 BattleState.create_unit()
  ↓
 Faction.ALLY
  ↓
-BattleFloor.add_unit()
+BattleFloor.insert_unit_at()
  ↓
 unit_added
  ↓
@@ -537,7 +654,10 @@ cards: `CardData.get_summon_unit_id()` reads the `unit` id off the
 that id against `UnitDatabase` (passed into `Card.setup()` by
 `Game.render_hand()`) to show base ATK/HP. Hidden for non-summon cards.
 
-Default summon uses first free slot.
+Summon no longer defaults to "first free slot" — the player always picks
+the slot explicitly (see Positioning above). `BattleFloor.add_unit()` (append
+after everyone) still exists as the general "no specific slot" fallback
+and is what `EnemySpawner` uses, since enemy spawning has no per-slot UI.
 
 ## Targeting architecture
 
@@ -607,18 +727,26 @@ Cards may need:
 ```text
 selected_unit
 selected_floor
+selected_position
 all_enemies
 all_allies
 ...
 ```
 
 `TargetSystem.get_card_targets(target_type, selected_unit, target_faction)` is
-the single resolver for targets that are Units. `selected_floor` is consumed by
-effects that require a floor and is handled by the UI flow.
+the single resolver for targets that are Units. `selected_floor` and
+`selected_position` are consumed by effects that require a floor (or a
+floor + slot) and are handled by the UI flow, not `TargetSystem`.
 
 `selected_unit` means the Unit chosen by the UI. Use the optional
 `target_faction` field to limit it to `ally` or `enemy`, without reintroducing
 names such as `selected_enemy`.
+
+`selected_position` carries both a floor index and a slot
+(`position_index` 0/1/2, front/middle/rear) chosen together in one
+interaction — see Positioning above. All 3 current summon cards use it;
+`selected_floor` alone is still supported by `EffectSystem`/`GameState` for
+any future effect that only needs a floor, but nothing currently uses it.
 
 ## GameState
 
@@ -633,8 +761,10 @@ COMBAT_PHASE
 SPAWN_PHASE
 ```
 
-`TARGETING_POSITION` is declared but not yet driven by any flow — reserved
-for future position-targeting effects, not dead code.
+`TARGETING_POSITION` now drives the summon-to-slot flow (see Positioning
+above) — `"selected_position"` card effects transition to it and it
+resolves via `BattleFloorView.position_selected`, not just a unit or a
+floor.
 
 `ENEMY_ACTION` was renamed to `COMBAT_PHASE`: the phase runs every living
 Unit's automatic attack, ally and enemy alike (see Combat below), not just

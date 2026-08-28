@@ -21,6 +21,7 @@ var mana: Mana
 var enemy_spawner: EnemySpawner
 
 var pending_card: Card = null
+var floor_views: Array[BattleFloorView] = []
 
 ## Turno atual (1-indexado). Avança a cada vez que o combate automático
 ## termina e o jogo volta para PLAYER_ACTION.
@@ -170,24 +171,36 @@ func _on_card_played(card: Card) -> void:
 	
 	if required_target == "floor":
 		game_state.change_to(GameState.State.TARGETING_FLOOR)
-		
+
 		pending_card = card
-		
+
 		print("Escolha um andar.")
 		return
-	
+
+	if required_target == "position":
+		game_state.change_to(GameState.State.TARGETING_POSITION)
+
+		pending_card = card
+		begin_placement_preview(card.data)
+
+		print("Escolha uma posição.")
+		return
+
 	execute_card(card)
 
 func get_required_target(card: Card) -> String:
 	for effect in card.data.effects:
 		var target = effect.get("target", "")
-		
+
 		if target == "selected_unit":
 			return "unit"
-		
+
 		if target == "selected_floor":
 			return "floor"
-	
+
+		if target == "selected_position":
+			return "position"
+
 	return ""
 
 func _on_game_state_changed() -> void:
@@ -246,26 +259,57 @@ func layout_hand(card_views: Array[Card]) -> void:
 func setup_units() -> void:
 	for battle_floor in battle_state.battlefield.floors:
 		var floor_view = floors_container.get_child(battle_floor.index)
-		
+
 		floor_view.setup(battle_floor.index)
 		floor_view.connect_to_floor(battle_floor)
-		
+
 		floor_view.selected.connect(_on_floor_selected)
 		floor_view.unit_selected.connect(_on_unit_selected)
-		
+		floor_view.position_selected.connect(_on_position_selected)
+
 		for unit in battle_floor.get_units():
 			floor_view.create_unit_view(unit)
+
+		floor_views.append(floor_view)
 
 func _on_floor_selected(floor_view: BattleFloorView) -> void:
 	if game_state.current != GameState.State.TARGETING_FLOOR:
 		return
-	
+
 	print("Andar escolhido: ", floor_view.floor_index)
-	
+
 	game_state.change_to(GameState.State.PLAYER_ACTION)
-	
+
 	execute_card(pending_card, null, floor_view.floor_index)
 	pending_card = null
+
+func _on_position_selected(floor_index: int, position_index: int) -> void:
+	if game_state.current != GameState.State.TARGETING_POSITION:
+		return
+
+	print("Posição escolhida: andar ", floor_index, " slot ", position_index)
+
+	end_placement_preview()
+	game_state.change_to(GameState.State.PLAYER_ACTION)
+
+	execute_card(pending_card, null, floor_index, position_index)
+	pending_card = null
+
+## Mostra os marcadores de slot (frente/meio/fundo) em todo andar, para o
+## jogador escolher onde a unidade da carta pendente vai entrar.
+func begin_placement_preview(card_data: CardData) -> void:
+	var unit_id = card_data.get_summon_unit_id()
+	var unit_data: UnitData = unit_database.units.get(unit_id)
+
+	if unit_data == null:
+		return
+
+	for floor_view in floor_views:
+		floor_view.begin_placement(unit_data)
+
+func end_placement_preview() -> void:
+	for floor_view in floor_views:
+		floor_view.end_placement()
 
 func _on_unit_selected(unit: Unit) -> void:
 	if game_state.current != GameState.State.TARGETING_UNIT:
@@ -297,13 +341,15 @@ func can_select_unit_for_card(card: Card, unit: Unit) -> bool:
 func execute_card(
 	card: Card,
 	selected_unit: Unit = null,
-	selected_floor: int = -1
+	selected_floor: int = -1,
+	selected_position: int = -1
 ) -> void:
 	for effect in card.data.effects:
 		effect_system.execute_effect(
 			effect,
 			selected_unit,
-			selected_floor
+			selected_floor,
+			selected_position
 		)
 
 	mana.spend(card.data.cost)

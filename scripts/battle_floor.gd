@@ -16,44 +16,47 @@ func _init(floor_index: int, capacity: int = 3) -> void:
 func can_add_unit(faction: Unit.Faction) -> bool:
 	return get_units_for_faction(faction).size() < max_units
 
+## Adiciona a unidade no fim da formação da sua facção (comportamento
+## default de summon, sem escolher posição). Equivale a inserir depois da
+## última unidade presente.
 func add_unit(unit: Unit) -> bool:
+	return insert_unit_at(unit, get_units_for_faction(unit.faction).size())
+
+## Insere a unidade na posição pedida da formação da sua facção,
+## empurrando as unidades já presentes a partir dali (Array.insert() já
+## desloca os elementos seguintes). position é fixado entre 0 e o total
+## atual de unidades; index além do fim vira "inserir no fim". Falha se a
+## facção já estiver no limite (max_units) — empurrar não abre espaço
+## novo, só reorganiza o que já cabe.
+func insert_unit_at(unit: Unit, position: int) -> bool:
 	if not can_add_unit(unit.faction):
 		return false
-	
+
 	var units = get_units_for_faction(unit.faction)
-	var position = find_first_free_position(unit.faction)
-	
-	if position == -1:
-		return false
-	
-	unit.position_index = position
+	var clamped_position = clampi(position, 0, units.size())
+
+	units.insert(clamped_position, unit)
 	unit.floor_index = index
-	units.append(unit)
 	unit.changed.connect(_on_unit_changed.bind(unit))
-	
+
+	reorder_units(unit.faction)
+
 	print(
 		unit.name,
 		" entrou no andar ", index,
-		" na posição ", position,
+		" na posição ", unit.position_index,
 		" na facção ", unit.faction
 	)
-	
+
 	unit_added.emit(unit)
-	
+
 	return true
 
 func get_units_for_faction(faction: Unit.Faction) -> Array[Unit]:
 	if faction == Unit.Faction.ALLY:
 		return allies
-	
-	return enemies
 
-func find_first_free_position(faction: Unit.Faction) -> int:
-	for position in range(max_units):
-		if get_unit_at(faction, position) == null:
-			return position
-	
-	return -1
+	return enemies
 
 func get_unit_at(faction: Unit.Faction, position: int) -> Unit:
 	var units = get_units_for_faction(faction)

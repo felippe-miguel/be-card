@@ -7,7 +7,7 @@
   "effects": [
     {
       "type": "summon",
-      "target": "selected_floor",
+      "target": "selected_position",
       "unit": "orc"
     }
   ]
