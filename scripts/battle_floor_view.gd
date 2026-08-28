@@ -136,6 +136,26 @@ func get_spacer_views_for_faction(faction: Unit.Faction) -> Array[Button]:
 
 	return ally_spacer_views
 
+## Todas as UnitViews reais deste andar, das duas facções — usado por
+## Game para armar/desarmar o preview de efeito de carta (ver
+## UnitView.arm_effect_preview()).
+func get_all_unit_views() -> Array[UnitView]:
+	var views: Array[UnitView] = []
+
+	for child in ally_container.get_children():
+		var view = child as UnitView
+
+		if view != null:
+			views.append(view)
+
+	for child in enemy_container.get_children():
+		var view = child as UnitView
+
+		if view != null:
+			views.append(view)
+
+	return views
+
 func _on_unit_selected(unit: Unit) -> void:
 	unit_selected.emit(unit)
 
@@ -159,8 +179,9 @@ func sync_slots(faction: Unit.Faction) -> void:
 func create_spacer(container: HBoxContainer) -> Button:
 	var spacer = Button.new()
 
-	spacer.custom_minimum_size = Vector2(160, 80)
+	spacer.custom_minimum_size = Vector2(160, 110)
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	spacer.disabled = true
 	spacer.text = "Vazio"
@@ -261,8 +282,9 @@ func ensure_ghost_view() -> void:
 
 	ghost_view = Button.new()
 
-	ghost_view.custom_minimum_size = Vector2(160, 80)
+	ghost_view.custom_minimum_size = Vector2(160, 110)
 	ghost_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ghost_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	ghost_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ghost_view.disabled = true
 	ghost_view.modulate = GHOST_COLOR

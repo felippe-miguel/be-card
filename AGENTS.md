@@ -297,11 +297,27 @@ Follow-up fixes (same day, user feedback), in order:
 
 See `docs/ARCHITECTURE.md`.
 
-Next: item 3 of the 2026-08-26 plan, not started — while a card effect is
-pending on a unit (`TARGETING_UNIT`), hovering a candidate target should
-preview the effect's result on it (resulting HP after damage/heal,
-resulting block after a block effect), not just whether it's a legal
-target. Discuss the exact preview UX with the user before implementing.
+Resolved (item 3 of the 2026-08-26 plan): unit effect preview. While a
+card with a `"selected_unit"` effect is pending (`TARGETING_UNIT`),
+`Game.begin_unit_effect_preview()` arms `UnitView.arm_effect_preview()` on
+every unit that's actually a legal target — reusing
+`EffectSystem.can_target_selected_unit()`, the same check that already
+validated the real click, so preview eligibility can never disagree with
+what clicking would do. `UnitView.show_effect_preview()` (triggered by its
+own `mouse_entered`, no separate overlay needed here — nothing moves as a
+result of hovering a unit, unlike the summon-placement case, so the
+flicker risk that drove that design doesn't apply) simulates the card's
+effects in order via `CombatMath.apply_block()` for damage and simple
+clamped add for heal/block. Disarmed in `Game.end_unit_effect_preview()`
+once a valid unit is actually clicked.
+
+Follow-up (same day, user feedback): the initial version appended "→
+result" text to the HP/Block lines; changed to recoloring the number
+itself instead (red = worse, green = better, normal color = unchanged),
+plus a big red "X" `DeathIndicator` overlay when the previewed HP would
+hit 0. This required restructuring `unit_view.tscn` from a single
+`Button.text` string into per-field `Label`s (`HpLabel`/`BlockLabel` need
+independent `font_color` overrides) — see `docs/ARCHITECTURE.md`.
 
 ## Testing
 

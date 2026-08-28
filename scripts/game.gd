@@ -165,7 +165,8 @@ func _on_card_played(card: Card) -> void:
 	if required_target == "unit":
 		game_state.change_to(GameState.State.TARGETING_UNIT)
 		pending_card = card
-		
+		begin_unit_effect_preview(card.data)
+
 		print("Escolha uma unidade.")
 		return
 	
@@ -311,6 +312,31 @@ func end_placement_preview() -> void:
 	for floor_view in floor_views:
 		floor_view.end_placement()
 
+## Arma, em cada UnitView que for um alvo válido para algum efeito
+## "selected_unit" da carta, um preview do resultado desse efeito
+## (HP/block resultante) ao passar o mouse — ver UnitView.arm_effect_
+## preview(). Reaproveita EffectSystem.can_target_selected_unit(), a
+## mesma checagem usada para validar o clique de fato.
+func begin_unit_effect_preview(card_data: CardData) -> void:
+	for floor_view in floor_views:
+		for unit_view in floor_view.get_all_unit_views():
+			var eligible_effects: Array[Dictionary] = []
+
+			for effect in card_data.effects:
+				if effect.get("target", "") != "selected_unit":
+					continue
+
+				if effect_system.can_target_selected_unit(effect, unit_view.unit):
+					eligible_effects.append(effect)
+
+			if not eligible_effects.is_empty():
+				unit_view.arm_effect_preview(eligible_effects)
+
+func end_unit_effect_preview() -> void:
+	for floor_view in floor_views:
+		for unit_view in floor_view.get_all_unit_views():
+			unit_view.disarm_effect_preview()
+
 func _on_unit_selected(unit: Unit) -> void:
 	if game_state.current != GameState.State.TARGETING_UNIT:
 		return
@@ -318,16 +344,17 @@ func _on_unit_selected(unit: Unit) -> void:
 	if not can_select_unit_for_card(pending_card, unit):
 		print("A unidade selecionada não é um alvo válido para esta carta.")
 		return
-	
+
 	print(
 		"Unit selecionada: ", unit.name,
 		" | Faction: ", unit.faction,
 		" | Floor: ", unit.floor_index,
 		" | Pos: ", unit.position_index
 	)
-	
+
 	if game_state.current == GameState.State.TARGETING_UNIT:
 		game_state.change_to(GameState.State.PLAYER_ACTION)
+		end_unit_effect_preview()
 		execute_card(pending_card, unit)
 		pending_card = null
 

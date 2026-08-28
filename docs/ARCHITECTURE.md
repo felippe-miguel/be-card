@@ -348,6 +348,48 @@ Avoid:
 - `enemy_selected`
 - `selected_enemy`
 
+## Unit effect preview
+
+While a card with a `"selected_unit"` effect is pending
+(`GameState.State.TARGETING_UNIT`), hovering a `UnitView` previews that
+effect's result on it — resulting HP after `damage`/`heal`, resulting
+block after `block` — instead of only knowing whether it's a legal target
+once clicked.
+
+`Game.begin_unit_effect_preview(card_data)` arms this per-unit: for every
+`UnitView` across every floor, it filters `card_data.effects` to the
+`"selected_unit"` ones and keeps only those `EffectSystem.
+can_target_selected_unit()` says this specific `Unit` can legally receive
+— the exact same check that already gates the real click in
+`Game.can_select_unit_for_card()`. This means preview eligibility can
+never disagree with what clicking would actually do. Eligible effects are
+handed to `UnitView.arm_effect_preview(effects)`; ineligible units are
+simply never armed, so hovering them shows nothing.
+
+`UnitView.show_effect_preview()` runs on the view's own `mouse_entered` —
+unlike the summon-placement preview (see Positioning above), nothing here
+needs to move as a result of hovering, so there's no risk of the
+"element moves out from under the mouse" flicker that made a decoupled
+hover-zone overlay necessary there. It simulates the armed effects in
+order (matching the order `EffectSystem.execute_effect()` would actually
+apply them) using `CombatMath.apply_block()` for `damage` — so a preview
+correctly accounts for block absorption — and simple clamped arithmetic
+for `heal`/`block`, without touching the real `Unit`.
+
+`unit_view.tscn` changed from a single `Button.text` (one multi-line
+string) to separate child `Label`s per field (`NameLabel`, `FactionLabel`,
+`HpLabel`, `AtkLabel`, `BlockLabel`, `PositionLabel`, under a `Content`
+`VBoxContainer`) specifically so `HpLabel`/`BlockLabel` can have their own
+`font_color` overridden per preview, independent of the rest — per
+explicit user decision, the previewed number itself turns red/green
+(`UnitView.get_delta_color()`), not an appended "→ result" arrow.
+A `DeathIndicator` `Label` ("X", large, red, anchored full-rect on top of
+`Content`) shows whenever the previewed HP would reach 0, a first hint
+that a card is about to be lethal before it's actually played.
+`Game.end_unit_effect_preview()` disarms every view (reverting labels to
+real values/colors, hiding the death indicator) once a legal unit is
+actually clicked.
+
 ## UI selection
 
 The UI communicates domain objects, not visual Nodes:
