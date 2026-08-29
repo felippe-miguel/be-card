@@ -40,6 +40,7 @@ Use Nodes for SceneTree/presentation/input:
 - `Card` → `Control`
 - `UnitView` → `Button`
 - `BattleFloorView` → `PanelContainer`
+- `CardPileView` → `Control`
 
 Use `RefCounted` for data, state, and systems:
 
@@ -66,7 +67,8 @@ res://
 │   ├── card.tscn
 │   ├── card_pile_view.tscn
 │   ├── unit_view.tscn
-│   └── battle_floor.tscn
+│   ├── battle_floor.tscn
+│   └── game.tscn
 ├── scripts/
 │   ├── card.gd
 │   ├── card_data.gd
@@ -106,9 +108,9 @@ Current data:
 
 ```text
 data/
-├── cards/
-├── units/
-└── battles/
+├── cards/    (15 example cards)
+├── units/    (9 unit types)
+└── battles/  (1 test battle)
 ```
 
 Future data may reference assets such as artwork, particles, animations, audio, and VFX.
@@ -146,31 +148,19 @@ The card target schema is still being refined; do not assume the current JSON fo
 
 ## Card visual states
 
-`Card`'s border color has three resting states — `normal_style` (default),
-`pending_style` (this card is `Game.pending_card`, waiting on a target),
-and a transient `hover_style`. `Card.set_pending(true)` is called right
-after `Game._on_card_played()` sets `pending_card = card`, at all 3
-targeting entry points (`TARGETING_UNIT`/`TARGETING_FLOOR`/
-`TARGETING_POSITION`). There's no explicit "un-pending" call — the
-pending card's node is always `queue_free()`d shortly after it resolves
-anyway, as part of the hand rebuild `Game.render_hand()` runs once
-`Deck.discard()` fires.
+`Card`'s border color has three states — `normal_style` (default),
+`pending_style` (this card is `Game.pending_card`, waiting on a target), and
+a transient `hover_style`. `Card.set_pending(true/false)` is called by
+`Game` whenever `pending_card` changes.
 
-Per user feedback, a pending card doesn't just get a different border —
-it stays locked in the hovered scale/position/z-index (bigger, lifted)
-for as long as it's pending, and every card in hand (pending or not)
-stops reacting to real mouse hover while that's happening. This needed
-one small piece of cross-instance state: `static var
-Card.any_card_pending`, set by `set_pending()`. Since only one card is
-ever `Game.pending_card` at a time, a single shared flag is enough — no
-need to track which specific card. `Card._on_mouse_entered()`/
-`_on_mouse_exited()` both no-op whenever `any_card_pending` is true,
-including for the pending card itself (its locked state is driven
-directly by `set_pending()`, not by the mouse). Because the pending
-card's node is destroyed without ever calling `set_pending(false)` (see
-above), `Game.render_hand()` resets `Card.any_card_pending = false`
-unconditionally at the start of every rebuild — the one place guaranteed
-to run whenever a pending card's targeting actually resolves.
+While pending, a card is also locked into the hovered scale/position/z-index
+(not just the border), and — via a shared `static var
+Card.any_card_pending` — every card in hand stops reacting to real mouse
+hover, since only one card can ever be pending at a time. There's no
+explicit "un-pending" call when a card resolves normally: its node is
+destroyed as part of the hand rebuild `Deck.discard()` triggers, so
+`Game.render_hand()` unconditionally resets `Card.any_card_pending = false`
+at the start of every rebuild as a safety net.
 
 ## Deck, hand and discard
 
@@ -214,6 +204,8 @@ Current rules (see `Game._ready()` / `Game._on_end_turn_pressed()`):
 - Every card currently in `CardDatabase` is a single copy in the deck —
   there is no per-battle deck list/composition yet, and no duplicate
   copies of a card.
+- Hand size is capped at `Deck.MAX_HAND_SIZE` (currently 7): drawing beyond
+  that is a no-op, the card stays in `draw_pile` until there's room.
 
 `Deck` does not distinguish `CardData.type` (`attack`/`skill`/`unit`) —
 every card is drawn from the same pile and discarded to the same pile.
@@ -224,9 +216,6 @@ screens) are a future feature, not implemented.
 generic visual for a pile: it only shows a title and a card count, no
 individual cards. `Game` owns two instances, `DeckPileView` and
 `DiscardPileView`, updated whenever `Deck.changed` fires.
-
-Hand size is capped at `Deck.MAX_HAND_SIZE` (currently 7): drawing beyond
-that is a no-op, the card stays in `draw_pile` until there's room.
 
 ## Hand layout
 
@@ -242,12 +231,9 @@ it must be revisited if a sibling of `Cards` in `BottomBar` changes size.
 
 Stacking order is fixed and left-to-right: `Card.z_index` = hand index (via
 `set_hand_position()`), so the rightmost card is always on top at rest.
-Hovering a card raises it to `Card.HOVERED_Z_INDEX` (temporarily above
-everything) and lowers it back to its own `rest_z_index` on mouse-exit —
-hover never permanently changes the resting order. A "last-hovered card
-stays on top after the mouse leaves" variant was tried and reverted per
-explicit user feedback: it made the stacking order feel arbitrary instead
-of a fixed, predictable left-to-right fan.
+Hovering a card raises it to `Card.HOVERED_Z_INDEX` temporarily; it always
+drops back to its own `rest_z_index` on mouse-exit — hovering never
+permanently changes the resting stacking order.
 
 ## Mana
 
@@ -309,7 +295,8 @@ Do not put faction into unit JSON definitions unless explicitly changing this ar
 not a `Unit`: it has no faction, floor, position, or attack targeting.
 
 `BattleState` owns the Pyre. Cards currently target Units only; future effects
-that affect the Pyre must use a distinct target type.
+that affect the Pyre must use a distinct target type — no such effect exists
+yet, and no combat outcome depends on the Pyre yet either.
 
 `Unit` and `Pyre` both resolve block absorption through
 `CombatMath.apply_block()` to avoid duplicating that math in two places.
@@ -345,9 +332,8 @@ The domain model must not reference `UnitView`.
 
 ## UnitView
 
-The old generic visual class `Enemy` was renamed to `UnitView`.
-
-`UnitView` can represent either faction:
+`UnitView` represents either faction — never use `Enemy`/`EnemyView`
+terminology for it (see `AGENTS.md`'s Naming section for the full rule):
 
 ```text
 UnitView
@@ -356,67 +342,56 @@ UnitView
       └── ENEMY
 ```
 
-Never use `Enemy` as a generic visual/domain name.
+Visual structure (`unit_view.tscn`):
 
-Prefer:
+```text
+UnitView (Button)
+├── Content (VBoxContainer)
+│   ├── NameLabel
+│   ├── FactionLabel
+│   ├── HpLabel
+│   ├── AtkLabel
+│   ├── BlockLabel
+│   └── PositionLabel
+└── DeathIndicator (Label, "X", overlay, hidden by default)
+```
 
-- `Unit`
-- `UnitView`
-- `create_unit_view()`
-- `setup_units()`
-- `unit_selected`
-- `selected_unit`
+One `Label` per field — not a single combined multi-line `Button.text` —
+specifically so `HpLabel`/`BlockLabel` can have independent `font_color`
+overrides for the effect preview (below). `DeathIndicator` overlays the
+whole view and is shown whenever previewed HP would hit 0.
 
-Avoid:
-
-- `Enemy`
-- `EnemyView`
-- `create_enemy_view()`
-- `setup_enemies()`
-- `enemy_selected`
-- `selected_enemy`
+`UnitView.size_flags_vertical = EXPAND_FILL` (and the same on its parent
+chain — `Content`, the `HBoxContainer` inside `battle_floor.tscn`'s
+`Layout`) so a unit's box fills the floor's full height rather than sitting
+at a fixed minimum with blank space below it. If units ever look short
+again, check every ancestor between `UnitView` and `BattleFloor` for a
+missing `size_flags_vertical`/`size_flags_horizontal` fill flag — a single
+non-expanding link anywhere in that chain caps everything below it.
 
 ## Unit effect preview
 
 While a card with a `"selected_unit"` effect is pending
 (`GameState.State.TARGETING_UNIT`), hovering a `UnitView` previews that
-effect's result on it — resulting HP after `damage`/`heal`, resulting
-block after `block` — instead of only knowing whether it's a legal target
-once clicked.
+effect's result on it: `HpLabel`/`BlockLabel` recolor red (worse) or green
+(better) via `UnitView.get_delta_color()`, simulating the effect
+(`CombatMath.apply_block()` for `damage`, clamped arithmetic for
+`heal`/`block`) without touching the real `Unit`.
 
-`Game.begin_unit_effect_preview(card_data)` arms this per-unit: for every
-`UnitView` across every floor, it filters `card_data.effects` to the
-`"selected_unit"` ones and keeps only those `EffectSystem.
-can_target_selected_unit()` says this specific `Unit` can legally receive
-— the exact same check that already gates the real click in
-`Game.can_select_unit_for_card()`. This means preview eligibility can
-never disagree with what clicking would actually do. Eligible effects are
-handed to `UnitView.arm_effect_preview(effects)`; ineligible units are
-simply never armed, so hovering them shows nothing.
+`Game.begin_unit_effect_preview(card_data)` arms only units that are
+actually legal targets, reusing `EffectSystem.can_target_selected_unit()`
+— the same check the real click uses — so preview eligibility can never
+disagree with what clicking would do.
 
-`UnitView.show_effect_preview()` runs on the view's own `mouse_entered` —
-unlike the summon-placement preview (see Positioning above), nothing here
-needs to move as a result of hovering, so there's no risk of the
-"element moves out from under the mouse" flicker that made a decoupled
-hover-zone overlay necessary there. It simulates the armed effects in
-order (matching the order `EffectSystem.execute_effect()` would actually
-apply them) using `CombatMath.apply_block()` for `damage` — so a preview
-correctly accounts for block absorption — and simple clamped arithmetic
-for `heal`/`block`, without touching the real `Unit`.
+Cards with `"all_enemies"`/`"all_allies"` (no specific target to choose)
+show this preview immediately on every affected unit instead of
+hover-gated — see Confirming a no-specific-target card below.
+`UnitView.arm_effect_preview(effects, show_now)` controls which;
+`show_now = true` also sets `persistent_preview` so `mouse_exited` doesn't
+revert it the way a hover-only preview does.
 
-`unit_view.tscn` changed from a single `Button.text` (one multi-line
-string) to separate child `Label`s per field (`NameLabel`, `FactionLabel`,
-`HpLabel`, `AtkLabel`, `BlockLabel`, `PositionLabel`, under a `Content`
-`VBoxContainer`) specifically so `HpLabel`/`BlockLabel` can have their own
-`font_color` overridden per preview, independent of the rest — per
-explicit user decision, the previewed number itself turns red/green
-(`UnitView.get_delta_color()`), not an appended "→ result" arrow.
-A `DeathIndicator` `Label` ("X", large, red, anchored full-rect on top of
-`Content`) shows whenever the previewed HP would reach 0, a first hint
-that a card is about to be lethal before it's actually played.
-`Game.end_unit_effect_preview()` disarms every view (reverting labels to
-real values/colors, hiding the death indicator) once a legal unit is
-actually clicked.
+`Game.disarm_all_unit_previews()` clears the preview for both cases, once
+the card resolves or is canceled.
 
 ## UI selection
 
@@ -456,7 +431,7 @@ BattleFloor
 
 `position_index = 0` always means the logical **front** of that faction.
 
-Visual orientation is different:
+Visual orientation, when a formation is full, is:
 
 ```text
 Enemies: [0] [1] [2] [3]
@@ -466,31 +441,23 @@ Allies:  [3] [2] [1] [0]
                       ↑ front
 ```
 
-Do not change logical indexes to compensate for visual orientation.
-
-This diagram is the *full-floor* layout — `position_index` maps to those
-exact screen columns only once a faction's formation is full. Below that,
-`BattleFloorView` anchors occupied slots to the edge farthest from center
-(so a sparse formation doesn't crowd toward the middle) — see Summon-to-slot
-UI below for why and how.
+Do not change logical indexes to compensate for visual orientation. Below
+a full formation, screen columns don't map 1:1 to `position_index` — see
+Positioning below for the actual (occupancy-dependent) rule.
 
 ## Positioning
 
 `BattleFloor.insert_unit_at(unit, position)` is the general insertion
 operation: it clamps `position` to `[0, current size]` and uses
-`Array.insert()`, which naturally shifts every unit from that index
-onward — this is the "push" mechanic summon-into-a-slot relies on.
-`add_unit(unit)` is just `insert_unit_at(unit, <current size>)`, i.e.
-"insert after everyone" — the old default-summon behavior, now a thin
-wrapper instead of its own `find_first_free_position()` logic (removed;
-the formation is always compact, so "after everyone" and "first free
-slot" were always the same slot anyway).
+`Array.insert()`, which shifts every unit from that index onward — this is
+the "push" mechanic summon-into-a-slot relies on. `add_unit(unit)` is just
+`insert_unit_at(unit, <current size>)` — append after everyone; this is
+what `EnemySpawner` uses (no per-slot UI for enemies) and the general
+"no specific slot" fallback. Both refuse to add a unit past `max_units` for
+that faction — pushing existing units aside doesn't create a new slot, it
+only reorders the slots that already fit.
 
-Both operations still refuse to add a unit past `max_units` for that
-faction — pushing existing units aside doesn't create a new slot, it only
-reorders the slots that already fit.
-
-After removal, `reorder_units()` compacts the remaining formation (unchanged).
+After removal, `reorder_units()` compacts the remaining formation.
 
 Not yet implemented: `move_unit(from, to)`, and any push/pull mechanics
 that aren't summon-driven (e.g. a card that shoves an existing unit
@@ -499,103 +466,73 @@ without adding a new one).
 ### Summon-to-slot UI
 
 Summon cards target `"selected_position"` (see Card targeting below), not
-`"selected_floor"` — the player picks one of 3 fixed conceptual slots
-(front/middle/rear = `position_index` 0/1/2) directly, in one interaction,
-rather than picking a floor and then defaulting to the first free slot.
+`"selected_floor"` — the player picks one of 3 conceptual slots
+(front/middle/rear = `position_index` 0/1/2) directly, in one interaction.
 
-**Screen columns and `position_index` are not fixed to each other** — a
-faction's occupied units anchor to the edge farthest from the center and
-grow toward the center as more are added (see Battlefield and floors
-above for why: `layout_slots()`/`preview_arrangement()`, not a fixed
-`max_units`-wide mapping). A lone unit sits at the outermost slot,
-not the front-most screen column; it only reaches the true front-most
-column once the floor is full. Per explicit user feedback, this was
-changed from an earlier version that always mapped `position_index` 0 to
-a fixed screen column regardless of how many units existed — which made a
-sparse floor's unit(s) crowd toward the center instead of the edge. The
-hover-zone-to-insert-index translation
-(`BattleFloorView.zone_index_to_insert_position()`) depends on this same
-anchoring and therefore on live unit count, so — unlike the original
-version — it can no longer be computed once and bound in `_ready()`; it's
-recalculated on every hover/click.
-
-Per an explicit user decision, this is inactive outside a pending summon —
-`BattleFloorView` keeps showing only the present `UnitView`s day-to-day,
-same as before this feature. What activates during placement mode
-(`BattleFloorView.begin_placement(unit_data)`, called by
+This UI is inactive outside a pending summon — `BattleFloorView` shows only
+the present `UnitView`s day-to-day, same as when no card is pending. It
+activates via `BattleFloorView.begin_placement(unit_data)` (called by
 `Game.begin_placement_preview()` when a summon card's `TARGETING_POSITION`
-starts; deactivated by `end_placement()`) is described below. A floor
-that's already full for `ALLY` never activates (nothing to push into).
+starts) and deactivates via `end_placement()`. A floor that's already full
+for `ALLY` never activates (nothing to push into).
+
+**Occupied slots anchor to the edge farthest from the center and grow
+toward it as more units are added** — a lone unit sits at the outermost
+slot, not the front-most screen column, and only reaches the true
+front-most column once the floor is full. `position_index` 0 (front) is
+unchanged as a domain concept — still "the most-central of whatever's
+present", still what `TargetSystem.get_front_unit()` reads — only the
+screen-column mapping is occupancy-dependent. `layout_slots(faction)`
+computes it; the hover-zone-to-insert-index translation
+(`BattleFloorView.zone_index_to_insert_position()`) depends on the same
+live unit count, so it's recalculated on every hover/click rather than
+bound once in `_ready()`.
 
 **Hover/click detection is deliberately decoupled from the visual content
-it previews**, to avoid a real instability: if the thing you're hovering
-to trigger a preview is also the thing that visually *moves* as a result
-of that preview (e.g. hovering a unit's own `UnitView` to insert before
-it, which then slides that same `UnitView` out from under a stationary
-mouse), you get `mouse_exited` → preview reverts → the view slides back
-under the mouse → `mouse_entered` → preview reapplies → infinite flicker.
-This was tried and rejected during development for exactly that reason.
+it previews.** If the thing you're hovering to trigger a preview is also
+the thing that visually *moves* as a result of that preview, you get
+`mouse_exited` → preview reverts → the view slides back under the mouse →
+`mouse_entered` → preview reapplies → infinite flicker. `AllyHoverZones`
+(3 invisible, always-equal-width `Button`s, `Zone0`/`Zone1`/`Zone2` in
+`battle_floor.tscn`) sit in a `Control` overlay (`AllyArea`) stacked on the
+exact same rect as `AllyContainer`, purely for hit-testing. They are never
+reordered or recreated; their `mouse_filter` toggles `IGNORE`↔`STOP` only
+in `begin_placement()`/`end_placement()`. Content underneath
+(`AllyContainer`'s real `UnitView`s, plus a lazily-created ghost `Button`)
+can be freely reordered via `move_child()` in response to a zone's hover,
+because the thing detecting the hover is a node that itself never moves.
 
-The fix: `AllyHoverZones` (3 invisible, always-equal-width `Button`s,
-`Zone0`/`Zone1`/`Zone2` in `battle_floor.tscn`) sit in a `Control` overlay
-(`AllyArea`) stacked on the exact same rect as `AllyContainer`, purely for
-hit-testing. They are never reordered, never recreated, and their
-`mouse_filter` toggles `IGNORE`↔`STOP` only in `begin_placement()`/
-`end_placement()` — completely inert outside a pending summon. Content
-underneath (`AllyContainer`'s real `UnitView`s, plus a lazily-created
-ghost `Button`) can be freely reordered via `move_child()` in response to
-a zone's hover, because the thing detecting the hover is a node that
-itself never moves.
+For the hover zones to line up with the real content, every `UnitView` —
+both factions, not just allies, purely for visual consistency (enemies
+have no placement UI of their own — no `EnemyHoverZones`) — always has
+`size_flags_horizontal = EXPAND_FILL`, and both `ally_container` and
+`enemy_container` always hold exactly `battle_floor.max_units` elements:
+real `UnitView`s plus invisible `Button` "spacers"
+(`get_spacer_views_for_faction()`), kept in sync by `sync_slots(faction)`
+on every add/remove of that faction, whether or not placement is active —
+this is what keeps a `UnitView`'s width constant regardless of hand/summon
+activity. `layout_slots(faction)` positions a faction's `max_units` slots;
+spacers are invisible (`modulate` alpha 0) except the ally ones while
+`begin_placement()`/`end_placement()` toggle them visible
+(`EMPTY_SLOT_COLOR`, "Vazio" text). `CenterSpacer` (a fixed-width,
+non-expanding `Control` between `AllyArea` and `EnemyContainer`) guarantees
+a minimum gap at the center, since both sides always fill their whole half.
 
-For the 3 ally hover zones (each `size_flags_horizontal = EXPAND_FILL`,
-evenly splitting `AllyArea`'s width) to line up with the real content,
-that content must divide the same width the same way. So every `UnitView`
-— **both factions**, not just allies — gets `size_flags_horizontal =
-EXPAND_FILL` (set once in `create_unit_view()`), and both `ally_container`
-and `enemy_container` always hold exactly `battle_floor.max_units`
-elements: real `UnitView`s plus invisible `Button` "spacers"
-(`get_spacer_views_for_faction()`) filling out empty slots, kept in sync
-by `sync_slots(faction)` on every add/remove of that faction, whether or
-not placement is active. This went through two prior iterations: first,
-units only switched to `EXPAND_FILL` *during* placement, visibly resizing
-the instant a summon card was played (jarring); fixed by making ally
-sizing permanent — which then made both factions' front lines flush
-against each other at the center once ally content always filled its
-whole half (see `CenterSpacer` below); finally, enemies got the same
-always-`EXPAND_FILL` + spacer treatment as allies too, per user feedback,
-purely for visual consistency between the two sides (enemies still have
-no placement UI at all — `EnemyHoverZones` don't exist, only
-`AllyHoverZones` does). `layout_slots(faction)` positions a faction's
-`max_units` slots — front is position 0, rendered rightmost for `ALLY`
-and leftmost for `ENEMY` (see Battlefield and floors above). Spacers are
-invisible (`modulate` alpha 0) at all times for enemies, and for allies
-outside placement; tinted visible (`EMPTY_SLOT_COLOR`, "Vazio" text) only
-while `begin_placement()`/`end_placement()` toggle the ally ones — but
-they exist permanently either way, so a real `UnitView`'s width truly
-never changes for either faction. A floor with zero units of some faction
-from the start (true for every floor's `ENEMY` side today, since
-`EnemySpawner` populates it) never goes through `create_unit_view()` at
-setup, so never calls `sync_slots()` on its own — see the guard in
-`connect_to_floor()`, which now runs for both factions independently.
-
-Making both `AllyContainer` and `EnemyContainer` always expand to fill
-their half renders the two factions' front lines flush against each
-other with no gap at the center, which is why `CenterSpacer` (a
-fixed-width, non-expanding `Control`, `battle_floor.tscn`) sits between
-`AllyArea` and `EnemyContainer` in the outer `HBoxContainer` — a
-guaranteed minimum gap regardless of how either side's content behaves.
+A floor with zero units of some faction from the start (true for every
+floor's `ENEMY` side today, since `EnemySpawner` populates it) never goes
+through `create_unit_view()` at setup, so never calls `sync_slots()` on its
+own — see the guard in `connect_to_floor()`, which runs for both factions
+independently.
 
 `BattleFloorView.preview_arrangement(target_position)` does the actual
 hover-preview work: simulate the insert on a duplicated array (no real
 `BattleFloor` mutation — a stat-preview ghost `Button` stands in for the
-new unit, per explicit user decision to show name/ATK/HP, not just
-highlight a slot), then apply that simulated order to `AllyContainer` via
-`move_child()` — real `UnitView`s slide to their pushed-aside position,
-the ghost appears exactly where the new unit would land, and spacers are
-hidden/shown as needed to keep the row at a constant `max_units` elements.
-`layout_slots(Unit.Faction.ALLY)` is the same placement without a ghost —
-the "nothing hovered" resting arrangement, used both for normal
-(non-placement) sync and on `mouse_exited`.
+new unit, showing name/ATK/HP), then apply that simulated order to
+`AllyContainer` via `move_child()` — real `UnitView`s slide to their
+pushed-aside position, the ghost appears exactly where the new unit would
+land, and spacers are hidden/shown as needed to keep the row at a constant
+`max_units` elements. `layout_slots(Unit.Faction.ALLY)` is the same
+placement without a ghost — the "nothing hovered" resting arrangement.
 
 Card target flow (summon): `Card` played → `Game.get_required_target()`
 returns `"position"` → `GameState.State.TARGETING_POSITION` →
@@ -606,36 +543,26 @@ with both `selected_floor` and `selected_position` → `EffectSystem`'s
 `"summon"` branch calls `BattleFloor.insert_unit_at()` instead of
 `add_unit()` whenever `selected_position >= 0`.
 
-A cancel flow now exists for all 3 targeting states — see Canceling a
-pending card below.
-
 ## Confirming a no-specific-target card
 
-Cards whose effect targets `"all_enemies"`/`"all_allies"` used to execute
-the instant they were played — no pending state, no preview, nothing to
-click. They now go pending like every other card, via a 4th targeting
-state, `GameState.State.CONFIRM_EFFECT`: `Game.get_required_target()`
-returns `"confirm"` for them, same as `"unit"`/`"floor"`/`"position"` for
-the others.
+Cards whose effect targets `"all_enemies"`/`"all_allies"` go pending like
+every other card, via `GameState.State.CONFIRM_EFFECT`
+(`Game.get_required_target()` returns `"confirm"` for them).
 
 `Game.begin_aoe_effect_preview(card_data)` shows the effect preview on
-every `UnitView` of the affected faction — *immediately*, not hover-gated
-the way `"selected_unit"` previews are (see Unit effect preview above).
-That's deliberate: with `"selected_unit"` the player is choosing among
-several possible targets, so comparing them one at a time via hover makes
-sense; with `"all_enemies"`/`"all_allies"` there's no choice at all, every
-matching unit will be hit, so showing the result on all of them at once
-is more useful than making the player hover each one individually. This
-needed one addition to `UnitView`: `arm_effect_preview(effects,
-show_now=true)` calls `show_effect_preview()` immediately, and sets
-`persistent_preview = true` so `mouse_exited` won't revert it the way it
-would for a hover-only preview.
+every `UnitView` of the affected faction *immediately*, not hover-gated the
+way `"selected_unit"` previews are: with `"selected_unit"` the player is
+choosing among several possible targets, so comparing them one at a time
+via hover makes sense; with `"all_enemies"`/`"all_allies"` there's no
+choice at all, every matching unit will be hit, so showing the result on
+all of them at once is more useful.
 
 Confirming actually plays the card: any left click anywhere while
-`CONFIRM_EFFECT` calls `Game.confirm_pending_card()`, which mirrors what
-`_on_unit_selected()`/`_on_floor_selected()`/`_on_position_selected()` do
-for the other 3 targeting states — disarm previews, un-pend the card,
-return to `PLAYER_ACTION`, then `execute_card()`.
+`CONFIRM_EFFECT` calls `Game.confirm_pending_card()` (via `Game._input()`
+— see Canceling a pending card below for why `_input()` and not
+`_gui_input()`), which mirrors what the other 3 targeting states'
+resolution handlers do — disarm previews, un-pend the card, return to
+`PLAYER_ACTION`, then `execute_card()`.
 
 ## Canceling a pending card
 
@@ -647,24 +574,21 @@ call, the card simply becomes playable again.
 
 Both this and confirming (above) are implemented in `Game._input(event)`,
 not `_gui_input()`. `_input()` runs before the SceneTree's GUI system
-routes a click to whatever `Control` is under the cursor, so it
-intercepts a click anywhere on screen — including on top of another
-`Card`, a `UnitView`, or an `AllyHoverZones` zone (all of which have
-`mouse_filter = STOP` and would otherwise absorb the click before it ever
-reached `_unhandled_input()`). This also means a left click on, say,
-another `Card` in hand while `CONFIRM_EFFECT` is active confirms the
+routes a click to whatever `Control` is under the cursor, so it intercepts
+a click anywhere on screen — including on top of another `Card`, a
+`UnitView`, or an `AllyHoverZones` zone (all `mouse_filter = STOP`, which
+would otherwise absorb the click first). This also means a left click on,
+say, another `Card` in hand while `CONFIRM_EFFECT` is active confirms the
 pending card instead of reaching that other card's own click handler —
-consistent with treating the click as a global "confirm" gesture, not a
-click on a specific element. `Game.is_targeting_state()` gates all of
-this to the 4 targeting states, so `Esc`/right-click/left-click-to-confirm
-do nothing during `PLAYER_ACTION`/`COMBAT_PHASE`/`SPAWN_PHASE`/
-`BATTLE_OVER`.
+the click is a global "confirm"/"cancel" gesture, not aimed at a specific
+element. `Game.is_targeting_state()` gates all of this to the 4 targeting
+states, so none of it does anything during
+`PLAYER_ACTION`/`COMBAT_PHASE`/`SPAWN_PHASE`/`BATTLE_OVER`.
 
 `Game.cancel_pending_card()` undoes exactly whatever the matching
 `begin_*_preview()` armed for the current state —
 `Game.disarm_all_unit_previews()` for `TARGETING_UNIT`/`CONFIRM_EFFECT`
-(shared between the `"selected_unit"` and AOE preview paths — it was
-called `end_unit_effect_preview()` before `CONFIRM_EFFECT` existed),
+(shared between the `"selected_unit"` and AOE preview paths),
 `end_placement_preview()` for `TARGETING_POSITION`, nothing extra for
 `TARGETING_FLOOR` (nothing is armed for it) — then calls
 `pending_card.set_pending(false)`, clears `pending_card`, and returns
@@ -682,7 +606,7 @@ Summon flow:
 ```text
 EffectSystem
  ↓
-BattleFloor.add_unit()
+BattleFloor.add_unit() / insert_unit_at()
  ↓
 unit_added.emit()
  ↓
@@ -695,19 +619,28 @@ UnitView
 
 ## BattleFloorView
 
-Current visual structure:
+Current visual structure (`battle_floor.tscn`):
 
 ```text
-BattleFloorView
-└── HBoxContainer
-	├── AllyContainer
-	└── EnemyContainer
+BattleFloor (PanelContainer)
+└── Layout (VBoxContainer)
+    └── HBoxContainer
+        ├── AllyArea (Control)
+        │   ├── AllyContainer (HBoxContainer — real UnitViews + spacers)
+        │   └── AllyHoverZones (HBoxContainer — 3 invisible hit-test zones)
+        ├── CenterSpacer (Control)
+        └── EnemyContainer (HBoxContainer — real UnitViews + spacers)
 ```
 
-Both contain `UnitView` instances.
+Both `AllyContainer`/`EnemyContainer` hold `UnitView` instances (plus
+spacers — see Positioning above). When `unit_removed` fires,
+`BattleFloorView` removes the matching view; `sync_slots()`/
+`layout_slots()` keep the remaining formation compact and correctly
+ordered.
 
-When `unit_removed` is emitted, `BattleFloorView` removes the matching view
-and restores visual order from each Unit's logical `position_index`.
+Every node in this chain needs a fill/expand size flag in the direction
+that matters (see the note at the end of the UnitView section above) — a
+missing one anywhere caps everything below it from filling the floor.
 
 ## Battle definitions
 
@@ -729,15 +662,14 @@ Battles are data-driven. Faction is assigned per instance by the battle definiti
 ```
 
 `test_battle.json` currently only lists `ally` units (the player's starting
-party) per floor — no `enemy` entries. Enemies are no longer pre-placed in
-the battle definition; they come from `EnemySpawner` instead (see Enemy
-spawning below). A battle definition can still list `enemy` units directly
-if a future battle wants specific hand-placed enemies (e.g. a boss) — the
-schema supports it — but the default content going forward spawns enemies
-dynamically. Keeping at least one `ally` per starting floor is deliberate:
-`BattleState.is_defeat()` checks for zero allies across the whole
-battlefield, so a battle with no starting allies and no way to summon one
-before the first `Encerrar turno` would defeat the player immediately.
+party) per floor — no `enemy` entries; those come from `EnemySpawner`
+instead (see Enemy spawning below). A battle definition can still list
+`enemy` units directly if a future battle wants specific hand-placed
+enemies (e.g. a boss) — the schema supports it. Keeping at least one
+`ally` per starting floor is deliberate: `BattleState.is_defeat()` checks
+for zero allies across the whole battlefield, so a battle with no starting
+allies and no way to summon one before the first `Encerrar turno` would
+defeat the player immediately.
 
 Flow:
 
@@ -784,10 +716,9 @@ cards: `CardData.get_summon_unit_id()` reads the `unit` id off the
 that id against `UnitDatabase` (passed into `Card.setup()` by
 `Game.render_hand()`) to show base ATK/HP. Hidden for non-summon cards.
 
-Summon no longer defaults to "first free slot" — the player always picks
-the slot explicitly (see Positioning above). `BattleFloor.add_unit()` (append
-after everyone) still exists as the general "no specific slot" fallback
-and is what `EnemySpawner` uses, since enemy spawning has no per-slot UI.
+`BattleFloor.add_unit()` (append after everyone, no specific slot) still
+exists as the general fallback and is what `EnemySpawner` uses, since
+enemy spawning has no per-slot UI.
 
 ## Targeting architecture
 
@@ -880,7 +811,7 @@ any future effect that only needs a floor, but nothing currently uses it.
 
 ## GameState
 
-Current interaction concepts include:
+Current interaction concepts:
 
 ```text
 PLAYER_ACTION
@@ -890,18 +821,14 @@ TARGETING_POSITION
 CONFIRM_EFFECT
 COMBAT_PHASE
 SPAWN_PHASE
+BATTLE_OVER
 ```
 
-`TARGETING_POSITION` now drives the summon-to-slot flow (see Positioning
+`TARGETING_POSITION` drives the summon-to-slot flow (see Positioning
 above) — `"selected_position"` card effects transition to it and it
-resolves via `BattleFloorView.position_selected`, not just a unit or a
-floor.
-
-`ENEMY_ACTION` was renamed to `COMBAT_PHASE`: the phase runs every living
-Unit's automatic attack, ally and enemy alike (see Combat below), not just
-enemy Units, so a faction-specific name no longer described it. This also
-resolves the previous `PLAYER_ACTION` / `ENEMY_ACTION` vs `Unit.Faction`
-naming mismatch — `COMBAT_PHASE` does not imply a faction at all.
+resolves via `BattleFloorView.position_selected`. `CONFIRM_EFFECT` drives
+the no-specific-target flow (see Confirming a no-specific-target card
+above).
 
 Important distinction:
 
@@ -912,7 +839,6 @@ UI event:
 Game state:
 	"the game is asking for a Unit target"
 ```
-
 
 ## Combat
 
@@ -941,13 +867,14 @@ calls `execute_unit_attack()` for each living Unit — ally and enemy alike.
 Trigger: an explicit "Encerrar turno" button in `game.tscn`
 (`Game._on_end_turn_pressed()`), only while `GameState.current` is
 `PLAYER_ACTION`. It transitions to `COMBAT_PHASE`, runs
-`BattleState.execute_combat_phase()`, checks `Game.check_battle_result()`,
-then (if the battle isn't over) advances `Game.current_turn`, runs
-`Game.spawn_enemies_if_needed()` (see Enemy spawning below — a no-op most
-turns), and transitions back to `PLAYER_ACTION`. The phase currently
-resolves synchronously (no per-attack animation/pacing yet — combat
-feedback is still `print()`-based, consistent with `UnitView`'s current
-debug-first display).
+`BattleState.execute_combat_phase()`, checks `Game.check_battle_result()`
+(`BattleState.is_victory()`/`is_defeat()`, unit counts per faction across
+all floors — Pyre not included yet), then (if the battle isn't over)
+advances `Game.current_turn`, runs `Game.spawn_enemies_if_needed()` (see
+Enemy spawning below — a no-op most turns), and transitions back to
+`PLAYER_ACTION`. The phase currently resolves synchronously (no per-attack
+animation/pacing yet — combat feedback is still `print()`-based, consistent
+with `UnitView`'s current debug-first display).
 
 Not yet implemented: turn order within/across floors beyond
 `BattleFloor.get_units()` order (allies then enemies, each in
@@ -995,74 +922,3 @@ The combat is structurally inspired by Monster Train:
 - future Pyre damage rules
 
 Do not blindly copy Monster Train. The final game will have its own mechanics.
-
-## Debugging
-
-During development, `UnitView` displays:
-
-```text
-Unit name
-Faction
-HP / Max HP
-ATK
-Block
-Floor
-Position
-```
-
-Keep this while the combat model is being developed.
-
-## Current refactoring status
-
-Completed:
-
-- `Enemy` visual → `UnitView`
-- `enemy_selected` → `unit_selected`
-- UI selection now passes `Unit`, not the visual Node
-- Unit attack targeting uses `TargetRule.Shape`
-- Unit attack targeting determines opposite faction from attacker
-- Unit attack targeting is restricted to attacker's floor
-- Battle creation does not execute test attacks
-- Pyre is separate from Unit; current cards target Units only
-- Defeated Units leave their formation and their views are removed
-- Generic visual `Enemy` nomenclature removed
-- Card effects restrict selected Units with `target_faction`
-- `EffectSystem` reuses `BattleState.target_system` instead of creating a
-  second `TargetSystem` instance
-- `Unit` and `Pyre` share block-absorption math via `CombatMath`
-- `UnitView` derives its faction label from `Unit.Faction.keys()` instead of
-  duplicating the enum as strings
-- `BattleDefinition.floors` and `CardData.effects` are typed `Array[Dictionary]`,
-  consistent with the rest of the typed collections in the domain layer
-- Automatic Unit turns: `GameState.State.ENEMY_ACTION` renamed to
-  `COMBAT_PHASE`; `BattleState.execute_combat_phase()` runs every living
-  Unit's attack (ally and enemy) each phase; triggered by an explicit
-  "Encerrar turno" button, resolving the `PLAYER_ACTION`/`ENEMY_ACTION` vs
-  `Unit.Faction` naming mismatch
-
-Still to review:
-
-- final card target schema
-- final `TargetSystem` organization
-- attack API naming
-- position/slot terminology
-- `TargetRule.Shape.RANDOM` / `SELECTED` still not implemented in
-  `TargetSystem.get_attack_targets()`
-- `GameState.State.TARGETING_POSITION` still not driven by any flow
-- battle victory/defeat condition — not implemented yet
-- turn order within/across floors beyond current formation order
-
-## AI agent rules
-
-Before structural changes:
-
-1. Read this document.
-2. Inspect the current repository files.
-3. Search all references to concepts being renamed.
-4. Preserve domain/system/presentation separation.
-5. Avoid leaving old and new abstractions active simultaneously.
-6. Make small, testable changes.
-7. Run/test the relevant Godot scene after meaningful changes.
-8. Update this document after important architectural decisions.
-
-If this document conflicts with the user's explicit request, follow the user's request and then update the document to reflect the new decision.
