@@ -12,6 +12,7 @@ layout_mode = 2
 
 [node name="HBoxContainer" type="HBoxContainer" parent="Layout" unique_id=1766081662]
 layout_mode = 2
+size_flags_vertical = 3
 
 [node name="AllyArea" type="Control" parent="Layout/HBoxContainer" unique_id=300333111]
 custom_minimum_size = Vector2(0, 110)
