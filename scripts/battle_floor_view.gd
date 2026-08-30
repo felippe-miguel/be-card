@@ -7,8 +7,8 @@ extends PanelContainer
 ## zones), aqui uma célula sempre representa a mesma (lane, row) pelo
 ## resto da partida. Ocupar/esvaziar uma célula só troca o que está
 ## dentro dela (nada some visualmente, só o conteúdo muda).
-@onready var enemy_grid: GridContainer = $Layout/EnemyGrid
-@onready var ally_grid: GridContainer = $Layout/AllyGrid
+@onready var enemy_grid: GridContainer = $Layout/EnemySection/EnemyGrid
+@onready var ally_grid: GridContainer = $Layout/AllySection/AllyGrid
 
 const CELL_MIN_SIZE = Vector2(118, 92)
 const ROW_NAMES = ["Front", "Middle", "Back"]

@@ -7,36 +7,46 @@ offset_right = 1152.0
 offset_bottom = 100.0
 script = ExtResource("1_fcfhn")
 
-[node name="Layout" type="VBoxContainer" parent="." unique_id=300222111]
+[node name="Layout" type="HBoxContainer" parent="." unique_id=300222111]
 layout_mode = 2
-size_flags_vertical = 3
+size_flags_vertical = 0
 theme_override_constants/separation = 4
 
-[node name="EnemyLabel" type="Label" parent="Layout" unique_id=300222222]
+[node name="EnemySection" type="VBoxContainer" parent="Layout" unique_id=300222200]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/separation = 4
+
+[node name="EnemyLabel" type="Label" parent="Layout/EnemySection" unique_id=300222222]
 layout_mode = 2
 horizontal_alignment = 1
 text = "INIMIGOS"
 
-[node name="EnemyGrid" type="GridContainer" parent="Layout" unique_id=300222333]
+[node name="EnemyGrid" type="GridContainer" parent="Layout/EnemySection" unique_id=300222333]
 layout_mode = 2
 size_flags_horizontal = 0
-size_flags_vertical = 3
+size_flags_vertical = 0
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 columns = 3
 
-[node name="HSeparator" type="HSeparator" parent="Layout" unique_id=300222444]
+[node name="VSeparator" type="VSeparator" parent="Layout" unique_id=300222444]
 layout_mode = 2
 
-[node name="AllyLabel" type="Label" parent="Layout" unique_id=300222555]
+[node name="AllySection" type="VBoxContainer" parent="Layout" unique_id=300222550]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/separation = 4
+
+[node name="AllyLabel" type="Label" parent="Layout/AllySection" unique_id=300222555]
 layout_mode = 2
 horizontal_alignment = 1
 text = "ALIADOS"
 
-[node name="AllyGrid" type="GridContainer" parent="Layout" unique_id=300222666]
+[node name="AllyGrid" type="GridContainer" parent="Layout/AllySection" unique_id=300222666]
 layout_mode = 2
 size_flags_horizontal = 0
-size_flags_vertical = 3
+size_flags_vertical = 0
 theme_override_constants/h_separation = 4
 theme_override_constants/v_separation = 4
 columns = 3
