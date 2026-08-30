@@ -58,6 +58,25 @@ func take_first(units: Array[Unit], count: int) -> Array[Unit]:
 
 	return units.slice(0, count)
 
+## Descrições legíveis dos padrões acima, para UI (hover de combate — ver
+## Game._on_unit_hover_started()/BattleFloorView.set_pattern_info()).
+## Mantidas ao lado da implementação de cada padrão de propósito, pra não
+## desalinhar se a lógica mudar.
+const PATTERN_DESCRIPTIONS = {
+	"lane_front": "Mira o(s) primeiro(s) inimigo(s) da própria lane, procurando da Front para a Back.",
+	"lane_rear": "Mira o(s) inimigo(s) mais distante(s) da própria lane, procurando da Back para a Front.",
+	"adjacent_lanes_furthest": "Ignora a própria lane. Olha as duas lanes vizinhas (só uma, se estiver numa lane de borda) e mira o inimigo mais ao fundo (maior row) entre os candidatos das duas.",
+	"primary_plus_adjacent_row": "Mira o primeiro inimigo da própria lane (Front → Back) e também quem estiver na MESMA row nas lanes vizinhas — naturalmente limitado pelo grid quando o alvo está numa lane de borda.",
+}
+
+func describe_pattern(pattern_id: String, count: int = 1) -> String:
+	var description: String = PATTERN_DESCRIPTIONS.get(pattern_id, "Padrão de ataque desconhecido: %s" % pattern_id)
+
+	if count > 1:
+		description += "\n\nPega os %d primeiros alvos encontrados nessa varredura, não só o primeiro." % count
+
+	return description
+
 func get_adjacent_lanes_furthest(faction: Unit.Faction, lane: int) -> Array[Unit]:
 	var battle_floor = get_battle_floor()
 	var candidates: Array[Unit] = []
