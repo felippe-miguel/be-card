@@ -9,6 +9,14 @@ signal unit_added(unit: Unit)
 signal unit_removed(unit: Unit, old_lane: int, old_row: int)
 signal unit_moved(unit: Unit, old_lane: int, old_row: int)
 
+## Emitido em QUALQUER mudança relevante do andar — posição (add/remove/
+## move/swap) ou stats de qualquer unidade nele (dano, cura, block, ATK
+## — via _on_unit_changed(), já conectado ao Unit.changed de toda unidade
+## presente). Um único sinal "algo mudou" para quem só precisa saber
+## disso, sem se importar com o quê — ver Game.refresh_turn_preview_if_
+## active() (preview de "Rodar turno").
+signal battlefield_changed
+
 const LANES = 3
 const ROWS = 3
 
@@ -127,6 +135,7 @@ func place_unit_at(unit: Unit, lane: int, row: int) -> bool:
 	print(unit.name, " posicionado em Lane ", lane, " Row ", row, " (", Unit.Faction.keys()[unit.faction], ")")
 
 	unit_added.emit(unit)
+	battlefield_changed.emit()
 
 	return true
 
@@ -155,6 +164,7 @@ func remove_unit(unit: Unit) -> void:
 	unit.row = -1
 
 	unit_removed.emit(unit, old_lane, old_row)
+	battlefield_changed.emit()
 
 ## Move a unidade para outra célula vazia da mesma facção. Falha (sem
 ## nenhum efeito) se a célula de destino não existir ou já estiver
@@ -175,6 +185,7 @@ func move_unit(unit: Unit, new_lane: int, new_row: int) -> bool:
 	unit.row = new_row
 
 	unit_moved.emit(unit, old_lane, old_row)
+	battlefield_changed.emit()
 
 	return true
 
@@ -200,6 +211,7 @@ func swap_units(unit_a: Unit, unit_b: Unit) -> bool:
 
 	unit_moved.emit(unit_a, lane_a, row_a)
 	unit_moved.emit(unit_b, lane_b, row_b)
+	battlefield_changed.emit()
 
 	return true
 
@@ -235,5 +247,7 @@ func get_units() -> Array[Unit]:
 	return result
 
 func _on_unit_changed(unit: Unit) -> void:
+	battlefield_changed.emit()
+
 	if unit.is_dead():
 		remove_unit(unit)

@@ -1,0 +1,10 @@
+{
+  "id": "strike",
+  "name": "Golpe",
+  "description": "Causa 6 de dano a uma unidade inimiga.",
+  "cost": 1,
+  "type": "attack",
+  "effects": [
+    { "type": "damage", "target": "selected_unit", "target_faction": "enemy", "amount": 6 }
+  ]
+}

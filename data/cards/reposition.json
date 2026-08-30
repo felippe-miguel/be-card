@@ -2,7 +2,7 @@
   "id": "reposition",
   "name": "Reposicionar",
   "description": "Mova a unidade selecionada 1 célula em qualquer direção.",
-  "cost": 1,
+  "cost": 0,
   "type": "skill",
   "effects": [
     { "type": "reposition" }

@@ -145,6 +145,62 @@ func execute_full_turn() -> void:
 	execute_faction_turn(Unit.Faction.ENEMY)
 	execute_faction_turn(Unit.Faction.ALLY)
 
+## Preview do checkbox "Rodar turno" (ver Game.update_turn_preview()):
+## simula execute_full_turn() num clone completo e isolado do estado
+## atual, sem tocar em nada real. Retorna, pra cada Unit REAL ainda no
+## campo, {"hp": ..., "block": ...} previstos; uma unidade ausente do
+## dicionário significa que ela morreria nessa simulação.
+func simulate_full_turn() -> Dictionary:
+	var clone = clone_for_simulation()
+
+	clone.execute_full_turn()
+
+	var predictions: Dictionary = {}
+	var real_floor = battlefield.get_floor(0)
+	var clone_floor = clone.battlefield.get_floor(0)
+
+	for unit in real_floor.get_units():
+		var clone_unit = clone_floor.get_unit_at(unit.faction, unit.lane, unit.row)
+
+		if clone_unit != null:
+			predictions[unit] = {"hp": clone_unit.hp, "block": clone_unit.block}
+
+	return predictions
+
+## Clone raso e totalmente independente do BattleState atual (mesmo
+## grid/posições/stats, mas outro Battlefield/outras Units) — mutar o
+## clone (via simulate_full_turn() acima) nunca afeta o original. Usado
+## só para simulação; nunca deve ser exposto fora dela.
+func clone_for_simulation() -> BattleState:
+	var clone = BattleState.new(BattleDefinition.empty(), unit_database)
+	var source_units = battlefield.get_floor(0).get_units()
+	var clone_floor = clone.battlefield.get_floor(0)
+	var unit_clones: Array[Unit] = []
+
+	for source_unit in source_units:
+		var unit_clone = Unit.new(
+			source_unit.id,
+			source_unit.name,
+			source_unit.base_max_hp,
+			source_unit.attack,
+			source_unit.faction,
+			source_unit.attack_pattern,
+			source_unit.attack_pattern_count,
+			source_unit.aura_adjacent_ally_max_hp_bonus
+		)
+
+		clone_floor.place_unit_at(unit_clone, source_unit.lane, source_unit.row)
+		unit_clones.append(unit_clone)
+
+	## hp/block reais são copiados só depois de todo mundo posicionado,
+	## pra não serem sobrescritos pelo recálculo de aura que roda a cada
+	## place_unit_at() (mexe em hp/max_hp via set_received_max_hp_bonus()).
+	for i in range(source_units.size()):
+		unit_clones[i].hp = source_units[i].hp
+		unit_clones[i].block = source_units[i].block
+
+	return clone
+
 func count_units_for_faction(faction: Unit.Faction) -> int:
 	var count = 0
 

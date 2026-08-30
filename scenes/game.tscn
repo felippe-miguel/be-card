@@ -43,9 +43,17 @@ theme_override_constants/separation = 8
 layout_mode = 2
 text = "Rodar turno"
 
+[node name="PreviewCheckbox" type="CheckBox" parent="Layout/MainColumn/GlobalControls" unique_id=300111725]
+layout_mode = 2
+text = "Preview do turno"
+
 [node name="ResetButton" type="Button" parent="Layout/MainColumn/GlobalControls" unique_id=300111730]
 layout_mode = 2
 text = "Resetar combate"
+
+[node name="RandomButton" type="Button" parent="Layout/MainColumn/GlobalControls" unique_id=300111735]
+layout_mode = 2
+text = "Random"
 
 [node name="StatusLabel" type="Label" parent="Layout/MainColumn" unique_id=300111777]
 layout_mode = 2

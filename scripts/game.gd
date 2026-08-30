@@ -19,11 +19,14 @@ enum PendingAction {
 	SWAP,            ## Troca — clique numa segunda unidade da mesma facção.
 	TELEPORT,        ## Teleporte — qualquer célula vazia da própria facção.
 	CONCENTRATION,   ## Concentração — clique escolhe a lane-alvo (+2 ATK pros aliados dela).
+	EFFECT_UNIT,     ## Cartas de dano/cura/bloqueio com alvo "selected_unit" — clique escolhe o alvo.
 }
 
 @onready var turn_label: Label = $Layout/MainColumn/TurnLabel
 @onready var run_turn_button: Button = $Layout/MainColumn/GlobalControls/RunTurnButton
+@onready var preview_checkbox: CheckBox = $Layout/MainColumn/GlobalControls/PreviewCheckbox
 @onready var reset_button: Button = $Layout/MainColumn/GlobalControls/ResetButton
+@onready var random_button: Button = $Layout/MainColumn/GlobalControls/RandomButton
 @onready var status_label: Label = $Layout/MainColumn/StatusLabel
 @onready var attack_button: Button = $Layout/MainColumn/SelectionControls/AttackButton
 @onready var remove_button: Button = $Layout/MainColumn/SelectionControls/RemoveButton
@@ -54,8 +57,8 @@ var deck: Deck
 var mana: Mana
 
 const STARTING_HAND_SIZE = 5
-const CARDS_DRAWN_PER_TURN = 2
 const STARTING_MANA = 3
+const RANDOM_UNITS_PER_FACTION = 3
 
 ## Layout da mão — ver docs/ARCHITECTURE.md (Hand layout). Cards é um
 ## Control simples posicionado manualmente por layout_hand(), não um
@@ -109,8 +112,10 @@ func _ready() -> void:
 	## connected".
 	floor_view.unit_selected.connect(_on_unit_selected)
 	floor_view.cell_selected.connect(_on_cell_selected)
+	floor_view.unit_hover_started.connect(_on_unit_hover_started)
+	floor_view.unit_hover_ended.connect(_on_unit_hover_ended)
 
-	start_new_battle_state()
+	start_new_battle_state(battle_database.battles["test_battle"])
 	setup_deck_and_mana()
 
 	setup_spawn_panel()
@@ -193,13 +198,15 @@ func layout_hand(card_views: Array[Card]) -> void:
 	for i in range(count):
 		card_views[i].set_hand_position(Vector2(i * step, 0), i)
 
-## Cria (ou recria, no reset) o BattleState a partir de test_battle.json
-## e prende floor_view a ele. Separado de _ready() pra poder ser chamado
-## de novo em _on_reset_button_pressed() sem duplicar as conexões dos
-## sinais do próprio floor_view (essas são feitas uma única vez acima).
-func start_new_battle_state() -> void:
-	var battle_definition = battle_database.battles["test_battle"]
-
+## Cria (ou recria, no reset/random) o BattleState a partir de
+## battle_definition e prende floor_view a ele. Separado de _ready() pra
+## poder ser chamado de novo em _on_reset_button_pressed()/_on_random_
+## button_pressed() sem duplicar as conexões dos sinais do próprio
+## floor_view (essas são feitas uma única vez acima). battle_definition
+## já vem pronta de quem chama — test_battle.json (reset) ou
+## BattleDefinition.empty() (random, populado depois por
+## spawn_random_units()).
+func start_new_battle_state(battle_definition: BattleDefinition) -> void:
 	battle_state = BattleState.new(battle_definition, unit_database)
 	effect_system = EffectSystem.new(battle_state)
 
@@ -207,6 +214,18 @@ func start_new_battle_state() -> void:
 
 	floor_view.setup(battle_floor.index)
 	floor_view.connect_to_floor(battle_floor)
+
+	## battle_floor (ao contrário de floor_view) é recriado a cada reset,
+	## então essa conexão precisa ser refeita aqui, não em _ready(). Mantém
+	## o preview do checkbox em dia com QUALQUER mudança no andar — ver
+	## refresh_turn_preview_if_active().
+	battle_floor.battlefield_changed.connect(refresh_turn_preview_if_active)
+
+	## O roster inicial (test_battle.json) é populado dentro de
+	## BattleState.new() acima, antes da conexão logo acima existir —
+	## sem isto, um reset com o checkbox já ligado deixaria o preview
+	## defasado (mostrando a batalha anterior) até a próxima mudança.
+	refresh_turn_preview_if_active()
 
 ## Um botão por UnitData carregada (todo data/units/*.json) — clicar
 ## arma pending_spawn_unit_id. Não distingue "unidade de aliado" de
@@ -231,7 +250,43 @@ func setup_spawn_panel() -> void:
 
 func setup_global_controls() -> void:
 	run_turn_button.pressed.connect(_on_run_turn_button_pressed)
+	preview_checkbox.toggled.connect(_on_preview_checkbox_toggled)
 	reset_button.pressed.connect(_on_reset_button_pressed)
+	random_button.pressed.connect(_on_random_button_pressed)
+
+func _on_preview_checkbox_toggled(_pressed: bool) -> void:
+	update_turn_preview()
+
+## Mostra, no mesmo formato do preview de efeito de carta (UnitView.
+## render_display() — HP/Block coloridos, indicador de morte), o
+## resultado de rodar o turno agora mesmo (BattleState.simulate_full_
+## turn(), que não mexe no estado real). Uma unidade ausente das
+## previsões (ver simulate_full_turn()) é tratada como "vai morrer".
+func update_turn_preview() -> void:
+	if not preview_checkbox.button_pressed:
+		clear_turn_preview()
+		return
+
+	var predictions = battle_state.simulate_full_turn()
+
+	for view in floor_view.get_all_unit_views():
+		var prediction = predictions.get(view.unit)
+
+		if prediction == null:
+			view.render_display(0, 0)
+		else:
+			view.render_display(prediction.hp, prediction.block)
+
+func clear_turn_preview() -> void:
+	for view in floor_view.get_all_unit_views():
+		view.update_display()
+
+## Chamado a cada mudança no andar (BattleFloor.battlefield_changed) —
+## só recalcula o preview se o checkbox estiver ligado; do contrário não
+## faz nada (nem existe preview pra manter em dia).
+func refresh_turn_preview_if_active() -> void:
+	if preview_checkbox.button_pressed:
+		update_turn_preview()
 
 func setup_action_panel() -> void:
 	attack_button.pressed.connect(_on_attack_button_pressed)
@@ -290,6 +345,8 @@ func update_action_status() -> void:
 			action_status_label.text = "Teleportar %s — clique em qualquer célula vazia da mesma facção (Esc cancela)." % selected_unit.name
 		PendingAction.CONCENTRATION:
 			action_status_label.text = "Concentração — clique numa unidade ou célula pra escolher a lane (Esc cancela)."
+		PendingAction.EFFECT_UNIT:
+			action_status_label.text = "%s — clique na unidade alvo (passe o mouse pra ver o preview; Esc cancela)." % pending_card.data.name
 		_:
 			action_status_label.text = "Selecione uma unidade e escolha uma ação abaixo."
 
@@ -314,10 +371,21 @@ func cancel_pending_action() -> void:
 		pending_card.set_pending(false)
 		pending_card = null
 
+	## Sem custo checar: é um no-op nas UnitViews que não têm nenhum
+	## preview armado (só EFFECT_UNIT arma algum). disarm_effect_preview()
+	## força update_display() (valores reais) nas unidades que tinham
+	## preview de carta armado — por isso o refresh_turn_preview_if_
+	## active() logo abaixo, senão essas unidades ficariam mostrando o
+	## valor real "preso" em vez do preview do turno, mesmo com o
+	## checkbox ligado (o bug relatado: preview "para de funcionar" depois
+	## de cancelar uma carta ou clicar um alvo inválido).
+	disarm_all_unit_effect_previews()
+
 	pending_action = PendingAction.NONE
 	pending_spawn_unit_id = ""
 	update_spawn_status()
 	update_action_status()
+	refresh_turn_preview_if_active()
 
 func get_main_floor() -> BattleFloor:
 	return battle_state.battlefield.get_floor(0)
@@ -344,6 +412,19 @@ func _on_unit_selected(unit: Unit) -> void:
 
 			if pending_card != null:
 				finish_card_play(pending_card)
+
+			cancel_pending_action()
+			return
+
+		PendingAction.EFFECT_UNIT:
+			var effect = pending_card.data.effects[0]
+			var card = pending_card
+
+			if not effect_system.can_target_selected_unit(effect, unit):
+				status_label.text = "Alvo inválido para %s." % card.data.name
+			else:
+				effect_system.execute_effect(effect, unit)
+				finish_card_play(card)
 
 			cancel_pending_action()
 			return
@@ -382,6 +463,53 @@ func clear_selection() -> void:
 	attack_button.disabled = true
 	attack_button.text = "Atacar (selecione uma unidade)"
 	remove_button.disabled = true
+
+## Hover de combate: destaca em vermelho quem seria atingido pelo padrão
+## de ataque de unit, em verde quem recebe a aura dela (só o Guardião tem
+## uma, por enquanto), e mostra a explicação do padrão no painel ao lado
+## do grid aliado (ver show_pattern_info()). Independe de seleção/
+## pending_action — funciona sempre, mesmo com uma ação em andamento.
+func _on_unit_hover_started(unit: Unit) -> void:
+	for target in battle_state.target_system.get_pattern_attack_targets(unit):
+		var target_view = floor_view.get_unit_view(target)
+
+		if target_view != null:
+			target_view.set_highlight(UnitView.TARGET_HIGHLIGHT_COLOR)
+
+	if unit.aura_adjacent_ally_max_hp_bonus > 0:
+		for neighbor in get_main_floor().get_adjacent_units(unit.faction, unit.lane, unit.row):
+			var neighbor_view = floor_view.get_unit_view(neighbor)
+
+			if neighbor_view != null:
+				neighbor_view.set_highlight(UnitView.BUFF_HIGHLIGHT_COLOR)
+
+	show_pattern_info(unit)
+
+## Preenche o painel de explicação (título + regra do padrão de ataque,
+## mais a aura, se houver) — o texto em si vem de
+## TargetSystem.describe_pattern(), que fica perto da própria
+## implementação de cada padrão.
+func show_pattern_info(unit: Unit) -> void:
+	var title = "%s (%s) — %s" % [
+		unit.name,
+		Unit.Faction.keys()[unit.faction],
+		unit.attack_pattern
+	]
+	var body = battle_state.target_system.describe_pattern(unit.attack_pattern, unit.attack_pattern_count)
+
+	if unit.aura_adjacent_ally_max_hp_bonus > 0:
+		body += "\n\nPassiva: aliados ortogonalmente adjacentes recebem +%d de HP máximo enquanto esta unidade estiver viva e posicionada aqui." % unit.aura_adjacent_ally_max_hp_bonus
+
+	floor_view.set_pattern_info(title, body)
+
+## Limpa todo highlight, sem tentar adivinhar quais views foram
+## destacadas por _on_unit_hover_started() — mais simples e à prova de
+## unidades que morreram/sumiram enquanto o mouse ainda estava em cima.
+func _on_unit_hover_ended(_unit: Unit) -> void:
+	for view in floor_view.get_all_unit_views():
+		view.clear_highlight()
+
+	floor_view.clear_pattern_info()
 
 ## Só é chamado com uma célula VAZIA (ver BattleFloorView.cell_selected).
 func _on_cell_selected(faction: Unit.Faction, lane: int, row: int) -> void:
@@ -530,8 +658,47 @@ func _on_card_played(card: Card) -> void:
 			apply_frontline()
 			finish_card_play(card)
 
+		"damage", "heal", "block":
+			begin_effect_card(card, effect)
+
 		_:
 			status_label.text = "Carta sem ação reconhecida: %s" % action_type
+
+## Cartas de dano/cura/bloqueio. "all_enemies"/"all_allies" resolvem na
+## hora (mesmo padrão de Linha de Frente); "selected_unit" pede um clique
+## de alvo (EFFECT_UNIT) — ao contrário das cartas de reposicionamento,
+## aqui o clique ESCOLHE o alvo, não exige uma unidade já selecionada
+## antes de jogar a carta.
+func begin_effect_card(card: Card, effect: Dictionary) -> void:
+	match effect.get("target", ""):
+		"selected_unit":
+			pending_action = PendingAction.EFFECT_UNIT
+			begin_pending_card(card)
+			arm_effect_preview_for_card(effect)
+
+		"all_enemies", "all_allies":
+			effect_system.execute_effect(effect)
+			finish_card_play(card)
+
+		_:
+			status_label.text = "Carta com alvo desconhecido: %s" % card.data.name
+
+## Mostra, ao passar o mouse (ver UnitView.arm_effect_preview()), o
+## resultado hipotético do efeito em cada unidade elegível como alvo —
+## só nas que EffectSystem.can_target_selected_unit() aceitaria de
+## verdade, a mesma checagem usada pelo clique real.
+func arm_effect_preview_for_card(effect: Dictionary) -> void:
+	var effects: Array[Dictionary] = []
+
+	effects.append(effect)
+
+	for view in floor_view.get_all_unit_views():
+		if effect_system.can_target_selected_unit(effect, view.unit):
+			view.arm_effect_preview(effects)
+
+func disarm_all_unit_effect_previews() -> void:
+	for view in floor_view.get_all_unit_views():
+		view.disarm_effect_preview()
 
 ## Precondição de toda carta de reposicionamento/troca/teleporte: o
 ## sandbox pede a mesma coisa que os botões de debug — selecione a
@@ -559,6 +726,13 @@ func begin_pending_card(card: Card) -> void:
 func finish_card_play(card: Card) -> void:
 	mana.spend(card.data.cost)
 	deck.discard(card.data)
+
+	## A maioria dos efeitos de carta já dispara battlefield_changed
+	## sozinha (dano/cura/bloqueio/ATK emitem Unit.changed; mover/invocar/
+	## trocar mexem direto no BattleFloor) — mas chamar aqui também
+	## garante que TODA carta jogada recalcula o preview do turno, sem
+	## depender de cada efeito lembrar de propagar a mudança certinho.
+	refresh_turn_preview_if_active()
 
 ## Dispara só o ataque da unidade selecionada (aliada ou inimiga) — para
 ## resolver o turno inteiro de uma vez, ver _on_run_turn_button_pressed().
@@ -665,9 +839,10 @@ func _on_remove_button_pressed() -> void:
 
 ## Resolve o turno inteiro (BattleState.execute_full_turn): inimigos
 ## atacam, depois os aliados — debug pedido pela seção 7 do documento.
-## Também reabastece a mana e compra cartas, igual o antigo "Encerrar
-## turno" (ver docs/ARCHITECTURE.md) — "Rodar turno" faz as duas coisas
-## de uma vez neste sandbox, já que não há mais uma fase separada de ação
+## Também reabastece a mana e renova a mão inteira (descarta tudo que
+## sobrou e compra STARTING_HAND_SIZE cartas novas, em vez de só somar
+## mais algumas às que já estavam na mão) — "Rodar turno" faz tudo de
+## uma vez neste sandbox, já que não há mais uma fase separada de ação
 ## do jogador vs. combate.
 func _on_run_turn_button_pressed() -> void:
 	battle_state.execute_full_turn()
@@ -676,7 +851,8 @@ func _on_run_turn_button_pressed() -> void:
 	update_turn_label()
 
 	mana.refill()
-	deck.draw(CARDS_DRAWN_PER_TURN)
+	deck.discard_hand()
+	deck.draw(STARTING_HAND_SIZE)
 
 	status_label.text = "Turno resolvido — inimigos e aliados atacaram (turno %d)." % current_turn
 
@@ -689,10 +865,51 @@ func _on_reset_button_pressed() -> void:
 	cancel_pending_action()
 	clear_selection()
 
-	start_new_battle_state()
+	start_new_battle_state(battle_database.battles["test_battle"])
 	setup_deck_and_mana()
 
 	current_turn = 1
 	update_turn_label()
 
 	status_label.text = "Combate resetado."
+
+## Igual "Resetar combate" (baralho novo embaralhado, mão inicial, mana
+## cheia, turno 1), mas troca a formação fixa de test_battle.json por um
+## andar vazio (BattleDefinition.empty()) e sorteia RANDOM_UNITS_PER_
+## FACTION unidades pra cada lado, em células aleatórias.
+func _on_random_button_pressed() -> void:
+	cancel_pending_action()
+	clear_selection()
+
+	start_new_battle_state(BattleDefinition.empty())
+	setup_deck_and_mana()
+
+	spawn_random_units(Unit.Faction.ALLY, RANDOM_UNITS_PER_FACTION)
+	spawn_random_units(Unit.Faction.ENEMY, RANDOM_UNITS_PER_FACTION)
+
+	current_turn = 1
+	update_turn_label()
+
+	status_label.text = "Batalha aleatória gerada."
+
+## Sorteia count unidades (qualquer id de data/units/*.json, sem
+## restrição de facção — mesma liberdade do painel de spawn) em células
+## vazias distintas, sorteadas entre as 9 do grid dessa facção.
+func spawn_random_units(faction: Unit.Faction, count: int) -> void:
+	var battle_floor = get_main_floor()
+	var cells: Array[Vector2i] = []
+
+	for row in range(BattleFloor.ROWS):
+		for lane in range(BattleFloor.LANES):
+			cells.append(Vector2i(lane, row))
+
+	cells.shuffle()
+
+	var unit_ids = unit_database.units.keys()
+
+	for i in range(min(count, cells.size())):
+		var unit_id: String = unit_ids[randi() % unit_ids.size()]
+		var unit = battle_state.create_unit(unit_id, faction)
+
+		if unit != null:
+			battle_floor.place_unit_at(unit, cells[i].x, cells[i].y)
