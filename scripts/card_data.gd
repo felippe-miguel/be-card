@@ -54,13 +54,42 @@ func describe_effect_target(effect: Dictionary) -> String:
 			return "andar"
 
 		"selected_position":
-			return "posição no andar"
+			return "célula do grid"
 
 		"all_enemies":
 			return "todos os inimigos"
 
 		"all_allies":
 			return "todos os aliados"
+
+		"":
+			## Cartas do sandbox 3x3 (reposicionamento/buff — ver
+			## docs/playtest_3x3.md seção 5) não usam o vocabulário de
+			## "target" acima: o alvo é derivado do próprio efeito.
+			return describe_action_type(effect.get("type", ""))
+
+		_:
+			return ""
+
+func describe_action_type(effect_type: String) -> String:
+	match effect_type:
+		"reposition", "teleport":
+			return "unidade selecionada + célula"
+
+		"flank":
+			return "unidade selecionada + lane vizinha"
+
+		"advance", "retreat":
+			return "unidade selecionada"
+
+		"swap":
+			return "duas unidades aliadas"
+
+		"frontline":
+			return "aliados na Front"
+
+		"concentration":
+			return "lane escolhida"
 
 		_:
 			return ""

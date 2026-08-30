@@ -1,0 +1,10 @@
+{
+  "id": "swap",
+  "name": "Troca",
+  "description": "Troque a posição de duas unidades aliadas.",
+  "cost": 1,
+  "type": "skill",
+  "effects": [
+    { "type": "swap" }
+  ]
+}

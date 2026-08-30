@@ -1,0 +1,10 @@
+{
+  "id": "frontline",
+  "name": "Linha de Frente",
+  "description": "Aliados na Front recebem +3 ATK.",
+  "cost": 2,
+  "type": "skill",
+  "effects": [
+    { "type": "frontline" }
+  ]
+}

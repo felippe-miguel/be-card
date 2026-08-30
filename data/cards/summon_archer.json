@@ -1,0 +1,10 @@
+{
+  "id": "summon_archer",
+  "name": "Invocar Arqueiro",
+  "description": "Invoca um Arqueiro numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "archer", "target": "selected_position" }
+  ]
+}

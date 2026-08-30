@@ -1,0 +1,10 @@
+{
+  "id": "summon_assassin",
+  "name": "Invocar Assassino",
+  "description": "Invoca um Assassino numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "assassin", "target": "selected_position" }
+  ]
+}

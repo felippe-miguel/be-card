@@ -1,0 +1,10 @@
+{
+  "id": "teleport",
+  "name": "Teleporte",
+  "description": "Mova a unidade selecionada para qualquer célula vazia do grid aliado. Carta propositalmente poderosa.",
+  "cost": 3,
+  "type": "skill",
+  "effects": [
+    { "type": "teleport" }
+  ]
+}

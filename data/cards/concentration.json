@@ -1,0 +1,10 @@
+{
+  "id": "concentration",
+  "name": "Concentração",
+  "description": "Aliados na lane escolhida recebem +2 ATK.",
+  "cost": 2,
+  "type": "skill",
+  "effects": [
+    { "type": "concentration" }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "summon_lancer",
+  "name": "Invocar Lanceiro",
+  "description": "Invoca um Lanceiro numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "lancer", "target": "selected_position" }
+  ]
+}

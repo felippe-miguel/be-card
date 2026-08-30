@@ -1,0 +1,10 @@
+{
+  "id": "summon_guardian",
+  "name": "Invocar Guardião",
+  "description": "Invoca um Guardião numa célula vazia do grid aliado.",
+  "cost": 3,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "guardian", "target": "selected_position" }
+  ]
+}
