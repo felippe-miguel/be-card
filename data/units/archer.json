@@ -1,0 +1,7 @@
+{
+  "id": "archer",
+  "name": "Arqueiro",
+  "max_hp": 10,
+  "attack": 4,
+  "attack_pattern": "lane_rear"
+}

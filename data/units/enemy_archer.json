@@ -1,0 +1,7 @@
+{
+  "id": "enemy_archer",
+  "name": "Archer",
+  "max_hp": 12,
+  "attack": 5,
+  "attack_pattern": "lane_rear"
+}

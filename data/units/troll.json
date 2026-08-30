@@ -2,5 +2,6 @@
   "id": "troll",
   "name": "Troll",
   "max_hp": 50,
-  "attack": 9
+  "attack": 9,
+  "attack_pattern": "primary_plus_adjacent_row"
 }

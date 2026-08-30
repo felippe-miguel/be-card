@@ -2,22 +2,17 @@
   "floors": [
     {
       "units": [
-        {
-          "id": "skeleton",
-          "faction": "ally"
-        }
+        { "id": "skeleton", "faction": "ally", "lane": 0, "row": 0 },
+        { "id": "orc", "faction": "ally", "lane": 0, "row": 2 },
+        { "id": "slime", "faction": "ally", "lane": 1, "row": 1 },
+        { "id": "skeleton", "faction": "ally", "lane": 2, "row": 1 },
+
+        { "id": "goblin", "faction": "enemy", "lane": 0, "row": 0 },
+        { "id": "wolf", "faction": "enemy", "lane": 0, "row": 1 },
+        { "id": "bat", "faction": "enemy", "lane": 1, "row": 0 },
+        { "id": "troll", "faction": "enemy", "lane": 1, "row": 1 },
+        { "id": "bandit", "faction": "enemy", "lane": 2, "row": 0 }
       ]
-    },
-    {
-      "units": [
-        {
-          "id": "slime",
-          "faction": "ally"
-        }
-      ]
-    },
-    {
-      "units": []
     }
   ]
 }

@@ -2,5 +2,7 @@
   "id": "bandit",
   "name": "Bandido",
   "max_hp": 25,
-  "attack": 6
+  "attack": 6,
+  "attack_pattern": "lane_front",
+  "attack_pattern_count": 2
 }

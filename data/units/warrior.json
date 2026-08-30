@@ -1,0 +1,7 @@
+{
+  "id": "warrior",
+  "name": "Guerreiro",
+  "max_hp": 20,
+  "attack": 6,
+  "attack_pattern": "lane_front"
+}

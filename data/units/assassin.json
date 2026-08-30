@@ -1,0 +1,7 @@
+{
+  "id": "assassin",
+  "name": "Assassino",
+  "max_hp": 7,
+  "attack": 8,
+  "attack_pattern": "adjacent_lanes_furthest"
+}
