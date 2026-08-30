@@ -126,6 +126,25 @@ func execute_combat_phase() -> void:
 
 			execute_unit_attack(unit)
 
+## Só a facção pedida ataca. Mesmo cuidado de snapshot que
+## execute_combat_phase(). Base de execute_full_turn() logo abaixo.
+func execute_faction_turn(faction: Unit.Faction) -> void:
+	for battle_floor in battlefield.floors:
+		var units = battle_floor.get_units_for_faction(faction)
+
+		for unit in units:
+			if unit.is_dead():
+				continue
+
+			execute_unit_attack(unit)
+
+## Resolve o turno inteiro pro debug "Rodar turno" (docs/playtest_3x3.md
+## seção 7): inimigos atacam primeiro, depois os aliados — ordem fixa,
+## não é um sistema de iniciativa/velocidade de verdade.
+func execute_full_turn() -> void:
+	execute_faction_turn(Unit.Faction.ENEMY)
+	execute_faction_turn(Unit.Faction.ALLY)
+
 func count_units_for_faction(faction: Unit.Faction) -> int:
 	var count = 0
 
