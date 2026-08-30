@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" uid="uid://sh8nhgv0c8i8" path="res://scripts/game.gd" id="1_uwrxv"]
 [ext_resource type="PackedScene" uid="uid://dtxw2mbs8lwqh" path="res://scenes/battle_floor.tscn" id="2_yqjtg"]
-[ext_resource type="PackedScene" path="res://scenes/card_pile_view.tscn" id="3_pile"]
 
 [node name="Game" type="Control" unique_id=943361433]
 layout_mode = 3
@@ -13,69 +12,98 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_uwrxv")
 
-[node name="Layout" type="VBoxContainer" parent="." unique_id=300111222]
+[node name="Layout" type="HBoxContainer" parent="." unique_id=300111222]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 
-[node name="GameStateLabel" type="Label" parent="Layout" unique_id=300111777]
+[node name="MainColumn" type="VBoxContainer" parent="Layout" unique_id=300111230]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
-horizontal_alignment = 1
-text = "Sua vez"
-
-[node name="ResultLabel" type="Label" parent="Layout" unique_id=300111444]
-visible = false
-layout_mode = 2
-theme_override_font_sizes/font_size = 32
-horizontal_alignment = 1
-
-[node name="Floors" type="VBoxContainer" parent="Layout" unique_id=2050396104]
-layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 8
 
-[node name="BattleFloor1" parent="Layout/Floors" unique_id=1530212635 instance=ExtResource("2_yqjtg")]
+[node name="StatusLabel" type="Label" parent="Layout/MainColumn" unique_id=300111777]
 layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text = "Sandbox 3x3 — playtest"
+
+[node name="AttackButton" type="Button" parent="Layout/MainColumn" unique_id=300111888]
+layout_mode = 2
+disabled = true
+text = "Atacar (selecione uma unidade)"
+
+[node name="ActionPanel" type="VBoxContainer" parent="Layout/MainColumn" unique_id=300112500]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ActionStatusLabel" type="Label" parent="Layout/MainColumn/ActionPanel" unique_id=300112510]
+layout_mode = 2
+horizontal_alignment = 1
+text = "Selecione uma unidade e escolha uma ação abaixo."
+
+[node name="ActionButtons" type="HFlowContainer" parent="Layout/MainColumn/ActionPanel" unique_id=300112520]
+layout_mode = 2
+
+[node name="RepositionButton" type="Button" parent="Layout/MainColumn/ActionPanel/ActionButtons" unique_id=300112521]
+layout_mode = 2
+text = "Reposicionar"
+
+[node name="FlankButton" type="Button" parent="Layout/MainColumn/ActionPanel/ActionButtons" unique_id=300112522]
+layout_mode = 2
+text = "Flanquear"
+
+[node name="AdvanceButton" type="Button" parent="Layout/MainColumn/ActionPanel/ActionButtons" unique_id=300112523]
+layout_mode = 2
+text = "Avançar"
+
+[node name="RetreatButton" type="Button" parent="Layout/MainColumn/ActionPanel/ActionButtons" unique_id=300112524]
+layout_mode = 2
+text = "Recuar"
+
+[node name="SwapButton" type="Button" parent="Layout/MainColumn/ActionPanel/ActionButtons" unique_id=300112525]
+layout_mode = 2
+text = "Troca"
+
+[node name="FrontlineButton" type="Button" parent="Layout/MainColumn/ActionPanel/ActionButtons" unique_id=300112526]
+layout_mode = 2
+text = "Linha de Frente"
+
+[node name="ConcentrationButton" type="Button" parent="Layout/MainColumn/ActionPanel/ActionButtons" unique_id=300112527]
+layout_mode = 2
+text = "Concentração"
+
+[node name="TeleportButton" type="Button" parent="Layout/MainColumn/ActionPanel/ActionButtons" unique_id=300112528]
+layout_mode = 2
+text = "Teleporte"
+
+[node name="BattleFloor1" parent="Layout/MainColumn" unique_id=1530212635 instance=ExtResource("2_yqjtg")]
+layout_mode = 2
+size_flags_horizontal = 0
 size_flags_vertical = 3
 
-[node name="BattleFloor2" parent="Layout/Floors" unique_id=467969519 instance=ExtResource("2_yqjtg")]
+[node name="SpawnSidebar" type="VBoxContainer" parent="Layout" unique_id=300111999]
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_constants/separation = 4
 
-[node name="BattleFloor3" parent="Layout/Floors" unique_id=851788144 instance=ExtResource("2_yqjtg")]
+[node name="SpawnStatusLabel" type="Label" parent="Layout/SpawnSidebar" unique_id=300112000]
+layout_mode = 2
+autowrap_mode = 2
+text = "Clique numa unidade abaixo para escolher o que spawnar."
+
+[node name="UnitScroll" type="ScrollContainer" parent="Layout/SpawnSidebar" unique_id=300112110]
 layout_mode = 2
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
 
-[node name="BottomBar" type="HBoxContainer" parent="Layout" unique_id=300111333]
-layout_mode = 2
-theme_override_constants/separation = 24
-
-[node name="DeckPileView" parent="Layout/BottomBar" unique_id=300111555 instance=ExtResource("3_pile")]
-layout_mode = 2
-
-[node name="Cards" type="Control" parent="Layout/BottomBar" unique_id=856220962]
-custom_minimum_size = Vector2(0, 300)
+[node name="UnitButtons" type="VBoxContainer" parent="Layout/SpawnSidebar/UnitScroll" unique_id=300112111]
 layout_mode = 2
 size_flags_horizontal = 3
-
-[node name="DiscardPileView" parent="Layout/BottomBar" unique_id=300111666 instance=ExtResource("3_pile")]
-layout_mode = 2
-
-[node name="ManaLabel" type="Label" parent="Layout/BottomBar" unique_id=300111888]
-custom_minimum_size = Vector2(140, 0)
-layout_mode = 2
-size_flags_vertical = 4
-theme_override_font_sizes/font_size = 22
-horizontal_alignment = 1
-text = "Mana: 3/3"
-
-[node name="EndTurnButton" type="Button" parent="Layout/BottomBar" unique_id=1204558873]
-custom_minimum_size = Vector2(180, 60)
-layout_mode = 2
-size_flags_vertical = 4
-text = "Encerrar turno"
+theme_override_constants/separation = 2

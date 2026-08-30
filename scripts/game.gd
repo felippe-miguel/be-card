@@ -1,508 +1,363 @@
 extends Control
 
-@onready var card_container: Control = $Layout/BottomBar/Cards
-@onready var floors_container: VBoxContainer = $Layout/Floors
-@onready var end_turn_button: Button = $Layout/BottomBar/EndTurnButton
-@onready var result_label: Label = $Layout/ResultLabel
-@onready var game_state_label: Label = $Layout/GameStateLabel
-@onready var deck_pile_view: CardPileView = $Layout/BottomBar/DeckPileView
-@onready var discard_pile_view: CardPileView = $Layout/BottomBar/DiscardPileView
-@onready var mana_label: Label = $Layout/BottomBar/ManaLabel
+## Sandbox de playtest do grid 3x3 (docs/playtest_3x3.md). Ainda sem o
+## painel de debug completo da etapa 8 — por enquanto só o necessário
+## pra testar cada etapa: spawn livre (etapa 3), disparar o ataque da
+## unidade selecionada (etapa 4) e as cartas de reposicionamento (etapa
+## 6, implementadas como botões de ação em vez do sistema de Card/Deck/
+## Mana — ver docs/playtest_3x3.md seção 9, que não lista Card/Deck/Mana
+## entre o que precisa ser reaproveitado).
 
-var card_database: CardDatabase
+## Qualquer clique pendente (numa unidade ou numa célula vazia) só pode
+## servir a UM propósito por vez. SPAWN reaproveita pending_spawn_unit_id
+## (a unidade escolhida no painel); as demais agem sobre selected_unit.
+enum PendingAction {
+	NONE,
+	SPAWN,
+	REPOSITION,      ## Reposicionar — 1 célula ortogonal, em qualquer direção.
+	FLANK,           ## Flanquear — lane adjacente, mesma row, +3 ATK.
+	SWAP,            ## Troca — clique numa segunda unidade da mesma facção.
+	TELEPORT,        ## Teleporte — qualquer célula vazia da própria facção.
+	CONCENTRATION,   ## Concentração — clique escolhe a lane-alvo (+2 ATK pros aliados dela).
+}
+
+@onready var status_label: Label = $Layout/MainColumn/StatusLabel
+@onready var attack_button: Button = $Layout/MainColumn/AttackButton
+@onready var action_status_label: Label = $Layout/MainColumn/ActionPanel/ActionStatusLabel
+@onready var reposition_button: Button = $Layout/MainColumn/ActionPanel/ActionButtons/RepositionButton
+@onready var flank_button: Button = $Layout/MainColumn/ActionPanel/ActionButtons/FlankButton
+@onready var advance_button: Button = $Layout/MainColumn/ActionPanel/ActionButtons/AdvanceButton
+@onready var retreat_button: Button = $Layout/MainColumn/ActionPanel/ActionButtons/RetreatButton
+@onready var swap_button: Button = $Layout/MainColumn/ActionPanel/ActionButtons/SwapButton
+@onready var frontline_button: Button = $Layout/MainColumn/ActionPanel/ActionButtons/FrontlineButton
+@onready var concentration_button: Button = $Layout/MainColumn/ActionPanel/ActionButtons/ConcentrationButton
+@onready var teleport_button: Button = $Layout/MainColumn/ActionPanel/ActionButtons/TeleportButton
+@onready var spawn_status_label: Label = $Layout/SpawnSidebar/SpawnStatusLabel
+@onready var unit_buttons: VBoxContainer = $Layout/SpawnSidebar/UnitScroll/UnitButtons
+@onready var floor_view: BattleFloorView = $Layout/MainColumn/BattleFloor1
+
 var unit_database: UnitDatabase
 var battle_database: BattleDatabase
 
-var effect_system: EffectSystem
 var battle_state: BattleState
-var game_state: GameState
-var deck: Deck
-var mana: Mana
-var enemy_spawner: EnemySpawner
+var effect_system: EffectSystem
 
-var pending_card: Card = null
-var floor_views: Array[BattleFloorView] = []
+var pending_action: PendingAction = PendingAction.NONE
 
-## Turno atual (1-indexado). Avança a cada vez que o combate automático
-## termina e o jogo volta para PLAYER_ACTION.
-var current_turn: int = 1
+## Id da UnitData escolhida no painel de spawn — só é relevante enquanto
+## pending_action == SPAWN. A facção é decidida pela própria célula
+## clicada (grid ALIADOS ou INIMIGOS), não por um seletor separado.
+var pending_spawn_unit_id: String = ""
 
-const STARTING_HAND_SIZE = 5
-const CARDS_DRAWN_PER_TURN = 2
-const STARTING_MANA = 3
+## Última unidade clicada num UnitView (fora de um pending_action que
+## espera um clique com outro sentido — ver _on_unit_selected()). Alvo do
+## AttackButton e das ações de reposicionamento. Continua válida
+## (RefCounted) mesmo depois de morta/removida; is_dead() é checado antes
+## de atacar.
+var selected_unit: Unit = null
 
-## Layout da mão (Cards é um Control simples, não um HBoxContainer, para
-## poder sobrepor cartas em vez de deixá-las vazar da tela quando a mão
-## está cheia). HAND_CARD_WIDTH deve bater com custom_minimum_size.x do
-## card.tscn. HAND_AREA_WIDTH é o espaço que Cards recebe dentro de
-## BottomBar (ajustado à mão para o layout atual dessa barra — reveja se
-## outro irmão de Cards em BottomBar mudar de tamanho).
-const HAND_CARD_WIDTH = 220.0
-const HAND_CARD_GAP = 20.0
-const HAND_AREA_WIDTH = 900.0
-
-const GAME_STATE_LABELS = {
-	GameState.State.PLAYER_ACTION: "Sua vez",
-	GameState.State.TARGETING_UNIT: "Escolha uma unidade",
-	GameState.State.TARGETING_FLOOR: "Escolha um andar",
-	GameState.State.TARGETING_POSITION: "Escolha uma posição",
-	GameState.State.CONFIRM_EFFECT: "Clique em qualquer lugar para confirmar",
-	GameState.State.COMBAT_PHASE: "Fase de combate...",
-	GameState.State.SPAWN_PHASE: "Invocando inimigos...",
-	GameState.State.BATTLE_OVER: "Batalha encerrada"
-}
-
-func _ready():
-	card_database = CardDatabase.new()
-	card_database.load_cards()
-	
+func _ready() -> void:
 	unit_database = UnitDatabase.new()
 	unit_database.load_units()
-	
+
 	battle_database = BattleDatabase.new()
 	battle_database.load_battles()
-	
+
 	var battle_definition = battle_database.battles["test_battle"]
-	
+
 	battle_state = BattleState.new(battle_definition, unit_database)
 	effect_system = EffectSystem.new(battle_state)
-	enemy_spawner = EnemySpawner.new(battle_state)
 
-	game_state = GameState.new()
-	game_state.changed.connect(_on_game_state_changed)
-	_on_game_state_changed()
+	setup_floor()
+	setup_spawn_panel()
+	setup_action_panel()
 
-	setup_units()
+func setup_floor() -> void:
+	var battle_floor = battle_state.battlefield.get_floor(0)
 
-	spawn_enemies_if_needed()
-	game_state.change_to(GameState.State.PLAYER_ACTION)
+	floor_view.setup(battle_floor.index)
+	floor_view.connect_to_floor(battle_floor)
+	floor_view.unit_selected.connect(_on_unit_selected)
+	floor_view.cell_selected.connect(_on_cell_selected)
 
-	var all_cards: Array[CardData] = []
+## Um botão por UnitData carregada (todo data/units/*.json) — clicar
+## arma pending_spawn_unit_id. Não distingue "unidade de aliado" de
+## "unidade de inimigo": qualquer id pode ser spawnado em qualquer grid,
+## já que este é só um sandbox de posicionamento.
+func setup_spawn_panel() -> void:
+	var ids = unit_database.units.keys()
 
-	for card_id in card_database.cards:
-		all_cards.append(card_database.cards[card_id])
+	ids.sort()
 
-	deck = Deck.new(all_cards)
-	deck.changed.connect(_on_deck_changed)
+	for unit_id in ids:
+		var unit_data: UnitData = unit_database.units[unit_id]
+		var button = Button.new()
 
-	mana = Mana.new(STARTING_MANA)
-	mana.changed.connect(_on_mana_changed)
-	_on_mana_changed()
+		button.text = "%s (ATK %d / HP %d)" % [unit_data.name, unit_data.attack, unit_data.max_hp]
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(_on_spawn_unit_button_pressed.bind(unit_id))
 
-	deck_pile_view.setup("Baralho")
-	discard_pile_view.setup("Descarte")
+		unit_buttons.add_child(button)
 
-	deck.draw(STARTING_HAND_SIZE)
+	update_spawn_status()
 
-	end_turn_button.pressed.connect(_on_end_turn_pressed)
+func setup_action_panel() -> void:
+	attack_button.pressed.connect(_on_attack_button_pressed)
+	reposition_button.pressed.connect(_on_reposition_button_pressed)
+	flank_button.pressed.connect(_on_flank_button_pressed)
+	advance_button.pressed.connect(_on_advance_button_pressed)
+	retreat_button.pressed.connect(_on_retreat_button_pressed)
+	swap_button.pressed.connect(_on_swap_button_pressed)
+	frontline_button.pressed.connect(_on_frontline_button_pressed)
+	concentration_button.pressed.connect(_on_concentration_button_pressed)
+	teleport_button.pressed.connect(_on_teleport_button_pressed)
 
-## ESC ("ui_cancel") ou clique direito cancelam a carta pendente; em
-## CONFIRM_EFFECT, clique esquerdo em qualquer lugar confirma. Usa
-## _input() (não _gui_input()) de propósito: roda antes do sistema de
-## GUI despachar o clique para o que estiver sob o mouse (ex: outra
-## carta, uma UnitView), então funciona em qualquer lugar da tela, não
-## só em áreas "vazias" sem Controls por cima.
+func _on_spawn_unit_button_pressed(unit_id: String) -> void:
+	pending_action = PendingAction.SPAWN
+	pending_spawn_unit_id = unit_id
+	update_spawn_status()
+	update_action_status()
+
+func update_spawn_status() -> void:
+	if pending_action != PendingAction.SPAWN:
+		spawn_status_label.text = "Clique numa unidade abaixo para escolher o que spawnar."
+		return
+
+	var unit_data: UnitData = unit_database.units.get(pending_spawn_unit_id)
+
+	spawn_status_label.text = "Spawnando %s — clique numa célula vazia (Esc cancela)." % unit_data.name
+
+## Descreve a espera de clique de cada pending_action, quando houver uma
+## ativa — util pra saber o que vai acontecer no próximo clique sem
+## precisar advinhar.
+func update_action_status() -> void:
+	match pending_action:
+		PendingAction.REPOSITION:
+			action_status_label.text = "Reposicionar %s — clique numa célula vazia adjacente (Esc cancela)." % selected_unit.name
+		PendingAction.FLANK:
+			action_status_label.text = "Flanquear %s — clique numa célula vazia na lane adjacente, mesma row (Esc cancela)." % selected_unit.name
+		PendingAction.SWAP:
+			action_status_label.text = "Troca de %s — clique noutro aliado da mesma facção (Esc cancela)." % selected_unit.name
+		PendingAction.TELEPORT:
+			action_status_label.text = "Teleportar %s — clique em qualquer célula vazia da mesma facção (Esc cancela)." % selected_unit.name
+		PendingAction.CONCENTRATION:
+			action_status_label.text = "Concentração — clique numa unidade ou célula pra escolher a lane (Esc cancela)."
+		_:
+			action_status_label.text = "Selecione uma unidade e escolha uma ação abaixo."
+
+## Esc cancela qualquer ação pendente (spawn ou reposicionamento), mesmo
+## padrão usado no resto do projeto para cancelar uma carta pendente (ver
+## docs/ARCHITECTURE.md).
 func _input(event: InputEvent) -> void:
-	if not is_targeting_state():
+	if pending_action == PendingAction.NONE:
 		return
 
 	if event.is_action_pressed("ui_cancel"):
-		cancel_pending_card()
+		cancel_pending_action()
 		get_viewport().set_input_as_handled()
-		return
 
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_RIGHT:
-			cancel_pending_card()
-			get_viewport().set_input_as_handled()
+func cancel_pending_action() -> void:
+	pending_action = PendingAction.NONE
+	pending_spawn_unit_id = ""
+	update_spawn_status()
+	update_action_status()
+
+func get_main_floor() -> BattleFloor:
+	return battle_state.battlefield.get_floor(0)
+
+## Clicar numa unidade normalmente só a seleciona (alvo do AttackButton e
+## das ações de reposicionamento); durante SWAP/CONCENTRATION o clique
+## tem outro sentido (ver comentário do enum PendingAction).
+func _on_unit_selected(unit: Unit) -> void:
+	match pending_action:
+		PendingAction.SWAP:
+			var moved = get_main_floor().swap_units(selected_unit, unit)
+
+			if not moved:
+				status_label.text = "Troca inválida (facções diferentes ou mesma unidade)."
+
+			cancel_pending_action()
 			return
 
-		if event.button_index == MOUSE_BUTTON_LEFT and game_state.current == GameState.State.CONFIRM_EFFECT:
-			confirm_pending_card()
-			get_viewport().set_input_as_handled()
+		PendingAction.CONCENTRATION:
+			apply_concentration(unit.lane)
+			cancel_pending_action()
+			return
 
-func is_targeting_state() -> bool:
-	return (
-		game_state.current == GameState.State.TARGETING_UNIT
-		or game_state.current == GameState.State.TARGETING_FLOOR
-		or game_state.current == GameState.State.TARGETING_POSITION
-		or game_state.current == GameState.State.CONFIRM_EFFECT
-	)
+		## Clicar numa unidade (em vez da célula vazia esperada) enquanto
+		## essas ações aguardam um alvo desiste da ação, em vez de mover a
+		## unidade errada — só troca a seleção.
+		PendingAction.REPOSITION, PendingAction.FLANK, PendingAction.TELEPORT:
+			cancel_pending_action()
 
-## Desiste da carta pendente sem jogá-la: nenhuma mana gasta, nenhum
-## efeito executado, a carta continua na mão normalmente.
-func cancel_pending_card() -> void:
-	if pending_card == null:
+	select_unit(unit)
+
+func select_unit(unit: Unit) -> void:
+	selected_unit = unit
+
+	status_label.text = "Selecionada: %s | %s | Lane %d | Row %d | Padrão: %s | ATK %d" % [
+		unit.name,
+		Unit.Faction.keys()[unit.faction],
+		unit.lane,
+		unit.row,
+		unit.attack_pattern,
+		unit.attack
+	]
+
+	attack_button.disabled = false
+	attack_button.text = "Atacar com %s" % unit.name
+
+## Só é chamado com uma célula VAZIA (ver BattleFloorView.cell_selected).
+func _on_cell_selected(faction: Unit.Faction, lane: int, row: int) -> void:
+	match pending_action:
+		PendingAction.SPAWN:
+			spawn_unit_at(faction, lane, row)
+
+		PendingAction.REPOSITION:
+			if faction != selected_unit.faction or not is_orthogonally_adjacent(selected_unit.lane, selected_unit.row, lane, row):
+				status_label.text = "Célula inválida para Reposicionar (precisa ser adjacente, mesma facção)."
+			elif not get_main_floor().move_unit(selected_unit, lane, row):
+				status_label.text = "Não deu pra mover pra lá."
+			else:
+				select_unit(selected_unit)
+
+			cancel_pending_action()
+
+		PendingAction.FLANK:
+			var same_row = row == selected_unit.row
+			var adjacent_lane = absi(lane - selected_unit.lane) == 1
+
+			if faction != selected_unit.faction or not same_row or not adjacent_lane:
+				status_label.text = "Célula inválida para Flanquear (precisa ser lane vizinha, mesma row)."
+			elif not get_main_floor().move_unit(selected_unit, lane, row):
+				status_label.text = "Não deu pra mover pra lá."
+			else:
+				selected_unit.modify_attack(3)
+				select_unit(selected_unit)
+
+			cancel_pending_action()
+
+		PendingAction.TELEPORT:
+			if faction != selected_unit.faction:
+				status_label.text = "Teleporte só entre células da mesma facção."
+			elif not get_main_floor().move_unit(selected_unit, lane, row):
+				status_label.text = "Não deu pra mover pra lá."
+			else:
+				select_unit(selected_unit)
+
+			cancel_pending_action()
+
+		PendingAction.CONCENTRATION:
+			apply_concentration(lane)
+			cancel_pending_action()
+
+func is_orthogonally_adjacent(lane_a: int, row_a: int, lane_b: int, row_b: int) -> bool:
+	var lane_diff = absi(lane_a - lane_b)
+	var row_diff = absi(row_a - row_b)
+
+	return (lane_diff + row_diff) == 1
+
+func spawn_unit_at(faction: Unit.Faction, lane: int, row: int) -> void:
+	var unit = battle_state.create_unit(pending_spawn_unit_id, faction)
+
+	if unit == null:
+		cancel_pending_action()
 		return
 
-	print("Cancelado: ", pending_card.data.name)
+	if not get_main_floor().place_unit_at(unit, lane, row):
+		print("Célula ocupada!")
 
-	match game_state.current:
-		GameState.State.TARGETING_UNIT, GameState.State.CONFIRM_EFFECT:
-			disarm_all_unit_previews()
-		GameState.State.TARGETING_POSITION:
-			end_placement_preview()
+	cancel_pending_action()
 
-	pending_card.set_pending(false)
-	pending_card = null
+## Aliados na lane, +2 ATK (Concentração — docs/playtest_3x3.md seção 5).
+## Nunca afeta inimigos, mesmo que a lane tenha sido escolhida clicando
+## numa unidade/célula do lado inimigo.
+func apply_concentration(lane: int) -> void:
+	var units = get_main_floor().get_lane_units(Unit.Faction.ALLY, lane)
 
-	game_state.change_to(GameState.State.PLAYER_ACTION)
+	for unit in units:
+		unit.modify_attack(2)
 
-## Confirma a carta pendente sem alvo específico (efeito "all_enemies"/
-## "all_allies"): joga de fato, como um clique de alvo válido faria nos
-## outros fluxos de targeting.
-func confirm_pending_card() -> void:
-	if pending_card == null:
+	status_label.text = "Concentração aplicada na Lane %d (%d aliado(s))." % [lane, units.size()]
+
+## Só dispara o ataque da unidade selecionada — nada de fase de combate
+## automática ainda (isso é a etapa 8, "executar turno de todos os
+## inimigos"). O resultado (quem foi atingido, dano causado) aparece no
+## console, e o HP/Block de cada UnitView atingida já atualiza sozinho
+## via Unit.changed (mesmo mecanismo de sempre).
+func _on_attack_button_pressed() -> void:
+	if selected_unit == null:
 		return
 
-	var card = pending_card
-
-	print("Confirmado: ", card.data.name)
-
-	disarm_all_unit_previews()
-	card.set_pending(false)
-	pending_card = null
-
-	game_state.change_to(GameState.State.PLAYER_ACTION)
-
-	execute_card(card)
-
-func _on_end_turn_pressed() -> void:
-	if game_state.current != GameState.State.PLAYER_ACTION:
+	if selected_unit.is_dead():
+		status_label.text = "A unidade selecionada já está morta."
 		return
 
-	game_state.change_to(GameState.State.COMBAT_PHASE)
+	battle_state.execute_unit_attack(selected_unit)
 
-	battle_state.execute_combat_phase()
-
-	if check_battle_result():
+func _on_reposition_button_pressed() -> void:
+	if selected_unit == null:
 		return
 
-	current_turn += 1
+	pending_action = PendingAction.REPOSITION
+	update_action_status()
 
-	spawn_enemies_if_needed()
-	game_state.change_to(GameState.State.PLAYER_ACTION)
-
-	mana.refill()
-	deck.draw(CARDS_DRAWN_PER_TURN)
-
-## Passa pela fase de spawn (EnemySpawner.MAX_SPAWN_TURNS primeiros
-## turnos) se ainda estiver dentro da janela de spawn; do contrário não
-## faz nada. Não volta para PLAYER_ACTION sozinha — quem chama decide
-## isso, para funcionar tanto no início da batalha quanto ao fim de um
-## turno.
-func spawn_enemies_if_needed() -> void:
-	if not enemy_spawner.should_spawn(current_turn):
+func _on_flank_button_pressed() -> void:
+	if selected_unit == null:
 		return
 
-	game_state.change_to(GameState.State.SPAWN_PHASE)
+	pending_action = PendingAction.FLANK
+	update_action_status()
 
-	enemy_spawner.spawn_wave(current_turn)
+## Avançar/Recuar têm direção fixa (Front = row 0 pras duas facções, ver
+## docs/ARCHITECTURE.md/playtest_3x3.md — não são espelhadas entre
+## aliados/inimigos neste sandbox), então executam na hora, sem esperar
+## clique nenhum.
+func _on_advance_button_pressed() -> void:
+	move_selected_unit_by_row(-1, "Avançar")
 
-## Verifica se a batalha terminou e, se sim, encerra a partida. Retorna
-## true quando a batalha acabou, para os chamadores pularem a volta ao
-## estado PLAYER_ACTION.
-func check_battle_result() -> bool:
-	if battle_state.is_defeat():
-		end_battle("Derrota...")
-		return true
+func _on_retreat_button_pressed() -> void:
+	move_selected_unit_by_row(1, "Recuar")
 
-	if battle_state.is_victory():
-		end_battle("Vitória!")
-		return true
-
-	return false
-
-func end_battle(message: String) -> void:
-	game_state.change_to(GameState.State.BATTLE_OVER)
-
-	result_label.text = message
-	result_label.visible = true
-	end_turn_button.disabled = true
-
-	print(message)
-
-func _on_card_played(card: Card) -> void:
-	if game_state.current != GameState.State.PLAYER_ACTION:
+func move_selected_unit_by_row(row_delta: int, action_name: String) -> void:
+	if selected_unit == null:
 		return
 
-	if not mana.can_afford(card.data.cost):
-		print("Mana insuficiente para jogar ", card.data.name, ".")
+	var target_row = selected_unit.row + row_delta
+
+	if not get_main_floor().move_unit(selected_unit, selected_unit.lane, target_row):
+		status_label.text = "%s: não deu (fora do grid ou célula ocupada)." % action_name
 		return
 
-	print("Carta jogada: ", card.data.name)
-	
-	var required_target = get_required_target(card)
-	
-	if required_target == "unit":
-		game_state.change_to(GameState.State.TARGETING_UNIT)
-		pending_card = card
-		pending_card.set_pending(true)
-		begin_unit_effect_preview(card.data)
+	select_unit(selected_unit)
 
-		print("Escolha uma unidade.")
+func _on_swap_button_pressed() -> void:
+	if selected_unit == null:
 		return
 
-	if required_target == "floor":
-		game_state.change_to(GameState.State.TARGETING_FLOOR)
+	pending_action = PendingAction.SWAP
+	update_action_status()
 
-		pending_card = card
-		pending_card.set_pending(true)
-
-		print("Escolha um andar.")
+func _on_teleport_button_pressed() -> void:
+	if selected_unit == null:
 		return
 
-	if required_target == "position":
-		game_state.change_to(GameState.State.TARGETING_POSITION)
-
-		pending_card = card
-		pending_card.set_pending(true)
-		begin_placement_preview(card.data)
-
-		print("Escolha uma posição.")
-		return
-
-	if required_target == "confirm":
-		game_state.change_to(GameState.State.CONFIRM_EFFECT)
-
-		pending_card = card
-		pending_card.set_pending(true)
-		begin_aoe_effect_preview(card.data)
-
-		print("Clique em qualquer lugar para confirmar.")
-		return
-
-	execute_card(card)
-
-func get_required_target(card: Card) -> String:
-	for effect in card.data.effects:
-		var target = effect.get("target", "")
-
-		if target == "selected_unit":
-			return "unit"
-
-		if target == "selected_floor":
-			return "floor"
-
-		if target == "selected_position":
-			return "position"
-
-		if target == "all_enemies" or target == "all_allies":
-			return "confirm"
-
-	return ""
-
-func _on_game_state_changed() -> void:
-	game_state_label.text = GAME_STATE_LABELS.get(game_state.current, "")
-
-func _on_mana_changed() -> void:
-	mana_label.text = "Mana: %d/%d" % [mana.current, mana.max_mana]
-
-func _on_deck_changed() -> void:
-	render_hand()
-
-	deck_pile_view.set_count(deck.draw_pile.size())
-	discard_pile_view.set_count(deck.discard_pile.size())
-
-## Reconstrói os cards visuais da mão a partir de deck.hand. A mão é
-## pequena o suficiente para reconstruir por completo a cada mudança,
-## em vez de sincronizar node a node.
-func render_hand() -> void:
-	for child in card_container.get_children():
-		child.queue_free()
-
-	## A carta pendente nunca chama Card.set_pending(false) sozinha (seu
-	## nó é destruído junto, no queue_free() acima); zera aqui pra
-	## garantir que a flag estática nunca fique travada em true.
-	Card.any_card_pending = false
-
-	var card_views: Array[Card] = []
-
-	for card_data in deck.hand:
-		var card = preload("res://scenes/card.tscn").instantiate()
-
-		card_container.add_child(card)
-		card.setup(card_data, unit_database)
-		card.set_affordable(mana.can_afford(card_data.cost))
-		card.played.connect(_on_card_played)
-
-		card_views.append(card)
-
-	layout_hand(card_views)
-
-## Posiciona as cartas da mão da esquerda para a direita, sobrepondo-as
-## quando não há espaço suficiente para separá-las por completo. A carta
-## mais à direita fica com o maior z_index (por cima) em repouso; passar
-## o mouse sobre qualquer carta a traz para o topo enquanto o cursor
-## estiver sobre ela (ver Card._on_mouse_entered/_exited()).
-func layout_hand(card_views: Array[Card]) -> void:
-	var count = card_views.size()
-
-	if count == 0:
-		return
-
-	var step = HAND_CARD_WIDTH + HAND_CARD_GAP
-
-	if count > 1:
-		var max_step = (HAND_AREA_WIDTH - HAND_CARD_WIDTH) / float(count - 1)
-		step = min(step, max_step)
-
-	for i in range(count):
-		card_views[i].set_hand_position(Vector2(i * step, 0), i)
-
-func setup_units() -> void:
-	for battle_floor in battle_state.battlefield.floors:
-		var floor_view = floors_container.get_child(battle_floor.index)
-
-		floor_view.setup(battle_floor.index)
-		floor_view.connect_to_floor(battle_floor)
-
-		floor_view.selected.connect(_on_floor_selected)
-		floor_view.unit_selected.connect(_on_unit_selected)
-		floor_view.position_selected.connect(_on_position_selected)
-
-		for unit in battle_floor.get_units():
-			floor_view.create_unit_view(unit)
-
-		floor_views.append(floor_view)
-
-func _on_floor_selected(floor_view: BattleFloorView) -> void:
-	if game_state.current != GameState.State.TARGETING_FLOOR:
-		return
-
-	print("Andar escolhido: ", floor_view.floor_index)
-
-	game_state.change_to(GameState.State.PLAYER_ACTION)
-
-	execute_card(pending_card, null, floor_view.floor_index)
-	pending_card = null
-
-func _on_position_selected(floor_index: int, position_index: int) -> void:
-	if game_state.current != GameState.State.TARGETING_POSITION:
-		return
-
-	print("Posição escolhida: andar ", floor_index, " slot ", position_index)
-
-	end_placement_preview()
-	game_state.change_to(GameState.State.PLAYER_ACTION)
-
-	execute_card(pending_card, null, floor_index, position_index)
-	pending_card = null
-
-## Mostra os marcadores de slot (frente/meio/fundo) em todo andar, para o
-## jogador escolher onde a unidade da carta pendente vai entrar.
-func begin_placement_preview(card_data: CardData) -> void:
-	var unit_id = card_data.get_summon_unit_id()
-	var unit_data: UnitData = unit_database.units.get(unit_id)
-
-	if unit_data == null:
-		return
-
-	for floor_view in floor_views:
-		floor_view.begin_placement(unit_data)
-
-func end_placement_preview() -> void:
-	for floor_view in floor_views:
-		floor_view.end_placement()
-
-## Arma, em cada UnitView que for um alvo válido para algum efeito
-## "selected_unit" da carta, um preview do resultado desse efeito
-## (HP/block resultante) ao passar o mouse — ver UnitView.arm_effect_
-## preview(). Reaproveita EffectSystem.can_target_selected_unit(), a
-## mesma checagem usada para validar o clique de fato. Não mostra nada
-## até o jogador passar o mouse: faz sentido aqui, já que ele está
-## escolhendo entre várias unidades possíveis.
-func begin_unit_effect_preview(card_data: CardData) -> void:
-	for floor_view in floor_views:
-		for unit_view in floor_view.get_all_unit_views():
-			var eligible_effects: Array[Dictionary] = []
-
-			for effect in card_data.effects:
-				if effect.get("target", "") != "selected_unit":
-					continue
-
-				if effect_system.can_target_selected_unit(effect, unit_view.unit):
-					eligible_effects.append(effect)
-
-			if not eligible_effects.is_empty():
-				unit_view.arm_effect_preview(eligible_effects)
-
-## Mostra, imediatamente e sem precisar de hover, o preview de um efeito
-## "all_enemies"/"all_allies" em toda unidade da facção afetada — ao
-## contrário do preview de "selected_unit", aqui não há escolha: todas as
-## unidades daquela facção serão atingidas, então já mostra o resultado
-## em todas de uma vez.
-func begin_aoe_effect_preview(card_data: CardData) -> void:
-	var enemy_effects: Array[Dictionary] = []
-	var ally_effects: Array[Dictionary] = []
-
-	for effect in card_data.effects:
-		match effect.get("target", ""):
-			"all_enemies":
-				enemy_effects.append(effect)
-			"all_allies":
-				ally_effects.append(effect)
-
-	if enemy_effects.is_empty() and ally_effects.is_empty():
-		return
-
-	for floor_view in floor_views:
-		for unit_view in floor_view.get_all_unit_views():
-			var effects = enemy_effects if unit_view.unit.faction == Unit.Faction.ENEMY else ally_effects
-
-			if not effects.is_empty():
-				unit_view.arm_effect_preview(effects, true)
-
-## Desarma qualquer preview de efeito de unidade, veio ele de
-## begin_unit_effect_preview() ou begin_aoe_effect_preview().
-func disarm_all_unit_previews() -> void:
-	for floor_view in floor_views:
-		for unit_view in floor_view.get_all_unit_views():
-			unit_view.disarm_effect_preview()
-
-func _on_unit_selected(unit: Unit) -> void:
-	if game_state.current != GameState.State.TARGETING_UNIT:
-		return
-
-	if not can_select_unit_for_card(pending_card, unit):
-		print("A unidade selecionada não é um alvo válido para esta carta.")
-		return
-
-	print(
-		"Unit selecionada: ", unit.name,
-		" | Faction: ", unit.faction,
-		" | Floor: ", unit.floor_index,
-		" | Pos: ", unit.position_index
-	)
-
-	if game_state.current == GameState.State.TARGETING_UNIT:
-		game_state.change_to(GameState.State.PLAYER_ACTION)
-		disarm_all_unit_previews()
-		execute_card(pending_card, unit)
-		pending_card = null
-
-func can_select_unit_for_card(card: Card, unit: Unit) -> bool:
-	for effect in card.data.effects:
-		if not effect_system.can_target_selected_unit(effect, unit):
-			return false
-
-	return true
-
-func execute_card(
-	card: Card,
-	selected_unit: Unit = null,
-	selected_floor: int = -1,
-	selected_position: int = -1
-) -> void:
-	for effect in card.data.effects:
-		effect_system.execute_effect(
-			effect,
-			selected_unit,
-			selected_floor,
-			selected_position
-		)
-
-	mana.spend(card.data.cost)
-	deck.discard(card.data)
-
-	check_battle_result()
+	pending_action = PendingAction.TELEPORT
+	update_action_status()
+
+## Linha de Frente afeta todo mundo na Front na hora — não precisa de
+## unidade selecionada nem de clique nenhum.
+func _on_frontline_button_pressed() -> void:
+	var units = get_main_floor().get_units_for_faction(Unit.Faction.ALLY)
+	var affected = 0
+
+	for unit in units:
+		if unit.row == 0:
+			unit.modify_attack(3)
+			affected += 1
+
+	status_label.text = "Linha de Frente aplicada (%d aliado(s) na Front)." % affected
+
+func _on_concentration_button_pressed() -> void:
+	pending_action = PendingAction.CONCENTRATION
+	update_action_status()

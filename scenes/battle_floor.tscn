@@ -9,64 +9,34 @@ script = ExtResource("1_fcfhn")
 
 [node name="Layout" type="VBoxContainer" parent="." unique_id=300222111]
 layout_mode = 2
-
-[node name="HBoxContainer" type="HBoxContainer" parent="Layout" unique_id=1766081662]
-layout_mode = 2
 size_flags_vertical = 3
+theme_override_constants/separation = 4
 
-[node name="AllyArea" type="Control" parent="Layout/HBoxContainer" unique_id=300333111]
-custom_minimum_size = Vector2(0, 110)
+[node name="EnemyLabel" type="Label" parent="Layout" unique_id=300222222]
 layout_mode = 2
-size_flags_horizontal = 3
+horizontal_alignment = 1
+text = "INIMIGOS"
 
-[node name="AllyContainer" type="HBoxContainer" parent="Layout/HBoxContainer/AllyArea" unique_id=714368052]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="AllyHoverZones" type="HBoxContainer" parent="Layout/HBoxContainer/AllyArea" unique_id=300333222]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="Zone0" type="Button" parent="Layout/HBoxContainer/AllyArea/AllyHoverZones" unique_id=300333333]
-modulate = Color(1, 1, 1, 0)
+[node name="EnemyGrid" type="GridContainer" parent="Layout" unique_id=300222333]
 layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-focus_mode = 0
-flat = true
+size_flags_horizontal = 0
+size_flags_vertical = 3
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 3
 
-[node name="Zone1" type="Button" parent="Layout/HBoxContainer/AllyArea/AllyHoverZones" unique_id=300333444]
-modulate = Color(1, 1, 1, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-focus_mode = 0
-flat = true
-
-[node name="Zone2" type="Button" parent="Layout/HBoxContainer/AllyArea/AllyHoverZones" unique_id=300333555]
-modulate = Color(1, 1, 1, 0)
-layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-focus_mode = 0
-flat = true
-
-[node name="CenterSpacer" type="Control" parent="Layout/HBoxContainer" unique_id=300333999]
-custom_minimum_size = Vector2(24, 0)
+[node name="HSeparator" type="HSeparator" parent="Layout" unique_id=300222444]
 layout_mode = 2
 
-[node name="EnemyContainer" type="HBoxContainer" parent="Layout/HBoxContainer" unique_id=756733158]
+[node name="AllyLabel" type="Label" parent="Layout" unique_id=300222555]
 layout_mode = 2
-size_flags_horizontal = 3
-mouse_filter = 2
-alignment = 2
+horizontal_alignment = 1
+text = "ALIADOS"
+
+[node name="AllyGrid" type="GridContainer" parent="Layout" unique_id=300222666]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 3
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+columns = 3

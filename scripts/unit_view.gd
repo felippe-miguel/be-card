@@ -5,6 +5,9 @@ const NORMAL_COLOR = Color(1, 1, 1, 1)
 const INCREASE_COLOR = Color(0.4, 1, 0.4, 1)
 const DECREASE_COLOR = Color(1, 0.4, 0.4, 1)
 
+## row: 0 = Front, 1 = Middle, 2 = Back (ver docs/playtest_3x3.md).
+const ROW_NAMES = ["Front", "Middle", "Back"]
+
 @onready var name_label: Label = $Content/NameLabel
 @onready var faction_label: Label = $Content/FactionLabel
 @onready var hp_label: Label = $Content/HpLabel
@@ -51,7 +54,7 @@ func render_display(destination_hp: int, destination_block: int) -> void:
 	name_label.text = unit.name
 	faction_label.text = Unit.Faction.keys()[unit.faction]
 	atk_label.text = "ATK: " + str(unit.attack)
-	position_label.text = "Floor: " + str(unit.floor_index) + " | Pos: " + str(unit.position_index)
+	position_label.text = "Lane: " + str(unit.lane) + " | Row: " + ROW_NAMES[unit.row]
 
 	hp_label.text = "HP: " + str(destination_hp) + "/" + str(unit.max_hp)
 	hp_label.add_theme_color_override("font_color", get_delta_color(destination_hp, unit.hp))
