@@ -1,0 +1,7 @@
+{
+  "id": "enemy_mage",
+  "name": "Mage",
+  "max_hp": 10,
+  "attack": 6,
+  "attack_pattern": "primary_plus_adjacent_row"
+}

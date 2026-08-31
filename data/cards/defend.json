@@ -1,15 +1,10 @@
 {
   "id": "defend",
-  "name": "Defender",
-  "description": "Ganhe 5 de Bloqueio.",
+  "name": "Defesa",
+  "description": "Dá 6 de bloqueio a uma unidade aliada.",
   "cost": 1,
   "type": "skill",
   "effects": [
-    {
-      "type": "block",
-      "target": "selected_unit",
-      "target_faction": "ally",
-      "amount": 5
-    }
+    { "type": "block", "target": "selected_unit", "target_faction": "ally", "amount": 6 }
   ]
 }

@@ -1,0 +1,7 @@
+{
+  "id": "tank",
+  "name": "Tank",
+  "max_hp": 30,
+  "attack": 4,
+  "attack_pattern": "lane_front"
+}

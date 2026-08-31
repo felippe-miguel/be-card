@@ -2,22 +2,17 @@
   "floors": [
     {
       "units": [
-        {
-          "id": "skeleton",
-          "faction": "ally"
-        }
+        { "id": "warrior", "faction": "ally", "lane": 0, "row": 0 },
+        { "id": "guardian", "faction": "ally", "lane": 1, "row": 0 },
+        { "id": "assassin", "faction": "ally", "lane": 2, "row": 0 },
+        { "id": "archer", "faction": "ally", "lane": 0, "row": 2 },
+        { "id": "mage", "faction": "ally", "lane": 2, "row": 2 },
+
+        { "id": "tank", "faction": "enemy", "lane": 0, "row": 0 },
+        { "id": "tank", "faction": "enemy", "lane": 2, "row": 0 },
+        { "id": "enemy_archer", "faction": "enemy", "lane": 1, "row": 1 },
+        { "id": "enemy_mage", "faction": "enemy", "lane": 1, "row": 2 }
       ]
-    },
-    {
-      "units": [
-        {
-          "id": "slime",
-          "faction": "ally"
-        }
-      ]
-    },
-    {
-      "units": []
     }
   ]
 }

@@ -1,0 +1,8 @@
+{
+  "id": "guardian",
+  "name": "Guardião",
+  "max_hp": 25,
+  "attack": 3,
+  "attack_pattern": "lane_front",
+  "aura_adjacent_ally_max_hp_bonus": 2
+}

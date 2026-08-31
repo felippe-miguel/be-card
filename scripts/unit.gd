@@ -9,12 +9,33 @@ enum Faction {
 var id: String
 var name: String
 var hp: int
+
+## max_hp = base_max_hp + received_max_hp_bonus. base_max_hp é o valor
+## puro de UnitData; received_max_hp_bonus vem de auras de aliados
+## adjacentes (Guardião) e é recalculado do zero a cada mudança no grid —
+## ver BattleState.recalculate_auras()/set_received_max_hp_bonus().
 var max_hp: int
+var base_max_hp: int
+var received_max_hp_bonus: int = 0
 var block: int = 0
 var faction: Faction
-var position_index: int = -1
-var floor_index: int = -1
+
+## Coordenadas no grid 3x3 da facção (sandbox de playtest — ver
+## docs/playtest_3x3.md). lane = 0..2 (esquerda a direita), row = 0..2
+## (0 = Front, 1 = Middle, 2 = Back). -1/-1 enquanto a unidade não está
+## posicionada em nenhum andar.
+var lane: int = -1
+var row: int = -1
 var attack: int
+
+## Copiados de UnitData na criação (ver BattleState.create_unit()) — ver
+## TargetSystem.get_pattern_attack_targets() para o que cada id de padrão
+## faz.
+var attack_pattern: String = "lane_front"
+var attack_pattern_count: int = 1
+
+## Copiado de UnitData — ver BattleState.recalculate_auras().
+var aura_adjacent_ally_max_hp_bonus: int = 0
 
 signal changed
 
@@ -23,14 +44,21 @@ func _init(
 	unit_name: String,
 	max_health: int,
 	unit_attack: int,
-	unit_faction: Faction
+	unit_faction: Faction,
+	unit_attack_pattern: String = "lane_front",
+	unit_attack_pattern_count: int = 1,
+	unit_aura_bonus: int = 0
 ) -> void:
 	id = unit_id
 	name = unit_name
+	base_max_hp = max_health
 	max_hp = max_health
 	hp = max_health
 	attack = unit_attack
 	faction = unit_faction
+	attack_pattern = unit_attack_pattern
+	attack_pattern_count = unit_attack_pattern_count
+	aura_adjacent_ally_max_hp_bonus = unit_aura_bonus
 
 func attack_unit(target: Unit) -> void:
 	if target == null:
@@ -70,6 +98,20 @@ func heal(amount: int) -> void:
 	
 	changed.emit()
 
+## Usado pelas cartas de reposicionamento/buff (Flanquear, Linha de
+## Frente, Concentração — docs/playtest_3x3.md seção 5). Permanente
+## (sem duração/expiração) de propósito, pelo mesmo motivo que o
+## documento permite: velocidade de implementação para o playtest.
+func modify_attack(amount: int) -> void:
+	attack += amount
+
+	if attack < 0:
+		attack = 0
+
+	print(name, " teve ATK alterado em ", amount, ". ATK: ", attack)
+
+	changed.emit()
+
 func add_block(amount: int) -> void:
 	block += amount
 	
@@ -79,3 +121,20 @@ func add_block(amount: int) -> void:
 
 func is_dead() -> bool:
 	return hp <= 0
+
+## Chamado por BattleState.recalculate_auras() — new_bonus é o total já
+## somado de todas as auras recebidas agora (não um delta incremental),
+## já que a cada mudança no grid tudo é recalculado do zero, não
+## acumulado aos poucos. hp acompanha a mudança (ganhar/perder a mesma
+## quantidade que max_hp ganhou/perdeu), depois é limitado a [0, max_hp].
+func set_received_max_hp_bonus(new_bonus: int) -> void:
+	if new_bonus == received_max_hp_bonus:
+		return
+
+	var delta = new_bonus - received_max_hp_bonus
+
+	received_max_hp_bonus = new_bonus
+	max_hp = base_max_hp + received_max_hp_bonus
+	hp = clampi(hp + delta, 0, max_hp)
+
+	changed.emit()

@@ -1,0 +1,7 @@
+{
+  "id": "mage",
+  "name": "Mago",
+  "max_hp": 8,
+  "attack": 5,
+  "attack_pattern": "primary_plus_adjacent_row"
+}

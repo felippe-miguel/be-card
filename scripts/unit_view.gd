@@ -5,6 +5,19 @@ const NORMAL_COLOR = Color(1, 1, 1, 1)
 const INCREASE_COLOR = Color(0.4, 1, 0.4, 1)
 const DECREASE_COLOR = Color(1, 0.4, 0.4, 1)
 
+## row: 0 = Front, 1 = Middle, 2 = Back (ver docs/playtest_3x3.md).
+const ROW_NAMES = ["Front", "Middle", "Back"]
+
+## Hover de combate (docs/playtest_3x3.md): passar o mouse numa unidade
+## destaca em vermelho quem seria atingido pelo ataque dela e em verde
+## quem recebe a aura dela (Guardião) — ver Game._on_unit_hover_started().
+## Não tem relação com o preview de efeito de carta acima (esse já
+## recolore os labels de HP/Block; isto aqui destaca o "quadro" inteiro
+## de outras unidades).
+const TARGET_HIGHLIGHT_COLOR = Color(0.85, 0.25, 0.25, 1)
+const BUFF_HIGHLIGHT_COLOR = Color(0.35, 0.85, 0.35, 1)
+const HIGHLIGHT_BG_COLOR = Color(0.16, 0.16, 0.16, 1)
+
 @onready var name_label: Label = $Content/NameLabel
 @onready var faction_label: Label = $Content/FactionLabel
 @onready var hp_label: Label = $Content/HpLabel
@@ -28,7 +41,17 @@ var effect_armed: bool = false
 ## diferente do caso "selected_unit" (hover-only).
 var persistent_preview: bool = false
 
+## Reaproveitada por set_highlight()/clear_highlight() — criada uma vez,
+## só a border_color muda entre vermelho (alvo de ataque) e verde
+## (recebendo aura).
+var highlight_style: StyleBoxFlat = null
+
 signal selected(unit: Unit)
+
+## Emitidos em todo mouse_entered/exited, independente de haver preview
+## de carta armado — ver Game._on_unit_hover_started()/_ended().
+signal hover_started(unit: Unit)
+signal hover_ended(unit: Unit)
 
 func setup(setup_unit: Unit) -> void:
 	unit = setup_unit
@@ -51,7 +74,7 @@ func render_display(destination_hp: int, destination_block: int) -> void:
 	name_label.text = unit.name
 	faction_label.text = Unit.Faction.keys()[unit.faction]
 	atk_label.text = "ATK: " + str(unit.attack)
-	position_label.text = "Floor: " + str(unit.floor_index) + " | Pos: " + str(unit.position_index)
+	position_label.text = "Lane: " + str(unit.lane) + " | Row: " + ROW_NAMES[unit.row]
 
 	hp_label.text = "HP: " + str(destination_hp) + "/" + str(unit.max_hp)
 	hp_label.add_theme_color_override("font_color", get_delta_color(destination_hp, unit.hp))
@@ -93,9 +116,31 @@ func _on_mouse_entered() -> void:
 	if effect_armed:
 		show_effect_preview()
 
+	hover_started.emit(unit)
+
 func _on_mouse_exited() -> void:
 	if effect_armed and not persistent_preview:
 		update_display()
+
+	hover_ended.emit(unit)
+
+## color = TARGET_HIGHLIGHT_COLOR (alvo de ataque) ou BUFF_HIGHLIGHT_COLOR
+## (recebendo aura) — troca só a cor da borda, reaproveitando o mesmo
+## StyleBoxFlat. Sobrescreve o stylebox "normal" do Button; clear_
+## highlight() remove a sobrescrita, voltando ao tema default.
+func set_highlight(color: Color) -> void:
+	if highlight_style == null:
+		highlight_style = StyleBoxFlat.new()
+		highlight_style.bg_color = HIGHLIGHT_BG_COLOR
+		highlight_style.set_corner_radius_all(4)
+		highlight_style.set_border_width_all(3)
+
+	highlight_style.border_color = color
+
+	add_theme_stylebox_override("normal", highlight_style)
+
+func clear_highlight() -> void:
+	remove_theme_stylebox_override("normal")
 
 ## Simula, na ordem em que os efeitos da carta seriam resolvidos de
 ## verdade (EffectSystem.execute_effect(), um efeito por vez, na ordem

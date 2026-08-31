@@ -1,0 +1,10 @@
+{
+  "id": "retreat",
+  "name": "Recuar",
+  "description": "Mova a unidade selecionada 1 posição em direção à Back.",
+  "cost": 0,
+  "type": "skill",
+  "effects": [
+    { "type": "retreat" }
+  ]
+}

@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://cpkyo2oqerb25" path="res://scripts/unit_view.gd" id="1_1l4p3"]
 
 [node name="UnitView" type="Button" unique_id=1532495133]
-custom_minimum_size = Vector2(160, 110)
+custom_minimum_size = Vector2(118, 92)
 size_flags_vertical = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -22,32 +22,32 @@ mouse_filter = 2
 theme_override_constants/separation = 0
 
 [node name="NameLabel" type="Label" parent="Content" unique_id=300444222]
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 11
 mouse_filter = 2
 text = ""
 
 [node name="FactionLabel" type="Label" parent="Content" unique_id=300444333]
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 11
 mouse_filter = 2
 text = ""
 
 [node name="HpLabel" type="Label" parent="Content" unique_id=300444444]
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 11
 mouse_filter = 2
 text = ""
 
 [node name="AtkLabel" type="Label" parent="Content" unique_id=300444555]
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 11
 mouse_filter = 2
 text = ""
 
 [node name="BlockLabel" type="Label" parent="Content" unique_id=300444666]
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 11
 mouse_filter = 2
 text = ""
 
 [node name="PositionLabel" type="Label" parent="Content" unique_id=300444777]
-theme_override_font_sizes/font_size = 14
+theme_override_font_sizes/font_size = 11
 mouse_filter = 2
 text = ""
 
@@ -60,7 +60,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.2, 0.2, 1)
-theme_override_font_sizes/font_size = 40
+theme_override_font_sizes/font_size = 28
 horizontal_alignment = 1
 vertical_alignment = 1
 text = "X"

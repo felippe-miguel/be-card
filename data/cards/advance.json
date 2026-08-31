@@ -1,0 +1,10 @@
+{
+  "id": "advance",
+  "name": "Avançar",
+  "description": "Mova a unidade selecionada 1 posição em direção à Front.",
+  "cost": 0,
+  "type": "skill",
+  "effects": [
+    { "type": "advance" }
+  ]
+}

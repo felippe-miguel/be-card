@@ -1,0 +1,10 @@
+{
+  "id": "flank",
+  "name": "Flanquear",
+  "description": "Mova a unidade selecionada para uma lane adjacente (mesma linha). Ela recebe +3 ATK.",
+  "cost": 1,
+  "type": "skill",
+  "effects": [
+    { "type": "flank" }
+  ]
+}

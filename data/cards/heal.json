@@ -1,15 +1,10 @@
 {
   "id": "heal",
   "name": "Cura",
-  "description": "Recupere 10 de vida.",
-  "cost": 1,
+  "description": "Recupera 8 de HP de uma unidade aliada.",
+  "cost": 2,
   "type": "skill",
   "effects": [
-    {
-      "type": "heal",
-      "target": "selected_unit",
-      "target_faction": "ally",
-      "amount": 10
-    }
+    { "type": "heal", "target": "selected_unit", "target_faction": "ally", "amount": 8 }
   ]
 }

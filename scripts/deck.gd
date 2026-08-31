@@ -46,6 +46,15 @@ func discard(card_data: CardData) -> void:
 
 	changed.emit()
 
+## Descarta a mão inteira de uma vez — usado ao rodar o turno
+## (Game._on_run_turn_button_pressed()), ao contrário de discard(), que
+## descarta uma única carta jogada.
+func discard_hand() -> void:
+	discard_pile.append_array(hand)
+	hand.clear()
+
+	changed.emit()
+
 func reshuffle_discard_into_draw_pile() -> void:
 	if discard_pile.is_empty():
 		return

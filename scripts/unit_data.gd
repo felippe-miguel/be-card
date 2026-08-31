@@ -6,12 +6,29 @@ var name: String
 var max_hp: int
 var attack: int
 
+## Padrão de ataque (docs/playtest_3x3.md seção 3/4) — id resolvido por
+## TargetSystem.get_pattern_attack_targets(). attack_pattern_count só se
+## aplica a padrões que pegam os "N primeiros" de uma varredura (ver
+## TargetSystem). "lane_front" (mira o mais à frente da própria lane) é o
+## padrão default para qualquer unidade que ainda não define o seu.
+var attack_pattern: String = "lane_front"
+var attack_pattern_count: int = 1
+
+## Passiva do Guardião (docs/playtest_3x3.md seção 4): bônus de HP máximo
+## concedido a cada aliado ortogonalmente adjacente (mesma facção),
+## enquanto esta unidade estiver viva e posicionada. 0 = sem aura. Ver
+## BattleState.recalculate_auras().
+var aura_adjacent_ally_max_hp_bonus: int = 0
+
 static func from_dict(data: Dictionary) -> UnitData:
 	var unit_data = UnitData.new()
-	
+
 	unit_data.id = data.get("id", "")
 	unit_data.name = data.get("name", "")
 	unit_data.max_hp = data.get("max_hp", 1)
 	unit_data.attack = data.get("attack", 0)
-	
+	unit_data.attack_pattern = data.get("attack_pattern", "lane_front")
+	unit_data.attack_pattern_count = data.get("attack_pattern_count", 1)
+	unit_data.aura_adjacent_ally_max_hp_bonus = data.get("aura_adjacent_ally_max_hp_bonus", 0)
+
 	return unit_data

@@ -1,0 +1,8 @@
+{
+  "id": "lancer",
+  "name": "Lanceiro",
+  "max_hp": 14,
+  "attack": 4,
+  "attack_pattern": "lane_front",
+  "attack_pattern_count": 2
+}

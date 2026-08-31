@@ -2,5 +2,6 @@
   "id": "bat",
   "name": "Morcego",
   "max_hp": 12,
-  "attack": 5
+  "attack": 5,
+  "attack_pattern": "adjacent_lanes_furthest"
 }
