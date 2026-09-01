@@ -82,6 +82,12 @@ func render_display(destination_hp: int, destination_block: int) -> void:
 	block_label.text = "Block: " + str(destination_block)
 	block_label.add_theme_color_override("font_color", get_delta_color(destination_block, unit.block))
 
+	## Garante que um preview_attack() anterior nunca fique "preso" com a
+	## cor de delta depois de um update de verdade (ex: outra mudança
+	## qualquer nesta unidade enquanto Linha de Frente estava armada) —
+	## fora de preview_attack(), o ATK é sempre mostrado na cor normal.
+	atk_label.add_theme_color_override("font_color", NORMAL_COLOR)
+
 	death_indicator.visible = destination_hp <= 0
 
 func get_delta_color(destination_value: int, current_value: int) -> Color:
@@ -141,6 +147,19 @@ func set_highlight(color: Color) -> void:
 
 func clear_highlight() -> void:
 	remove_theme_stylebox_override("normal")
+
+## Preview do ATK de cartas como Linha de Frente (docs/playtest_3x3.md
+## seção 5) — modify_attack() não é um "efeito" no formato que
+## show_effect_preview() simula (só dano/cura/bloqueio), então isto é um
+## caminho à parte, mas reaproveita get_delta_color() pro mesmo esquema
+## de cor visual.
+func preview_attack(new_attack: int) -> void:
+	atk_label.text = "ATK: " + str(new_attack)
+	atk_label.add_theme_color_override("font_color", get_delta_color(new_attack, unit.attack))
+
+func clear_attack_preview() -> void:
+	atk_label.text = "ATK: " + str(unit.attack)
+	atk_label.add_theme_color_override("font_color", NORMAL_COLOR)
 
 ## Simula, na ordem em que os efeitos da carta seriam resolvidos de
 ## verdade (EffectSystem.execute_effect(), um efeito por vez, na ordem

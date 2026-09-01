@@ -14,12 +14,15 @@ extends Control
 enum PendingAction {
 	NONE,
 	SPAWN,
-	REPOSITION,      ## Reposicionar — 1 célula ortogonal, em qualquer direção.
-	FLANK,           ## Flanquear — lane adjacente, mesma row, +3 ATK.
-	SWAP,            ## Troca — clique numa segunda unidade da mesma facção.
-	TELEPORT,        ## Teleporte — qualquer célula vazia da própria facção.
+	REPOSITION,      ## Reposicionar — clique escolhe a unidade, depois uma célula ortogonal vazia.
+	FLANK,           ## Flanquear — clique escolhe a unidade, depois uma célula vazia na lane adjacente (mesma row); +3 ATK.
+	SWAP,            ## Troca — clique escolhe a 1ª unidade, depois a 2ª (mesma facção).
+	TELEPORT,        ## Teleporte — clique escolhe a unidade, depois qualquer célula vazia da própria facção.
 	CONCENTRATION,   ## Concentração — clique escolhe a lane-alvo (+2 ATK pros aliados dela).
 	EFFECT_UNIT,     ## Cartas de dano/cura/bloqueio com alvo "selected_unit" — clique escolhe o alvo.
+	ADVANCE,         ## Avançar — clique escolhe a unidade, resolve na hora.
+	RETREAT,         ## Recuar — clique escolhe a unidade, resolve na hora.
+	CONFIRM,         ## Cartas instantâneas de campo todo (Linha de Frente, dano/cura/bloqueio em todos) — preview mostrado, clique em qualquer lugar confirma.
 }
 
 @onready var turn_label: Label = $Layout/MainColumn/TurnLabel
@@ -45,6 +48,7 @@ enum PendingAction {
 @onready var deck_pile_view: CardPileView = $Layout/MainColumn/BottomBar/DeckPileView
 @onready var card_container: Control = $Layout/MainColumn/BottomBar/Cards
 @onready var discard_pile_view: CardPileView = $Layout/MainColumn/BottomBar/DiscardPileView
+@onready var graveyard_pile_view: CardPileView = $Layout/MainColumn/BottomBar/GraveyardPileView
 @onready var mana_label: Label = $Layout/MainColumn/BottomBar/ManaLabel
 
 var unit_database: UnitDatabase
@@ -57,8 +61,17 @@ var deck: Deck
 var mana: Mana
 
 const STARTING_HAND_SIZE = 5
-const STARTING_MANA = 3
+const STARTING_MANA = 4
 const RANDOM_UNITS_PER_FACTION = 3
+
+## Loop do jogo (docs/playtest_3x3.md não define isto — pedido à parte):
+## uma wave de ENEMIES_PER_WAVE inimigos entra no campo a cada "Rodar
+## turno", até MAX_ENEMY_WAVES vezes. Derrota é perder todos os aliados a
+## qualquer momento; vitória é zerar os inimigos depois que as
+## MAX_ENEMY_WAVES já entraram (zerar antes disso não conta — ainda tem
+## wave chegando).
+const MAX_ENEMY_WAVES = 4
+const ENEMIES_PER_WAVE = 3
 
 ## Layout da mão — ver docs/ARCHITECTURE.md (Hand layout). Cards é um
 ## Control simples posicionado manualmente por layout_hand(), não um
@@ -84,6 +97,13 @@ var pending_spawn_unit_id: String = ""
 ## a carta só volta ao normal na mão — nada é cobrado.
 var pending_card: Card = null
 
+## true logo após jogar uma carta de Reposicionar/Flanquear/Troca/
+## Teleporte/Avançar/Recuar — o PRÓXIMO clique numa unidade a escolhe
+## como alvo da carta, em vez de exigir uma unidade já selecionada antes
+## de jogar (como os botões de debug equivalentes ainda exigem — ver
+## PendingAction). Cai pra false assim que essa unidade é escolhida.
+var card_needs_unit_selection: bool = false
+
 ## Última unidade clicada num UnitView (fora de um pending_action que
 ## espera um clique com outro sentido — ver _on_unit_selected()). Alvo do
 ## AttackButton e das ações de reposicionamento. Continua válida
@@ -95,6 +115,17 @@ var selected_unit: Unit = null
 ## usado — não é um sistema de turnos de verdade (ver docs/playtest_3x3.md
 ## seção 8), só o contador que a seção 7 pede pra mostrar.
 var current_turn: int = 1
+
+## Quantas waves de reforço inimigo já entraram nesta partida (0..
+## MAX_ENEMY_WAVES) — ver _on_run_turn_button_pressed()/check_battle_end().
+var enemy_waves_spawned: int = 0
+
+## true assim que a partida termina (vitória ou derrota) — só
+## "Resetar combate"/"Random" tiram disto, recomeçando do zero. Trava só
+## "Rodar turno" (o loop em si); o resto do sandbox continua livre pra
+## mexer, já que isto é só um sinalizador de fim de partida, não um
+## bloqueio geral de UI.
+var game_over: bool = false
 
 func _ready() -> void:
 	unit_database = UnitDatabase.new()
@@ -144,6 +175,7 @@ func setup_deck_and_mana() -> void:
 
 	deck_pile_view.setup("Baralho")
 	discard_pile_view.setup("Descarte")
+	graveyard_pile_view.setup("Cemitério")
 
 	deck.draw(STARTING_HAND_SIZE)
 
@@ -155,6 +187,7 @@ func _on_deck_changed() -> void:
 
 	deck_pile_view.set_count(deck.draw_pile.size())
 	discard_pile_view.set_count(deck.discard_pile.size())
+	graveyard_pile_view.set_count(deck.graveyard_pile.size())
 
 ## Reconstrói os cards visuais da mão a partir de deck.hand — a mão é
 ## pequena o suficiente para reconstruir por completo a cada mudança.
@@ -216,16 +249,27 @@ func start_new_battle_state(battle_definition: BattleDefinition) -> void:
 	floor_view.connect_to_floor(battle_floor)
 
 	## battle_floor (ao contrário de floor_view) é recriado a cada reset,
-	## então essa conexão precisa ser refeita aqui, não em _ready(). Mantém
-	## o preview do checkbox em dia com QUALQUER mudança no andar — ver
-	## refresh_turn_preview_if_active().
+	## então essas conexões precisam ser refeitas aqui, não em _ready().
+	## refresh_turn_preview_if_active() mantém o preview do checkbox em
+	## dia com QUALQUER mudança no andar; check_battle_end() detecta
+	## derrota/vitória mesmo fora de "Rodar turno" (ex: a última unidade
+	## aliada morrer de um ataque manual, ou o último inimigo ser
+	## removido pelo debug) — o gate de vitória por MAX_ENEMY_WAVES em
+	## check_battle_end() evita falso positivo enquanto ainda faltam waves.
 	battle_floor.battlefield_changed.connect(refresh_turn_preview_if_active)
+	battle_floor.battlefield_changed.connect(check_battle_end)
 
 	## O roster inicial (test_battle.json) é populado dentro de
 	## BattleState.new() acima, antes da conexão logo acima existir —
 	## sem isto, um reset com o checkbox já ligado deixaria o preview
 	## defasado (mostrando a batalha anterior) até a próxima mudança.
 	refresh_turn_preview_if_active()
+
+	## Toda partida nova (reset ou random) começa do zero: sem waves
+	## ainda entregues, sem fim de jogo, com "Rodar turno" liberado.
+	enemy_waves_spawned = 0
+	game_over = false
+	run_turn_button.disabled = false
 
 ## Um botão por UnitData carregada (todo data/units/*.json) — clicar
 ## arma pending_spawn_unit_id. Não distingue "unidade de aliado" de
@@ -336,29 +380,55 @@ func update_spawn_status() -> void:
 func update_action_status() -> void:
 	match pending_action:
 		PendingAction.REPOSITION:
-			action_status_label.text = "Reposicionar %s — clique numa célula vazia adjacente (Esc cancela)." % selected_unit.name
+			if card_needs_unit_selection:
+				action_status_label.text = "Reposicionar — clique na unidade alvo (Esc cancela)."
+			else:
+				action_status_label.text = "Reposicionar %s — clique numa célula vazia adjacente (Esc cancela)." % selected_unit.name
 		PendingAction.FLANK:
-			action_status_label.text = "Flanquear %s — clique numa célula vazia na lane adjacente, mesma row (Esc cancela)." % selected_unit.name
+			if card_needs_unit_selection:
+				action_status_label.text = "Flanquear — clique na unidade alvo (Esc cancela)."
+			else:
+				action_status_label.text = "Flanquear %s — clique numa célula vazia na lane adjacente, mesma row (Esc cancela)." % selected_unit.name
 		PendingAction.SWAP:
-			action_status_label.text = "Troca de %s — clique noutro aliado da mesma facção (Esc cancela)." % selected_unit.name
+			if card_needs_unit_selection:
+				action_status_label.text = "Troca — clique na primeira unidade (Esc cancela)."
+			else:
+				action_status_label.text = "Troca de %s — clique noutro aliado da mesma facção (Esc cancela)." % selected_unit.name
 		PendingAction.TELEPORT:
-			action_status_label.text = "Teleportar %s — clique em qualquer célula vazia da mesma facção (Esc cancela)." % selected_unit.name
+			if card_needs_unit_selection:
+				action_status_label.text = "Teleporte — clique na unidade alvo (Esc cancela)."
+			else:
+				action_status_label.text = "Teleportar %s — clique em qualquer célula vazia da mesma facção (Esc cancela)." % selected_unit.name
+		PendingAction.ADVANCE:
+			action_status_label.text = "Avançar — clique na unidade alvo (Esc cancela)."
+		PendingAction.RETREAT:
+			action_status_label.text = "Recuar — clique na unidade alvo (Esc cancela)."
 		PendingAction.CONCENTRATION:
 			action_status_label.text = "Concentração — clique numa unidade ou célula pra escolher a lane (Esc cancela)."
 		PendingAction.EFFECT_UNIT:
 			action_status_label.text = "%s — clique na unidade alvo (passe o mouse pra ver o preview; Esc cancela)." % pending_card.data.name
+		PendingAction.CONFIRM:
+			action_status_label.text = "%s — clique em qualquer lugar do campo pra confirmar (Esc cancela)." % pending_card.data.name
 		_:
 			action_status_label.text = "Selecione uma unidade e escolha uma ação abaixo."
 
-## Esc cancela qualquer ação pendente (spawn ou reposicionamento), mesmo
-## padrão usado no resto do projeto para cancelar uma carta pendente (ver
-## docs/ARCHITECTURE.md).
+## Esc cancela qualquer ação pendente, mesmo padrão usado no resto do
+## projeto pra cancelar uma carta pendente (ver docs/ARCHITECTURE.md).
+## Em CONFIRM, um clique esquerdo em QUALQUER lugar confirma a carta —
+## por isso isto usa _input() e não _gui_input(): roda antes do sistema
+## de GUI despachar o clique pro que estiver sob o mouse (outra carta,
+## uma unidade), então funciona em qualquer lugar da tela.
 func _input(event: InputEvent) -> void:
 	if pending_action == PendingAction.NONE:
 		return
 
 	if event.is_action_pressed("ui_cancel"):
 		cancel_pending_action()
+		get_viewport().set_input_as_handled()
+		return
+
+	if pending_action == PendingAction.CONFIRM and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		confirm_pending_card()
 		get_viewport().set_input_as_handled()
 
 ## Encerra o pending_action atual, com ou sem sucesso — quem já jogou a
@@ -380,12 +450,35 @@ func cancel_pending_action() -> void:
 	## checkbox ligado (o bug relatado: preview "para de funcionar" depois
 	## de cancelar uma carta ou clicar um alvo inválido).
 	disarm_all_unit_effect_previews()
+	clear_all_attack_previews()
 
 	pending_action = PendingAction.NONE
 	pending_spawn_unit_id = ""
+	card_needs_unit_selection = false
 	update_spawn_status()
 	update_action_status()
 	refresh_turn_preview_if_active()
+
+func clear_all_attack_previews() -> void:
+	for view in floor_view.get_all_unit_views():
+		view.clear_attack_preview()
+
+## Confirma uma carta CONFIRM (Linha de Frente, ou dano/cura/bloqueio em
+## todos) — chamado pelo clique esquerdo em qualquer lugar via _input().
+func confirm_pending_card() -> void:
+	var card = pending_card
+	var effect = card.data.effects[0] if not card.data.effects.is_empty() else {}
+	var action_type: String = effect.get("type", "")
+
+	match action_type:
+		"frontline":
+			apply_frontline()
+
+		"damage", "heal", "block":
+			effect_system.execute_effect(effect)
+
+	finish_card_play(card)
+	cancel_pending_action()
 
 func get_main_floor() -> BattleFloor:
 	return battle_state.battlefield.get_floor(0)
@@ -396,6 +489,14 @@ func get_main_floor() -> BattleFloor:
 func _on_unit_selected(unit: Unit) -> void:
 	match pending_action:
 		PendingAction.SWAP:
+			## 1º clique de uma carta de Troca: só escolhe a primeira
+			## unidade, ainda não resolve nada.
+			if card_needs_unit_selection:
+				card_needs_unit_selection = false
+				select_unit(unit)
+				update_action_status()
+				return
+
 			var moved = get_main_floor().swap_units(selected_unit, unit)
 			var card = pending_card
 
@@ -429,10 +530,33 @@ func _on_unit_selected(unit: Unit) -> void:
 			cancel_pending_action()
 			return
 
-		## Clicar numa unidade (em vez da célula vazia esperada) enquanto
-		## essas ações aguardam um alvo desiste da ação, em vez de mover a
-		## unidade errada — só troca a seleção.
+		## Avançar/Recuar de carta resolvem no próprio clique que escolhe
+		## a unidade — sem segunda etapa.
+		PendingAction.ADVANCE, PendingAction.RETREAT:
+			select_unit(unit)
+
+			var row_delta = -1 if pending_action == PendingAction.ADVANCE else 1
+			var action_name = "Avançar" if pending_action == PendingAction.ADVANCE else "Recuar"
+			var card = pending_card
+
+			if resolve_move_by_row(row_delta, action_name) and card != null:
+				finish_card_play(card)
+
+			cancel_pending_action()
+			return
+
+		## Reposicionar/Flanquear/Teleporte: o 1º clique (card_needs_unit_
+		## selection) só escolhe a unidade alvo, aguardando a célula em
+		## seguida. Um clique em OUTRA unidade depois disso (em vez da
+		## célula vazia esperada) desiste da ação, em vez de mover a
+		## unidade errada.
 		PendingAction.REPOSITION, PendingAction.FLANK, PendingAction.TELEPORT:
+			if card_needs_unit_selection:
+				card_needs_unit_selection = false
+				select_unit(unit)
+				update_action_status()
+				return
+
 			cancel_pending_action()
 
 	select_unit(unit)
@@ -599,12 +723,13 @@ func apply_concentration(lane: int) -> void:
 
 	status_label.text = "Concentração aplicada na Lane %d (%d aliado(s))." % [lane, units.size()]
 
-## Jogar uma carta arma o MESMO pending_action que o botão de debug
-## equivalente armaria (ver enum PendingAction) — a diferença é só o
-## custo de mana e o descarte ao resolver (finish_card_play()), feitos
-## via pending_card. "advance"/"retreat"/"frontline" não têm uma etapa de
-## clique própria (mesma lógica dos botões de debug correspondentes),
-## então resolvem e descartam na hora.
+## Jogar QUALQUER carta limpa a seleção atual — se ela precisar de um
+## alvo, quem escolhe é o PRÓXIMO clique, nunca quem já estava
+## selecionado antes de jogar (diferente dos botões de debug
+## equivalentes, que continuam exigindo pré-seleção). Cartas de campo
+## todo (Linha de Frente, dano/cura/bloqueio em todos) entram em
+## CONFIRM: mostram o preview na hora e esperam um clique em qualquer
+## lugar do campo pra confirmar (ver confirm_pending_card()).
 func _on_card_played(card: Card) -> void:
 	if not can_start_new_pending_action():
 		return
@@ -612,6 +737,8 @@ func _on_card_played(card: Card) -> void:
 	if not mana.can_afford(card.data.cost):
 		status_label.text = "Mana insuficiente para jogar %s." % card.data.name
 		return
+
+	clear_selection()
 
 	var effect = card.data.effects[0] if not card.data.effects.is_empty() else {}
 	var action_type: String = effect.get("type", "")
@@ -623,40 +750,43 @@ func _on_card_played(card: Card) -> void:
 			begin_pending_card(card)
 
 		"reposition":
-			if require_selected_unit_for_card(card):
-				pending_action = PendingAction.REPOSITION
-				begin_pending_card(card)
+			pending_action = PendingAction.REPOSITION
+			card_needs_unit_selection = true
+			begin_pending_card(card)
 
 		"flank":
-			if require_selected_unit_for_card(card):
-				pending_action = PendingAction.FLANK
-				begin_pending_card(card)
+			pending_action = PendingAction.FLANK
+			card_needs_unit_selection = true
+			begin_pending_card(card)
 
 		"teleport":
-			if require_selected_unit_for_card(card):
-				pending_action = PendingAction.TELEPORT
-				begin_pending_card(card)
+			pending_action = PendingAction.TELEPORT
+			card_needs_unit_selection = true
+			begin_pending_card(card)
 
 		"swap":
-			if require_selected_unit_for_card(card):
-				pending_action = PendingAction.SWAP
-				begin_pending_card(card)
+			pending_action = PendingAction.SWAP
+			card_needs_unit_selection = true
+			begin_pending_card(card)
+
+		"advance":
+			pending_action = PendingAction.ADVANCE
+			card_needs_unit_selection = true
+			begin_pending_card(card)
+
+		"retreat":
+			pending_action = PendingAction.RETREAT
+			card_needs_unit_selection = true
+			begin_pending_card(card)
 
 		"concentration":
 			pending_action = PendingAction.CONCENTRATION
 			begin_pending_card(card)
 
-		"advance":
-			if require_selected_unit_for_card(card) and resolve_move_by_row(-1, "Avançar"):
-				finish_card_play(card)
-
-		"retreat":
-			if require_selected_unit_for_card(card) and resolve_move_by_row(1, "Recuar"):
-				finish_card_play(card)
-
 		"frontline":
-			apply_frontline()
-			finish_card_play(card)
+			pending_action = PendingAction.CONFIRM
+			begin_pending_card(card)
+			arm_frontline_preview()
 
 		"damage", "heal", "block":
 			begin_effect_card(card, effect)
@@ -664,11 +794,10 @@ func _on_card_played(card: Card) -> void:
 		_:
 			status_label.text = "Carta sem ação reconhecida: %s" % action_type
 
-## Cartas de dano/cura/bloqueio. "all_enemies"/"all_allies" resolvem na
-## hora (mesmo padrão de Linha de Frente); "selected_unit" pede um clique
-## de alvo (EFFECT_UNIT) — ao contrário das cartas de reposicionamento,
-## aqui o clique ESCOLHE o alvo, não exige uma unidade já selecionada
-## antes de jogar a carta.
+## Cartas de dano/cura/bloqueio. "selected_unit" pede um clique de alvo
+## (EFFECT_UNIT), com preview hover-gated (várias unidades pra comparar).
+## "all_enemies"/"all_allies" entram em CONFIRM, com preview imediato em
+## todas as afetadas (não há escolha: todas serão atingidas).
 func begin_effect_card(card: Card, effect: Dictionary) -> void:
 	match effect.get("target", ""):
 		"selected_unit":
@@ -677,8 +806,9 @@ func begin_effect_card(card: Card, effect: Dictionary) -> void:
 			arm_effect_preview_for_card(effect)
 
 		"all_enemies", "all_allies":
-			effect_system.execute_effect(effect)
-			finish_card_play(card)
+			pending_action = PendingAction.CONFIRM
+			begin_pending_card(card)
+			arm_effect_preview_immediate(effect)
 
 		_:
 			status_label.text = "Carta com alvo desconhecido: %s" % card.data.name
@@ -696,20 +826,34 @@ func arm_effect_preview_for_card(effect: Dictionary) -> void:
 		if effect_system.can_target_selected_unit(effect, view.unit):
 			view.arm_effect_preview(effects)
 
+## Preview imediato (não hover-gated) de uma carta "all_enemies"/
+## "all_allies" pendente de confirmação — todas as unidades afetadas já
+## mostram o resultado de uma vez, sem precisar de hover.
+func arm_effect_preview_immediate(effect: Dictionary) -> void:
+	var effects: Array[Dictionary] = []
+
+	effects.append(effect)
+
+	var target_faction = Unit.Faction.ENEMY if effect.get("target", "") == "all_enemies" else Unit.Faction.ALLY
+
+	for view in floor_view.get_all_unit_views():
+		if view.unit.faction == target_faction:
+			view.arm_effect_preview(effects, true)
+
+## Preview do +3 ATK que Linha de Frente daria a cada aliado na Front —
+## não passa por UnitView.arm_effect_preview() (isso só simula dano/cura/
+## bloqueio); usa preview_attack()/clear_attack_preview() dedicados.
+func arm_frontline_preview() -> void:
+	for unit in get_main_floor().get_units_for_faction(Unit.Faction.ALLY):
+		if unit.row == 0:
+			var view = floor_view.get_unit_view(unit)
+
+			if view != null:
+				view.preview_attack(unit.attack + 3)
+
 func disarm_all_unit_effect_previews() -> void:
 	for view in floor_view.get_all_unit_views():
 		view.disarm_effect_preview()
-
-## Precondição de toda carta de reposicionamento/troca/teleporte: o
-## sandbox pede a mesma coisa que os botões de debug — selecione a
-## unidade no campo primeiro, depois jogue a carta.
-func require_selected_unit_for_card(card: Card) -> bool:
-	if selected_unit != null and not selected_unit.is_dead():
-		return true
-
-	status_label.text = "Selecione uma unidade no campo antes de jogar %s." % card.data.name
-
-	return false
 
 ## Entra no mesmo estado de espera de clique que o botão de debug
 ## equivalente armaria, só que com uma carta anexada — ver pending_card.
@@ -720,12 +864,20 @@ func begin_pending_card(card: Card) -> void:
 	update_action_status()
 	update_spawn_status()
 
-## Gasta a mana e descarta a carta — chamado só nos caminhos de sucesso
-## (ver os "if pending_card != null" espalhados por _on_cell_selected()/
+## Gasta a mana e manda a carta pro descarte (ou cemitério, se for
+## invocação) — chamado só nos caminhos de sucesso (ver os "if
+## pending_card != null" espalhados por _on_cell_selected()/
 ## _on_unit_selected(), e diretamente nos casos imediatos acima).
 func finish_card_play(card: Card) -> void:
 	mana.spend(card.data.cost)
-	deck.discard(card.data)
+
+	## Cartas de invocação de unidade vão pro cemitério (permanente),
+	## nunca voltam ao baralho de compra — as demais seguem pro descarte
+	## normal (que sim, retorna quando a compra acabar).
+	if card.data.get_summon_unit_id() != "":
+		deck.bury(card.data)
+	else:
+		deck.discard(card.data)
 
 	## A maioria dos efeitos de carta já dispara battlefield_changed
 	## sozinha (dano/cura/bloqueio/ATK emitem Unit.changed; mover/invocar/
@@ -843,9 +995,21 @@ func _on_remove_button_pressed() -> void:
 ## sobrou e compra STARTING_HAND_SIZE cartas novas, em vez de só somar
 ## mais algumas às que já estavam na mão) — "Rodar turno" faz tudo de
 ## uma vez neste sandbox, já que não há mais uma fase separada de ação
-## do jogador vs. combate.
+## do jogador vs. combate. Fecha o loop de 4 waves (ver MAX_ENEMY_WAVES):
+## depois do turno resolvido, entra mais 1 inimigo (se ainda houver wave
+## sobrando) e checa fim de jogo.
 func _on_run_turn_button_pressed() -> void:
+	if game_over:
+		return
+
 	battle_state.execute_full_turn()
+
+	## check_battle_end() já roda reativamente (battlefield_changed) a
+	## cada baixa durante o combate acima — se os aliados foram
+	## zerados NO MEIO do turno, o jogo já acabou; não faz sentido
+	## avançar turno/mão/wave depois disso.
+	if game_over:
+		return
 
 	current_turn += 1
 	update_turn_label()
@@ -855,6 +1019,31 @@ func _on_run_turn_button_pressed() -> void:
 	deck.draw(STARTING_HAND_SIZE)
 
 	status_label.text = "Turno resolvido — inimigos e aliados atacaram (turno %d)." % current_turn
+
+	if enemy_waves_spawned < MAX_ENEMY_WAVES:
+		spawn_random_units(Unit.Faction.ENEMY, ENEMIES_PER_WAVE)
+		enemy_waves_spawned += 1
+
+	check_battle_end()
+
+## Derrota: nenhum aliado restou (a qualquer momento). Vitória: nenhum
+## inimigo restou, mas só depois que as MAX_ENEMY_WAVES já entraram —
+## zerar o campo antes disso não conta, ainda tem reforço chegando.
+## Qualquer um dos dois trava "Rodar turno" (game_over) até
+## Resetar/Random começarem uma partida nova.
+func check_battle_end() -> void:
+	var battle_floor = get_main_floor()
+
+	if battle_floor.get_units_for_faction(Unit.Faction.ALLY).is_empty():
+		game_over = true
+		run_turn_button.disabled = true
+		status_label.text = "Derrota — todas as unidades aliadas foram destruídas."
+		return
+
+	if enemy_waves_spawned >= MAX_ENEMY_WAVES and battle_floor.get_units_for_faction(Unit.Faction.ENEMY).is_empty():
+		game_over = true
+		run_turn_button.disabled = true
+		status_label.text = "Vitória — as %d waves de inimigos foram derrotadas!" % MAX_ENEMY_WAVES
 
 ## Recria o BattleState do zero a partir de test_battle.json, descartando
 ## qualquer spawn/movimento/dano feito até aqui — cancela qualquer ação
@@ -894,22 +1083,26 @@ func _on_random_button_pressed() -> void:
 
 ## Sorteia count unidades (qualquer id de data/units/*.json, sem
 ## restrição de facção — mesma liberdade do painel de spawn) em células
-## vazias distintas, sorteadas entre as 9 do grid dessa facção.
+## VAZIAS distintas dessa facção — só entre as que já estão livres, não
+## as 9 do grid inteiro, senão um spawn de reforço (grid já ocupado, ver
+## _on_run_turn_button_pressed()) poderia sortear uma célula já tomada e
+## simplesmente falhar em silêncio.
 func spawn_random_units(faction: Unit.Faction, count: int) -> void:
 	var battle_floor = get_main_floor()
-	var cells: Array[Vector2i] = []
+	var empty_cells: Array[Vector2i] = []
 
 	for row in range(BattleFloor.ROWS):
 		for lane in range(BattleFloor.LANES):
-			cells.append(Vector2i(lane, row))
+			if battle_floor.can_place_at(faction, lane, row):
+				empty_cells.append(Vector2i(lane, row))
 
-	cells.shuffle()
+	empty_cells.shuffle()
 
 	var unit_ids = unit_database.units.keys()
 
-	for i in range(min(count, cells.size())):
+	for i in range(min(count, empty_cells.size())):
 		var unit_id: String = unit_ids[randi() % unit_ids.size()]
 		var unit = battle_state.create_unit(unit_id, faction)
 
 		if unit != null:
-			battle_floor.place_unit_at(unit, cells[i].x, cells[i].y)
+			battle_floor.place_unit_at(unit, empty_cells[i].x, empty_cells[i].y)

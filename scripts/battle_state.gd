@@ -53,19 +53,33 @@ func _init(battle_definition: BattleDefinition, database: UnitDatabase) -> void:
 
 	recalculate_auras()
 
+## Toda unidade aliada nasce com o dobro de ATK/HP — compensação
+## temporária e propositalmente grosseira pro loop de 4 waves de
+## inimigos (Game.MAX_ENEMY_WAVES): a cada turno mais um inimigo entra
+## no campo, então o lado aliado nunca cresce em número, só em força.
+## "Por enquanto", pra facilitar o playtest — não é balanceamento final.
+const ALLY_STAT_MULTIPLIER = 2
+
 func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 	var unit_data = unit_database.units.get(unit_id)
-	
+
 	if unit_data == null:
 		print("Unidade não encontrada: ", unit_id)
-		
+
 		return null
-	
+
+	var max_hp = unit_data.max_hp
+	var attack = unit_data.attack
+
+	if faction == Unit.Faction.ALLY:
+		max_hp *= ALLY_STAT_MULTIPLIER
+		attack *= ALLY_STAT_MULTIPLIER
+
 	return Unit.new(
 		unit_data.id,
 		unit_data.name,
-		unit_data.max_hp,
-		unit_data.attack,
+		max_hp,
+		attack,
 		faction,
 		unit_data.attack_pattern,
 		unit_data.attack_pattern_count,

@@ -14,6 +14,11 @@ var draw_pile: Array[CardData] = []
 var discard_pile: Array[CardData] = []
 var hand: Array[CardData] = []
 
+## Cartas de invocação de unidade jogadas vão pro cemitério, não pro
+## descarte (ver bury()) — permanente: reshuffle_discard_into_draw_pile()
+## nunca mexe nele, só no discard_pile normal.
+var graveyard_pile: Array[CardData] = []
+
 func _init(cards: Array[CardData]) -> void:
 	draw_pile = cards.duplicate()
 	draw_pile.shuffle()
@@ -52,6 +57,15 @@ func discard(card_data: CardData) -> void:
 func discard_hand() -> void:
 	discard_pile.append_array(hand)
 	hand.clear()
+
+	changed.emit()
+
+## Cartas de invocação de unidade vão pro cemitério em vez do descarte
+## (ver Game.finish_card_play()) — saem de circulação de vez, nunca mais
+## voltam pro baralho de compra.
+func bury(card_data: CardData) -> void:
+	hand.erase(card_data)
+	graveyard_pile.append(card_data)
 
 	changed.emit()
 
