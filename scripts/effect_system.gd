@@ -70,8 +70,9 @@ func execute_summon_effect(effect: Dictionary, selected_lane: int, selected_row:
 		" Row ", unit.row
 	)
 
-## Aplica um efeito básico (damage/heal/block/apply_status/cleanse) já
-## resolvido numa lista de alvos — reaproveitado tanto por execute_effect()
+## Aplica um efeito básico (damage/heal/block/apply_status/cleanse/
+## remove_status/modify_attack) já resolvido numa lista de alvos —
+## reaproveitado tanto por execute_effect()
 ## acima (alvos vêm do vocabulário de CARTA: selected_unit/all_enemies/
 ## all_allies) quanto por BattleState.execute_trigger_effect() (alvos vêm
 ## do vocabulário de EVENTO/TRIGGER: self/trigger_target/lane_enemies —
@@ -110,6 +111,24 @@ static func apply_basic_effect(type: String, targets: Array[Unit], effect: Dicti
 		"cleanse":
 			for target in targets:
 				target.clear_all_statuses()
+
+		## Etapa 3 (docs/MECHANICS_EXECUTION_PLAN.md) completa o vocabulário
+		## de efeitos: RemoveStatus (um status específico, diferente de
+		## Cleanse acima, que remove todos) e ModifyAttack (o modificador
+		## ad-hoc que já existia desde antes da Etapa 1 — ver Unit.
+		## modify_attack()), agora também disponível como efeito de
+		## trigger/carta.
+		"remove_status":
+			var status_id: String = effect.get("status", "")
+
+			for target in targets:
+				target.remove_status(status_id)
+
+		"modify_attack":
+			var amount = effect.get("amount", 0)
+
+			for target in targets:
+				target.modify_attack(amount)
 
 		_:
 			print("Efeito desconhecido: ", type)

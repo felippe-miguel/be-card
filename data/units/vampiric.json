@@ -1,0 +1,10 @@
+{
+  "id": "vampiric",
+  "name": "Vampírico",
+  "max_hp": 16,
+  "attack": 5,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_hit", "effect": { "type": "heal", "target": "self", "amount": "damage_dealt" } }
+  ]
+}

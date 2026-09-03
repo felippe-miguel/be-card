@@ -1,0 +1,10 @@
+{
+  "id": "knockback",
+  "name": "Empurrão",
+  "max_hp": 15,
+  "attack": 4,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_hit", "effect": { "type": "move", "target": "trigger_target", "row_delta": 1 } }
+  ]
+}

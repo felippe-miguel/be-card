@@ -14,6 +14,16 @@ var target_system: TargetSystem
 ## clone_for_simulation().
 var suppress_events: bool = false
 
+## Preenchido só num clone criado por clone_for_simulation() (Unit real do
+## BattleState original -> Unit clone correspondente neste). Ver
+## simulate_full_turn() — desde que efeitos de trigger podem mover uma
+## unidade durante o próprio turno simulado (Empurrão — docs/
+## MECHANICS_EXECUTION_PLAN.md Etapa 3), procurar o clone pela POSIÇÃO
+## real (lane/row de antes do turno) não é confiável: a unidade pode não
+## estar mais lá depois de ser empurrada, mesmo viva. Esta identidade
+## direta não depende de posição nenhuma.
+var simulation_origin_map: Dictionary = {}
+
 func _init(battle_definition: BattleDefinition, database: UnitDatabase) -> void:
 	unit_database = database
 	
@@ -188,12 +198,24 @@ func execute_unit_attack(unit: Unit) -> void:
 	)
 
 	for target in targets:
+		## hp_before/depois mede o dano líquido (já descontado o block) que
+		## de fato chegou no alvo — usado por triggers ON_HIT que reagem à
+		## quantidade real de dano causada (ex.: Vampírico, "cura pelo dano
+		## causado" — docs/MECHANICS_EXECUTION_PLAN.md Etapa 3), não ao
+		## ATK bruto do atacante.
+		var hp_before = target.hp
+
 		unit.attack_unit(target)
+
+		var damage_dealt = hp_before - target.hp
 
 		## ON_HIT só ocorre quando existe contato/dano válido — aqui, pra
 		## cada alvo de verdade atingido (não pra ataques sem alvo, já
-		## cobertos pelo ON_ATTACK acima).
-		fire_event(unit, "on_hit", {"target": target})
+		## cobertos pelo ON_ATTACK acima). Funciona por alvo mesmo em
+		## ataques de área (attack_pattern_count > 1, ou padrões como
+		## primary_plus_adjacent_row): este for já resolve um alvo de cada
+		## vez.
+		fire_event(unit, "on_hit", {"target": target, "damage_dealt": damage_dealt})
 
 		if target.is_dead():
 			fire_event(unit, "on_kill", {"target": target})
@@ -300,42 +322,77 @@ func fire_event_all(event_name: String, context: Dictionary = {}) -> void:
 ## - "lane_enemies": inimigos (facção oposta à de context["faction"]) na
 ##   mesma lane de context["lane"] — usado por ON_DEATH (Explosive), cuja
 ##   posição vem de on_unit_died() (capturada antes da remoção do grid).
-## O efeito em si (damage/heal/block/apply_status/cleanse) é aplicado por
-## EffectSystem.apply_basic_effect() — reaproveitado também pelas cartas,
-## só a resolução de alvo muda entre os dois contextos.
-func execute_trigger_effect(effect_owner: Unit, effect: Dictionary, context: Dictionary) -> void:
-	if effect.is_empty():
-		return
-
-	var target_key: String = effect.get("target", "self")
-	var targets: Array[Unit] = []
-
+func resolve_trigger_targets(target_key: String, effect_owner: Unit, context: Dictionary) -> Array[Unit]:
 	match target_key:
 		"self":
-			targets = [effect_owner]
+			return [effect_owner]
 
 		"trigger_target":
 			var context_target: Unit = context.get("target")
 
 			if context_target != null and not context_target.is_dead():
-				targets = [context_target]
+				return [context_target]
+
+			return []
 
 		"lane_enemies":
 			var lane: int = context.get("lane", -1)
 			var faction: Unit.Faction = context.get("faction", effect_owner.faction)
 
-			if lane >= 0:
-				var opposite_faction = target_system.get_opposite_faction(faction)
+			if lane < 0:
+				return []
 
-				targets = battlefield.get_floor(0).get_lane_units(opposite_faction, lane)
+			var opposite_faction = target_system.get_opposite_faction(faction)
+
+			return battlefield.get_floor(0).get_lane_units(opposite_faction, lane)
 
 		_:
 			print("Alvo de trigger desconhecido: ", target_key)
+			return []
+
+## Aplica o efeito de um trigger já com o alvo resolvido (ver
+## resolve_trigger_targets() acima). Dois efeitos merecem tratamento à
+## parte antes de cair no vocabulário genérico de EffectSystem.
+## apply_basic_effect() (docs/MECHANICS_EXECUTION_PLAN.md Etapa 3):
+## - "amount": "damage_dealt" é resolvido pro valor real de
+##   context["damage_dealt"] (Vampírico: "cura pelo dano causado", só
+##   disponível como contexto de ON_HIT — ver execute_unit_attack()).
+## - "move" não é um efeito básico (mexe em posição, não em stats) — usa
+##   BattleFloor.move_unit() direto, igual às cartas de movimento já
+##   fazem; move_unit() já recusa sozinho sair do grid ou cair numa célula
+##   ocupada (Knockback: empurra o alvo, sem mecânica de movimento nova).
+func execute_trigger_effect(effect_owner: Unit, effect: Dictionary, context: Dictionary) -> void:
+	if effect.is_empty():
+		return
+
+	var targets = resolve_trigger_targets(effect.get("target", "self"), effect_owner, context)
 
 	if targets.is_empty():
 		return
 
-	EffectSystem.apply_basic_effect(effect.get("type", ""), targets, effect)
+	var type: String = effect.get("type", "")
+
+	if type == "move":
+		var row_delta: int = effect.get("row_delta", 1)
+		var battle_floor = battlefield.get_floor(0)
+
+		for target in targets:
+			battle_floor.move_unit(target, target.lane, target.row + row_delta)
+
+		return
+
+	var resolved_effect = effect
+	var amount = effect.get("amount", null)
+
+	## Checa o tipo ANTES de comparar com a string "damage_dealt" — "amount"
+	## normalmente é um número (JSON sempre entrega float, mesmo pra
+	## valores inteiros), e comparar float == String com "==" lança "Invalid
+	## operands" no GDScript, em vez de simplesmente dar false.
+	if typeof(amount) == TYPE_STRING and amount == "damage_dealt":
+		resolved_effect = effect.duplicate()
+		resolved_effect["amount"] = context.get("damage_dealt", 0)
+
+	EffectSystem.apply_basic_effect(type, targets, resolved_effect)
 
 ## Preview do checkbox "Rodar turno" (ver Game.update_turn_preview()):
 ## simula execute_full_turn() num clone completo e isolado do estado
@@ -348,13 +405,18 @@ func simulate_full_turn() -> Dictionary:
 	clone.execute_full_turn()
 
 	var predictions: Dictionary = {}
-	var real_floor = battlefield.get_floor(0)
-	var clone_floor = clone.battlefield.get_floor(0)
 
-	for unit in real_floor.get_units():
-		var clone_unit = clone_floor.get_unit_at(unit.faction, unit.lane, unit.row)
+	## Identidade direta (simulation_origin_map), não posição — um efeito
+	## de trigger pode mover a unidade DURANTE o próprio turno simulado
+	## (Empurrão — docs/MECHANICS_EXECUTION_PLAN.md Etapa 3), então a
+	## célula onde ela estava antes do turno pode não ter mais ninguém
+	## mesmo que a unidade tenha sobrevivido (só foi empurrada). Antes
+	## disso usava get_unit_at(faction, lane, row) e tratava "empurrada
+	## pra outra célula" como "morreu" por engano.
+	for unit in battlefield.get_floor(0).get_units():
+		var clone_unit: Unit = clone.simulation_origin_map.get(unit)
 
-		if clone_unit != null:
+		if clone_unit != null and not clone_unit.is_dead():
 			predictions[unit] = {"hp": clone_unit.hp, "block": clone_unit.block}
 
 	return predictions
@@ -396,6 +458,7 @@ func clone_for_simulation() -> BattleState:
 
 		clone_floor.place_unit_at(unit_clone, source_unit.lane, source_unit.row)
 		unit_clones.append(unit_clone)
+		clone.simulation_origin_map[source_unit] = unit_clone
 
 	## hp/block reais são copiados só depois de todo mundo posicionado,
 	## pra não serem sobrescritos pelo recálculo de aura que roda a cada
