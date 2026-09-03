@@ -1,0 +1,10 @@
+{
+  "id": "executioner",
+  "name": "Executor",
+  "max_hp": 18,
+  "attack": 7,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_kill", "effect": { "type": "apply_status", "target": "self", "status": "strength", "stacks": 2 } }
+  ]
+}

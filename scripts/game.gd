@@ -879,6 +879,11 @@ func finish_card_play(card: Card) -> void:
 	else:
 		deck.discard(card.data)
 
+	## ON_CARD_PLAYED (docs/MECHANICS_EXECUTION_PLAN.md Etapa 2) — sem uma
+	## unidade "dona" natural da jogada, dispara pra toda unidade viva no
+	## campo (ver BattleState.fire_event_all()).
+	battle_state.fire_event_all("on_card_played")
+
 	## A maioria dos efeitos de carta já dispara battlefield_changed
 	## sozinha (dano/cura/bloqueio/ATK emitem Unit.changed; mover/invocar/
 	## trocar mexem direto no BattleFloor) — mas chamar aqui também

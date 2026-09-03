@@ -6,6 +6,14 @@ var pyre: Pyre
 var unit_database: UnitDatabase
 var target_system: TargetSystem
 
+## true só enquanto clone_for_simulation() está reconstruindo o roster
+## existente num clone novo — sem isto, colocar cada unidade no clone via
+## place_unit_at() dispararia ON_SUMMON de novo pra unidades que já
+## existiam há turnos, poluindo o preview do turno (docs/
+## MECHANICS_EXECUTION_PLAN.md Etapa 2). Nunca true fora de
+## clone_for_simulation().
+var suppress_events: bool = false
+
 func _init(battle_definition: BattleDefinition, database: UnitDatabase) -> void:
 	unit_database = database
 	
@@ -51,6 +59,21 @@ func _init(battle_definition: BattleDefinition, database: UnitDatabase) -> void:
 	main_floor.unit_removed.connect(func(_unit, _old_lane, _old_row): recalculate_auras())
 	main_floor.unit_moved.connect(func(_unit, _old_lane, _old_row): recalculate_auras())
 
+	## Eventos/triggers (docs/MECHANICS_EXECUTION_PLAN.md Etapa 2): ON_SUMMON
+	## e ON_MOVE reaproveitam os mesmos sinais do BattleFloor que a aura já
+	## escuta — pelo mesmo motivo (roster inicial não passa por eles, ver
+	## comentário acima). ON_DEATH não usa sinal do BattleFloor (precisaria
+	## de lane/row, que unit_removed já entrega zerados) — ver
+	## wire_unit_events()/on_unit_died(), ligado por unidade em create_unit().
+	main_floor.unit_added.connect(func(added_unit):
+		if not suppress_events:
+			fire_event(added_unit, "on_summon")
+	)
+	main_floor.unit_moved.connect(func(moved_unit, _old_lane, _old_row):
+		if not suppress_events:
+			fire_event(moved_unit, "on_move")
+	)
+
 	recalculate_auras()
 
 ## Toda unidade aliada nasce com o dobro de ATK/HP — compensação
@@ -83,13 +106,37 @@ func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 		faction,
 		unit_data.attack_pattern,
 		unit_data.attack_pattern_count,
-		unit_data.aura_adjacent_ally_max_hp_bonus
+		unit_data.aura_adjacent_ally_max_hp_bonus,
+		unit_data.triggers
 	)
 
 	for status_id in unit_data.initial_statuses:
 		unit.apply_status(status_id, unit_data.initial_statuses[status_id])
 
+	wire_unit_events(unit)
+
 	return unit
+
+## Liga o Unit.died desta unidade a on_unit_died() (evento ON_DEATH) —
+## separado de create_unit() só pra poder ser reaproveitado por
+## clone_for_simulation() também, que cria Units "na mão" (não via
+## create_unit()) mas ainda quer o mesmo comportamento de evento no clone
+## (senão o preview de turno erraria o efeito de triggers ON_DEATH/ON_HIT/
+## etc. — ver docs/MECHANICS_EXECUTION_PLAN.md Etapa 2).
+func wire_unit_events(unit: Unit) -> void:
+	unit.died.connect(func(): on_unit_died(unit))
+
+## Chamado por Unit.died assim que hp chega a 0 — ainda ANTES da remoção do
+## grid (que só acontece reagindo a Unit.changed, emitido logo depois de
+## died dentro de take_damage()), por isso lane/row/faction ainda são
+## válidos aqui pra qualquer trigger ON_DEATH que precise de posição (ex.:
+## Explosive, que causa dano aos inimigos da mesma lane).
+func on_unit_died(unit: Unit) -> void:
+	fire_event(unit, "on_death", {
+		"lane": unit.lane,
+		"row": unit.row,
+		"faction": unit.faction,
+	})
 
 ## Passiva do Guardião: recalcula do zero, para cada facção, o bônus de
 ## HP máximo que cada unidade recebe de auras de aliados adjacentes —
@@ -127,6 +174,10 @@ func execute_unit_attack(unit: Unit) -> void:
 
 	var targets = target_system.get_pattern_attack_targets(unit)
 
+	## ON_ATTACK dispara mesmo sem alvo válido — atacar não significa
+	## necessariamente acertar (docs/MECHANICS_EXECUTION_PLAN.md Etapa 2).
+	fire_event(unit, "on_attack")
+
 	if targets.is_empty():
 		print(unit.name, " (", unit.attack_pattern, ") não encontrou nenhum alvo.")
 		return
@@ -138,6 +189,14 @@ func execute_unit_attack(unit: Unit) -> void:
 
 	for target in targets:
 		unit.attack_unit(target)
+
+		## ON_HIT só ocorre quando existe contato/dano válido — aqui, pra
+		## cada alvo de verdade atingido (não pra ataques sem alvo, já
+		## cobertos pelo ON_ATTACK acima).
+		fire_event(unit, "on_hit", {"target": target})
+
+		if target.is_dead():
+			fire_event(unit, "on_kill", {"target": target})
 
 ## Fase de combate automática: cada Unit viva (aliada ou inimiga) ataca uma
 ## vez, andar por andar. Usa um snapshot de get_units() por andar para não
@@ -168,9 +227,11 @@ func execute_faction_turn(faction: Unit.Faction) -> void:
 ## seção 7): inimigos atacam primeiro, depois os aliados — ordem fixa,
 ## não é um sistema de iniciativa/velocidade de verdade.
 func execute_full_turn() -> void:
+	fire_event_all("on_turn_start")
 	execute_faction_turn(Unit.Faction.ENEMY)
 	execute_faction_turn(Unit.Faction.ALLY)
 	process_end_of_turn_statuses()
+	fire_event_all("on_turn_end")
 
 ## Poison e Burn são processados no fim do turno, depois que os dois lados
 ## já atacaram — os dois causam dano igual aos stacks atuais, mas decaem de
@@ -202,6 +263,79 @@ func process_end_of_turn_statuses() -> void:
 				print(unit.name, " sofre ", burn_stacks, " de dano de Burn.")
 				unit.take_damage(burn_stacks)
 				unit.remove_status("burn")
+
+## Sistema de eventos/triggers (docs/MECHANICS_EXECUTION_PLAN.md Etapa 2):
+## cada Unit carrega sua lista de triggers (copiada de UnitData na criação
+## — ver create_unit()), cada uma {"event": <id>, "effect": <Dictionary>}.
+## fire_event() dispara, pra UMA unidade, todo trigger dela que escute
+## event_name. Deliberadamente não é um sistema universal (ver Princípio 3
+## do documento) — só um dicionário de evento -> efeito, resolvido por
+## execute_trigger_effect() logo abaixo.
+func fire_event(unit: Unit, event_name: String, context: Dictionary = {}) -> void:
+	for trigger in unit.triggers:
+		if trigger.get("event", "") != event_name:
+			continue
+
+		print(unit.name, " disparou trigger '", event_name, "'.")
+
+		execute_trigger_effect(unit, trigger.get("effect", {}), context)
+
+## Dispara event_name pra toda unidade viva no andar — usado pelos eventos
+## sem uma unidade "dona" natural (ON_TURN_START/ON_TURN_END/ON_CARD_
+## PLAYED). Snapshot via get_units(), mesmo cuidado de sempre: nenhuma
+## unidade que morrer durante o disparo bagunça o loop.
+func fire_event_all(event_name: String, context: Dictionary = {}) -> void:
+	for unit in battlefield.get_floor(0).get_units():
+		if not unit.is_dead():
+			fire_event(unit, event_name, context)
+
+## Resolve "quem é o alvo" de um efeito de TRIGGER — vocabulário separado
+## do de CARTA (TargetSystem.get_card_targets()/EffectSystem.execute_
+## effect()), porque os alvos possíveis aqui vêm do próprio evento, não de
+## uma escolha do jogador:
+## - "self": a unidade dona do trigger.
+## - "trigger_target": a unidade envolvida no evento (quem foi atingido/
+##   morto — ver context["target"] em fire_event() nas chamadas de
+##   execute_unit_attack()). Ignorado se já estiver morta.
+## - "lane_enemies": inimigos (facção oposta à de context["faction"]) na
+##   mesma lane de context["lane"] — usado por ON_DEATH (Explosive), cuja
+##   posição vem de on_unit_died() (capturada antes da remoção do grid).
+## O efeito em si (damage/heal/block/apply_status/cleanse) é aplicado por
+## EffectSystem.apply_basic_effect() — reaproveitado também pelas cartas,
+## só a resolução de alvo muda entre os dois contextos.
+func execute_trigger_effect(effect_owner: Unit, effect: Dictionary, context: Dictionary) -> void:
+	if effect.is_empty():
+		return
+
+	var target_key: String = effect.get("target", "self")
+	var targets: Array[Unit] = []
+
+	match target_key:
+		"self":
+			targets = [effect_owner]
+
+		"trigger_target":
+			var context_target: Unit = context.get("target")
+
+			if context_target != null and not context_target.is_dead():
+				targets = [context_target]
+
+		"lane_enemies":
+			var lane: int = context.get("lane", -1)
+			var faction: Unit.Faction = context.get("faction", effect_owner.faction)
+
+			if lane >= 0:
+				var opposite_faction = target_system.get_opposite_faction(faction)
+
+				targets = battlefield.get_floor(0).get_lane_units(opposite_faction, lane)
+
+		_:
+			print("Alvo de trigger desconhecido: ", target_key)
+
+	if targets.is_empty():
+		return
+
+	EffectSystem.apply_basic_effect(effect.get("type", ""), targets, effect)
 
 ## Preview do checkbox "Rodar turno" (ver Game.update_turn_preview()):
 ## simula execute_full_turn() num clone completo e isolado do estado
@@ -235,6 +369,12 @@ func clone_for_simulation() -> BattleState:
 	var clone_floor = clone.battlefield.get_floor(0)
 	var unit_clones: Array[Unit] = []
 
+	## Reconstruir o roster existente no clone não é um summon de verdade
+	## (essas unidades já estavam em campo há turnos) — suprime ON_SUMMON/
+	## ON_MOVE enquanto isto roda, senão o preview do turno dispararia esses
+	## triggers de novo só por causa da reconstrução.
+	clone.suppress_events = true
+
 	for source_unit in source_units:
 		var unit_clone = Unit.new(
 			source_unit.id,
@@ -244,8 +384,15 @@ func clone_for_simulation() -> BattleState:
 			source_unit.faction,
 			source_unit.attack_pattern,
 			source_unit.attack_pattern_count,
-			source_unit.aura_adjacent_ally_max_hp_bonus
+			source_unit.aura_adjacent_ally_max_hp_bonus,
+			source_unit.triggers
 		)
+
+		## Sem isto, o clone nunca dispararia ON_DEATH (nem qualquer outro
+		## evento que dependa de Unit.died) — o preview de turno erraria
+		## qualquer coisa que um trigger causasse (ex.: Explosive matando
+		## outra unidade na simulação).
+		clone.wire_unit_events(unit_clone)
 
 		clone_floor.place_unit_at(unit_clone, source_unit.lane, source_unit.row)
 		unit_clones.append(unit_clone)
@@ -257,6 +404,11 @@ func clone_for_simulation() -> BattleState:
 		unit_clones[i].hp = source_units[i].hp
 		unit_clones[i].block = source_units[i].block
 		unit_clones[i].statuses = source_units[i].statuses.duplicate()
+
+	## A simulação em si (clone.execute_full_turn(), chamada por quem pediu
+	## este clone) deve disparar eventos normalmente — só a reconstrução
+	## acima era o problema.
+	clone.suppress_events = false
 
 	return clone
 

@@ -25,6 +25,11 @@ var aura_adjacent_ally_max_hp_bonus: int = 0
 ## = nasce sem nenhum status. Aplicado por BattleState.create_unit().
 var initial_statuses: Dictionary = {}
 
+## Eventos/triggers que a unidade carrega (docs/MECHANICS_EXECUTION_PLAN.md
+## Etapa 2) — cada entrada: {"event": <id>, "effect": <Dictionary>}. Ver
+## Unit.triggers/BattleState.fire_event() para a resolução em si.
+var triggers: Array[Dictionary] = []
+
 static func from_dict(data: Dictionary) -> UnitData:
 	var unit_data = UnitData.new()
 
@@ -36,5 +41,6 @@ static func from_dict(data: Dictionary) -> UnitData:
 	unit_data.attack_pattern_count = data.get("attack_pattern_count", 1)
 	unit_data.aura_adjacent_ally_max_hp_bonus = data.get("aura_adjacent_ally_max_hp_bonus", 0)
 	unit_data.initial_statuses = data.get("initial_statuses", {})
+	unit_data.triggers.assign(data.get("triggers", []))
 
 	return unit_data

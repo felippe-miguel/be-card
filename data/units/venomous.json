@@ -1,0 +1,10 @@
+{
+  "id": "venomous",
+  "name": "Venenoso",
+  "max_hp": 14,
+  "attack": 4,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_hit", "effect": { "type": "apply_status", "target": "trigger_target", "status": "poison", "stacks": 2 } }
+  ]
+}

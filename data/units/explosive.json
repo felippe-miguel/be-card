@@ -1,0 +1,10 @@
+{
+  "id": "explosive",
+  "name": "Explosivo",
+  "max_hp": 12,
+  "attack": 4,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_death", "effect": { "type": "damage", "target": "lane_enemies", "amount": 3 } }
+  ]
+}

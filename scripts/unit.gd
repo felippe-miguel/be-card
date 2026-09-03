@@ -57,7 +57,22 @@ const STATUS_DISPLAY_NAMES = {
 	"stun": "Stun",
 }
 
+## Eventos/triggers (docs/MECHANICS_EXECUTION_PLAN.md Etapa 2) — copiados
+## de UnitData.triggers na criação. Cada entrada: {"event": <id>, "effect":
+## <Dictionary>}. A resolução em si (o que "self"/"trigger_target"/
+## "lane_enemies" significam, como o efeito é aplicado) fica em
+## BattleState.fire_event()/execute_trigger_effect() — Unit só carrega os
+## dados, não sabe disparar sozinho.
+var triggers: Array[Dictionary] = []
+
 signal changed
+
+## Emitido uma única vez, na transição de vivo pra morto (ver
+## take_damage()) — BattleState conecta isto em wire_unit_events() pra
+## disparar o evento ON_DEATH (docs/MECHANICS_EXECUTION_PLAN.md Etapa 2).
+## Separado de "changed" de propósito: died precisa emitir ANTES de
+## changed, enquanto lane/row ainda são válidos (ver take_damage()).
+signal died
 
 func _init(
 	unit_id: String,
@@ -67,7 +82,8 @@ func _init(
 	unit_faction: Faction,
 	unit_attack_pattern: String = "lane_front",
 	unit_attack_pattern_count: int = 1,
-	unit_aura_bonus: int = 0
+	unit_aura_bonus: int = 0,
+	unit_triggers: Array[Dictionary] = []
 ) -> void:
 	id = unit_id
 	name = unit_name
@@ -79,6 +95,7 @@ func _init(
 	attack_pattern = unit_attack_pattern
 	attack_pattern_count = unit_attack_pattern_count
 	aura_adjacent_ally_max_hp_bonus = unit_aura_bonus
+	triggers = unit_triggers.duplicate(true)
 
 func attack_unit(target: Unit) -> void:
 	if target == null:
@@ -91,6 +108,7 @@ func attack_unit(target: Unit) -> void:
 	target.take_damage(effective_attack)
 
 func take_damage(amount: int) -> void:
+	var was_alive = not is_dead()
 	var had_block = block > 0
 	var result = CombatMath.apply_block(amount, block)
 
@@ -102,12 +120,19 @@ func take_damage(amount: int) -> void:
 
 	if remaining_damage > 0:
 		hp -= remaining_damage
-	
+
 	if hp < 0:
 		hp = 0
-	
+
 	print(name, " recebeu ", remaining_damage, " de dano. HP: ", hp, "/", max_hp)
-	
+
+	## died emite ANTES de changed de propósito: BattleFloor remove a
+	## unidade do grid reagindo a changed (ver BattleFloor._on_unit_
+	## changed()), o que zera lane/row — quem ouve died (BattleState.
+	## on_unit_died(), pro evento ON_DEATH) precisa da posição ainda válida.
+	if was_alive and is_dead():
+		died.emit()
+
 	changed.emit()
 
 func heal(amount: int) -> void:
