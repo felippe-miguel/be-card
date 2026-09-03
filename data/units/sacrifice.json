@@ -1,0 +1,10 @@
+{
+  "id": "sacrifice",
+  "name": "Sacrifício",
+  "max_hp": 12,
+  "attack": 4,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_death", "effect": { "type": "heal", "target": "lane_allies", "amount": 5 } }
+  ]
+}

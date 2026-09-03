@@ -136,17 +136,27 @@ func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 func wire_unit_events(unit: Unit) -> void:
 	unit.died.connect(func(): on_unit_died(unit))
 
-## Chamado por Unit.died assim que hp chega a 0 — ainda ANTES da remoção do
-## grid (que só acontece reagindo a Unit.changed, emitido logo depois de
-## died dentro de take_damage()), por isso lane/row/faction ainda são
-## válidos aqui pra qualquer trigger ON_DEATH que precise de posição (ex.:
-## Explosive, que causa dano aos inimigos da mesma lane).
+## Chamado por Unit.died assim que hp chega a 0 — ainda ANTES da remoção
+## "reativa" do grid (que só aconteceria depois, reagindo a Unit.changed,
+## emitido logo depois de died dentro de take_damage()). Captura lane/row/
+## faction ANTES de remover (usados pelo context de ON_DEATH — Explosive/
+## Sacrifice/Revenge miram por posição/facção, não pela unidade em si), e
+## remove do grid AGORA, explicitamente, em vez de esperar a reação normal
+## — Death Spawn (docs/MECHANICS_EXECUTION_PLAN.md Etapa 4) invoca outra
+## unidade na MESMA célula de quem morreu, e isso só é possível se a
+## célula já estiver livre quando o trigger ON_DEATH rodar. remove_unit()
+## chamado de novo depois (reagindo a changed) é um no-op seguro — a
+## unidade já não está mais na célula (ver BattleFloor.remove_unit()).
 func on_unit_died(unit: Unit) -> void:
-	fire_event(unit, "on_death", {
+	var context = {
 		"lane": unit.lane,
 		"row": unit.row,
 		"faction": unit.faction,
-	})
+	}
+
+	battlefield.get_floor(0).remove_unit(unit)
+
+	fire_event(unit, "on_death", context)
 
 ## Passiva do Guardião: recalcula do zero, para cada facção, o bônus de
 ## HP máximo que cada unidade recebe de auras de aliados adjacentes —
@@ -322,7 +332,19 @@ func fire_event_all(event_name: String, context: Dictionary = {}) -> void:
 ## - "lane_enemies": inimigos (facção oposta à de context["faction"]) na
 ##   mesma lane de context["lane"] — usado por ON_DEATH (Explosive), cuja
 ##   posição vem de on_unit_died() (capturada antes da remoção do grid).
+## - "lane_allies": mesma ideia, mas aliados (mesma facção de context
+##   ["faction"]) na mesma lane — usado por ON_DEATH (Sacrifice). Mira
+##   TODOS os aliados da lane, não escolhe "o" aliado — mesma simplificação
+##   deliberada de lane_enemies (ver Explosive), evitando lógica de
+##   escolha (ex.: "o de menor HP") sem necessidade real ainda.
+## - "all_allies"/"all_enemies": toda unidade viva da facção (ou da oposta)
+##   de context["faction"], em qualquer lane — usado por ON_DEATH (Revenge:
+##   "todos os aliados ganham Strength 1"). Reaproveita TargetSystem.
+##   get_units_by_faction(), o mesmo usado por cartas "all_enemies"/
+##   "all_allies" (docs/MECHANICS_EXECUTION_PLAN.md Etapa 4).
 func resolve_trigger_targets(target_key: String, effect_owner: Unit, context: Dictionary) -> Array[Unit]:
+	var context_faction: Unit.Faction = context.get("faction", effect_owner.faction)
+
 	match target_key:
 		"self":
 			return [effect_owner]
@@ -337,40 +359,59 @@ func resolve_trigger_targets(target_key: String, effect_owner: Unit, context: Di
 
 		"lane_enemies":
 			var lane: int = context.get("lane", -1)
-			var faction: Unit.Faction = context.get("faction", effect_owner.faction)
 
 			if lane < 0:
 				return []
 
-			var opposite_faction = target_system.get_opposite_faction(faction)
+			return battlefield.get_floor(0).get_lane_units(target_system.get_opposite_faction(context_faction), lane)
 
-			return battlefield.get_floor(0).get_lane_units(opposite_faction, lane)
+		"lane_allies":
+			var lane: int = context.get("lane", -1)
+
+			if lane < 0:
+				return []
+
+			return battlefield.get_floor(0).get_lane_units(context_faction, lane)
+
+		"all_allies":
+			return target_system.get_units_by_faction(context_faction)
+
+		"all_enemies":
+			return target_system.get_units_by_faction(target_system.get_opposite_faction(context_faction))
 
 		_:
 			print("Alvo de trigger desconhecido: ", target_key)
 			return []
 
-## Aplica o efeito de um trigger já com o alvo resolvido (ver
-## resolve_trigger_targets() acima). Dois efeitos merecem tratamento à
-## parte antes de cair no vocabulário genérico de EffectSystem.
-## apply_basic_effect() (docs/MECHANICS_EXECUTION_PLAN.md Etapa 3):
-## - "amount": "damage_dealt" é resolvido pro valor real de
+## Aplica o efeito de um trigger. Três efeitos merecem tratamento à parte
+## antes (ou em vez) de cair no vocabulário genérico de resolve_trigger_
+## targets()/EffectSystem.apply_basic_effect():
+## - "summon" (Death Spawn — docs/MECHANICS_EXECUTION_PLAN.md Etapa 4) não
+##   afeta uma lista de alvos existentes, cria uma unidade nova — por isso
+##   é resolvido ANTES de resolve_trigger_targets(), direto na célula de
+##   context["lane"]/["row"] (a de quem morreu; on_unit_died() já a deixou
+##   livre antes de disparar ON_DEATH — ver comentário lá).
+## - "move" (Etapa 3) também não é um efeito básico (mexe em posição, não
+##   em stats) — usa BattleFloor.move_unit() direto, igual às cartas de
+##   movimento já fazem; move_unit() já recusa sozinho sair do grid ou
+##   cair numa célula ocupada (Knockback: empurra o alvo).
+## - "amount": "damage_dealt" (Etapa 3) é resolvido pro valor real de
 ##   context["damage_dealt"] (Vampírico: "cura pelo dano causado", só
 ##   disponível como contexto de ON_HIT — ver execute_unit_attack()).
-## - "move" não é um efeito básico (mexe em posição, não em stats) — usa
-##   BattleFloor.move_unit() direto, igual às cartas de movimento já
-##   fazem; move_unit() já recusa sozinho sair do grid ou cair numa célula
-##   ocupada (Knockback: empurra o alvo, sem mecânica de movimento nova).
 func execute_trigger_effect(effect_owner: Unit, effect: Dictionary, context: Dictionary) -> void:
 	if effect.is_empty():
+		return
+
+	var type: String = effect.get("type", "")
+
+	if type == "summon":
+		execute_trigger_summon_effect(effect, context, effect_owner)
 		return
 
 	var targets = resolve_trigger_targets(effect.get("target", "self"), effect_owner, context)
 
 	if targets.is_empty():
 		return
-
-	var type: String = effect.get("type", "")
 
 	if type == "move":
 		var row_delta: int = effect.get("row_delta", 1)
@@ -393,6 +434,26 @@ func execute_trigger_effect(effect_owner: Unit, effect: Dictionary, context: Dic
 		resolved_effect["amount"] = context.get("damage_dealt", 0)
 
 	EffectSystem.apply_basic_effect(type, targets, resolved_effect)
+
+## Death Spawn (docs/MECHANICS_EXECUTION_PLAN.md Etapa 4): invoca effect
+## ["unit"] na célula de quem morreu (context["lane"]/["row"], da mesma
+## facção — context["faction"]). Silenciosamente não faz nada se a unidade
+## não existir ou a célula estiver ocupada (create_unit()/place_unit_at()
+## já cuidam disso sozinhos, mesma robustez de qualquer summon de carta).
+func execute_trigger_summon_effect(effect: Dictionary, context: Dictionary, effect_owner: Unit) -> void:
+	var lane: int = context.get("lane", -1)
+	var row: int = context.get("row", -1)
+
+	if lane < 0 or row < 0:
+		return
+
+	var faction: Unit.Faction = context.get("faction", effect_owner.faction)
+	var new_unit = create_unit(effect.get("unit", ""), faction)
+
+	if new_unit == null:
+		return
+
+	battlefield.get_floor(0).place_unit_at(new_unit, lane, row)
 
 ## Preview do checkbox "Rodar turno" (ver Game.update_turn_preview()):
 ## simula execute_full_turn() num clone completo e isolado do estado

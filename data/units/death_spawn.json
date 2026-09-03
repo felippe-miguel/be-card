@@ -1,0 +1,10 @@
+{
+  "id": "death_spawn",
+  "name": "Ovo de Esqueleto",
+  "max_hp": 10,
+  "attack": 2,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_death", "effect": { "type": "summon", "unit": "skeleton" } }
+  ]
+}

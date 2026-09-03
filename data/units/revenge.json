@@ -1,0 +1,10 @@
+{
+  "id": "revenge",
+  "name": "Vingança",
+  "max_hp": 12,
+  "attack": 4,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_death", "effect": { "type": "apply_status", "target": "all_allies", "status": "strength", "stacks": 1 } }
+  ]
+}
