@@ -1,0 +1,10 @@
+{
+  "id": "enrage",
+  "name": "Enrage",
+  "description": "Aplica Strength 3 a uma unidade aliada.",
+  "cost": 1,
+  "type": "skill",
+  "effects": [
+    { "type": "apply_status", "target": "selected_unit", "target_faction": "ally", "status": "strength", "stacks": 3 }
+  ]
+}

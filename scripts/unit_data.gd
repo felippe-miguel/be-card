@@ -20,6 +20,11 @@ var attack_pattern_count: int = 1
 ## BattleState.recalculate_auras().
 var aura_adjacent_ally_max_hp_bonus: int = 0
 
+## Status que a unidade já nasce possuindo (docs/MECHANICS_EXECUTION_PLAN.md
+## Etapa 1) — status_id -> stacks, ex.: {"strength": 2} pro Berserker. Vazio
+## = nasce sem nenhum status. Aplicado por BattleState.create_unit().
+var initial_statuses: Dictionary = {}
+
 static func from_dict(data: Dictionary) -> UnitData:
 	var unit_data = UnitData.new()
 
@@ -30,5 +35,6 @@ static func from_dict(data: Dictionary) -> UnitData:
 	unit_data.attack_pattern = data.get("attack_pattern", "lane_front")
 	unit_data.attack_pattern_count = data.get("attack_pattern_count", 1)
 	unit_data.aura_adjacent_ally_max_hp_bonus = data.get("aura_adjacent_ally_max_hp_bonus", 0)
+	unit_data.initial_statuses = data.get("initial_statuses", {})
 
 	return unit_data

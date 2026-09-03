@@ -75,7 +75,7 @@ func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 		max_hp *= ALLY_STAT_MULTIPLIER
 		attack *= ALLY_STAT_MULTIPLIER
 
-	return Unit.new(
+	var unit = Unit.new(
 		unit_data.id,
 		unit_data.name,
 		max_hp,
@@ -85,6 +85,11 @@ func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 		unit_data.attack_pattern_count,
 		unit_data.aura_adjacent_ally_max_hp_bonus
 	)
+
+	for status_id in unit_data.initial_statuses:
+		unit.apply_status(status_id, unit_data.initial_statuses[status_id])
+
+	return unit
 
 ## Passiva do Guardião: recalcula do zero, para cada facção, o bônus de
 ## HP máximo que cada unidade recebe de auras de aliados adjacentes —
@@ -112,7 +117,14 @@ func recalculate_auras() -> void:
 		for unit in units:
 			unit.set_received_max_hp_bonus(bonuses[unit])
 
+## Stun (docs/MECHANICS_EXECUTION_PLAN.md Etapa 1): impede o ataque deste
+## turno e consome 1 stack — "Stun 1" pula exatamente um turno de ataque.
 func execute_unit_attack(unit: Unit) -> void:
+	if unit.get_status_stacks("stun") > 0:
+		print(unit.name, " está atordoada(o) e perde o ataque deste turno.")
+		unit.reduce_status("stun", 1)
+		return
+
 	var targets = target_system.get_pattern_attack_targets(unit)
 
 	if targets.is_empty():
@@ -158,6 +170,38 @@ func execute_faction_turn(faction: Unit.Faction) -> void:
 func execute_full_turn() -> void:
 	execute_faction_turn(Unit.Faction.ENEMY)
 	execute_faction_turn(Unit.Faction.ALLY)
+	process_end_of_turn_statuses()
+
+## Poison e Burn são processados no fim do turno, depois que os dois lados
+## já atacaram — os dois causam dano igual aos stacks atuais, mas decaem de
+## formas diferentes (docs/MECHANICS_EXECUTION_PLAN.md Etapa 1): Poison
+## reduz 1 stack por vez, Burn é consumido por completo numa única
+## aplicação. Snapshot via get_units() de propósito (mesmo cuidado que
+## execute_combat_phase()): unidades que morrem de Poison/Burn são
+## removidas do grid na hora (Unit.changed -> BattleFloor._on_unit_
+## changed()), o que não pode bagunçar este loop.
+func process_end_of_turn_statuses() -> void:
+	for battle_floor in battlefield.floors:
+		for unit in battle_floor.get_units():
+			if unit.is_dead():
+				continue
+
+			var poison_stacks = unit.get_status_stacks("poison")
+
+			if poison_stacks > 0:
+				print(unit.name, " sofre ", poison_stacks, " de dano de Poison.")
+				unit.take_damage(poison_stacks)
+				unit.reduce_status("poison", 1)
+
+			if unit.is_dead():
+				continue
+
+			var burn_stacks = unit.get_status_stacks("burn")
+
+			if burn_stacks > 0:
+				print(unit.name, " sofre ", burn_stacks, " de dano de Burn.")
+				unit.take_damage(burn_stacks)
+				unit.remove_status("burn")
 
 ## Preview do checkbox "Rodar turno" (ver Game.update_turn_preview()):
 ## simula execute_full_turn() num clone completo e isolado do estado
@@ -212,6 +256,7 @@ func clone_for_simulation() -> BattleState:
 	for i in range(source_units.size()):
 		unit_clones[i].hp = source_units[i].hp
 		unit_clones[i].block = source_units[i].block
+		unit_clones[i].statuses = source_units[i].statuses.duplicate()
 
 	return clone
 

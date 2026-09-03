@@ -37,6 +37,26 @@ var attack_pattern_count: int = 1
 ## Copiado de UnitData — ver BattleState.recalculate_auras().
 var aura_adjacent_ally_max_hp_bonus: int = 0
 
+## Status (docs/MECHANICS_EXECUTION_PLAN.md Etapa 1) — camada separada dos
+## modificadores diretos já existentes (modify_attack()/
+## set_received_max_hp_bonus()): representa um estado de gameplay
+## (Strength/Weakness/Poison/Burn/Stun) guardado em stacks, status_id ->
+## quantidade. Aplicar de novo um status já presente SOMA aos stacks
+## existentes, nunca substitui — cada status define sua própria regra de
+## quando/como os stacks são consumidos (ver
+## BattleState.process_end_of_turn_statuses() para Poison/Burn e
+## execute_unit_attack() para Stun).
+var statuses: Dictionary = {}
+
+## Nomes legíveis pra UI (UnitView) — ver get_status_summary().
+const STATUS_DISPLAY_NAMES = {
+	"strength": "Strength",
+	"weakness": "Weakness",
+	"poison": "Poison",
+	"burn": "Burn",
+	"stun": "Stun",
+}
+
 signal changed
 
 func _init(
@@ -63,10 +83,12 @@ func _init(
 func attack_unit(target: Unit) -> void:
 	if target == null:
 		return
-	
-	print(name, " atacou ", target.name, " causando ", attack, " de dano.")
-	
-	target.take_damage(attack)
+
+	var effective_attack = get_effective_attack()
+
+	print(name, " atacou ", target.name, " causando ", effective_attack, " de dano.")
+
+	target.take_damage(effective_attack)
 
 func take_damage(amount: int) -> void:
 	var had_block = block > 0
@@ -138,3 +160,73 @@ func set_received_max_hp_bonus(new_bonus: int) -> void:
 	hp = clampi(hp + delta, 0, max_hp)
 
 	changed.emit()
+
+func get_status_stacks(status_id: String) -> int:
+	return statuses.get(status_id, 0)
+
+func apply_status(status_id: String, stacks: int) -> void:
+	if stacks <= 0:
+		return
+
+	statuses[status_id] = get_status_stacks(status_id) + stacks
+
+	print(name, " recebeu ", stacks, " stack(s) de ", status_id, ". Total: ", statuses[status_id])
+
+	changed.emit()
+
+## Reduz stacks (Poison decai 1 por turno, Stun consome 1 ao ser pulado) —
+## remove a entrada por completo ao chegar a zero ou menos.
+func reduce_status(status_id: String, amount: int) -> void:
+	if not statuses.has(status_id):
+		return
+
+	var remaining = get_status_stacks(status_id) - amount
+
+	if remaining <= 0:
+		statuses.erase(status_id)
+	else:
+		statuses[status_id] = remaining
+
+	changed.emit()
+
+func remove_status(status_id: String) -> void:
+	if not statuses.has(status_id):
+		return
+
+	statuses.erase(status_id)
+
+	changed.emit()
+
+## Usado pela carta Cleanse — remove TODOS os status de uma vez.
+## Simplificação deliberada: o documento não define escolha entre vários
+## status presentes ao mesmo tempo, e "remover só um, à escolha do
+## jogador" exigiria uma UI de seleção que foge do escopo desta etapa.
+func clear_all_statuses() -> void:
+	if statuses.is_empty():
+		return
+
+	statuses.clear()
+
+	changed.emit()
+
+## ATK efetivo = ATK base + Strength - Weakness, nunca negativo. Usado por
+## attack_unit() (dano real) e pela UI (UnitView) — unit.attack continua
+## sendo o valor base, só alterado por modify_attack() (Flanquear/Linha de
+## Frente/Concentração).
+func get_effective_attack() -> int:
+	return maxi(0, attack + get_status_stacks("strength") - get_status_stacks("weakness"))
+
+## Texto legível dos status ativos, ex.: "Strength 2, Poison 3" — "" quando
+## não há nenhum. Ver UnitView.render_display().
+func get_status_summary() -> String:
+	if statuses.is_empty():
+		return ""
+
+	var parts: PackedStringArray = []
+
+	for status_id in statuses:
+		var display_name: String = STATUS_DISPLAY_NAMES.get(status_id, status_id.capitalize())
+
+		parts.append("%s %d" % [display_name, statuses[status_id]])
+
+	return ", ".join(parts)

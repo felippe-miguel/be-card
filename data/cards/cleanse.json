@@ -1,0 +1,10 @@
+{
+  "id": "cleanse",
+  "name": "Cleanse",
+  "description": "Remove todos os status de uma unidade.",
+  "cost": 1,
+  "type": "skill",
+  "effects": [
+    { "type": "cleanse", "target": "selected_unit" }
+  ]
+}

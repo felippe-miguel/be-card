@@ -1,0 +1,10 @@
+{
+  "id": "stun",
+  "name": "Stun",
+  "description": "Aplica Stun 1 a uma unidade inimiga, impedindo o próximo ataque dela.",
+  "cost": 2,
+  "type": "skill",
+  "effects": [
+    { "type": "apply_status", "target": "selected_unit", "target_faction": "enemy", "status": "stun", "stacks": 1 }
+  ]
+}

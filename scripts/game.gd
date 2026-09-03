@@ -474,7 +474,7 @@ func confirm_pending_card() -> void:
 		"frontline":
 			apply_frontline()
 
-		"damage", "heal", "block":
+		"damage", "heal", "block", "apply_status", "cleanse":
 			effect_system.execute_effect(effect)
 
 	finish_card_play(card)
@@ -788,7 +788,7 @@ func _on_card_played(card: Card) -> void:
 			begin_pending_card(card)
 			arm_frontline_preview()
 
-		"damage", "heal", "block":
+		"damage", "heal", "block", "apply_status", "cleanse":
 			begin_effect_card(card, effect)
 
 		_:

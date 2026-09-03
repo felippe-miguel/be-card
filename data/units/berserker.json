@@ -1,0 +1,8 @@
+{
+  "id": "berserker",
+  "name": "Berserker",
+  "max_hp": 18,
+  "attack": 6,
+  "attack_pattern": "lane_front",
+  "initial_statuses": { "strength": 2 }
+}

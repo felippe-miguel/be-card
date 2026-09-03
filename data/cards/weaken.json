@@ -1,0 +1,10 @@
+{
+  "id": "weaken",
+  "name": "Weaken",
+  "description": "Aplica Weakness 2 a uma unidade inimiga.",
+  "cost": 1,
+  "type": "skill",
+  "effects": [
+    { "type": "apply_status", "target": "selected_unit", "target_faction": "enemy", "status": "weakness", "stacks": 2 }
+  ]
+}

@@ -24,6 +24,7 @@ const HIGHLIGHT_BG_COLOR = Color(0.16, 0.16, 0.16, 1)
 @onready var atk_label: Label = $Content/AtkLabel
 @onready var block_label: Label = $Content/BlockLabel
 @onready var position_label: Label = $Content/PositionLabel
+@onready var status_label: Label = $Content/StatusLabel
 @onready var death_indicator: Label = $DeathIndicator
 
 var unit: Unit
@@ -73,7 +74,7 @@ func update_display() -> void:
 func render_display(destination_hp: int, destination_block: int) -> void:
 	name_label.text = unit.name
 	faction_label.text = Unit.Faction.keys()[unit.faction]
-	atk_label.text = "ATK: " + str(unit.attack)
+	atk_label.text = "ATK: " + str(unit.get_effective_attack())
 	position_label.text = "Lane: " + str(unit.lane) + " | Row: " + ROW_NAMES[unit.row]
 
 	hp_label.text = "HP: " + str(destination_hp) + "/" + str(unit.max_hp)
@@ -81,6 +82,13 @@ func render_display(destination_hp: int, destination_block: int) -> void:
 
 	block_label.text = "Block: " + str(destination_block)
 	block_label.add_theme_color_override("font_color", get_delta_color(destination_block, unit.block))
+
+	## Só ocupa espaço na célula quando há algum status ativo — a maioria
+	## das unidades não tem nenhum, e VBoxContainer ignora filhos invisíveis
+	## no layout, então isto não altera o tamanho das células sem status
+	## (ver docs/MECHANICS_EXECUTION_PLAN.md Etapa 1).
+	status_label.text = unit.get_status_summary()
+	status_label.visible = not status_label.text.is_empty()
 
 	## Garante que um preview_attack() anterior nunca fique "preso" com a
 	## cor de delta depois de um update de verdade (ex: outra mudança
@@ -158,7 +166,7 @@ func preview_attack(new_attack: int) -> void:
 	atk_label.add_theme_color_override("font_color", get_delta_color(new_attack, unit.attack))
 
 func clear_attack_preview() -> void:
-	atk_label.text = "ATK: " + str(unit.attack)
+	atk_label.text = "ATK: " + str(unit.get_effective_attack())
 	atk_label.add_theme_color_override("font_color", NORMAL_COLOR)
 
 ## Simula, na ordem em que os efeitos da carta seriam resolvidos de

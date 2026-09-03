@@ -52,6 +52,17 @@ func execute_effect(
 			for target in targets:
 				target.heal(amount)
 
+		"apply_status":
+			var status_id: String = effect.get("status", "")
+			var stacks = effect.get("stacks", 1)
+
+			for target in targets:
+				target.apply_status(status_id, stacks)
+
+		"cleanse":
+			for target in targets:
+				target.clear_all_statuses()
+
 		"summon":
 			var unit_id = effect.get("unit", "")
 			var unit_data = battle_state.unit_database.units.get(unit_id)
