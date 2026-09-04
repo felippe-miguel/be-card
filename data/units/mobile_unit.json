@@ -1,6 +1,7 @@
 {
   "id": "mobile_unit",
   "name": "Unidade Móvel",
+  "description": "Toda vez que se move (por qualquer motivo — carta, empurrão, troca), ganha Strength 1.",
   "max_hp": 14,
   "attack": 4,
   "attack_pattern": "lane_front",

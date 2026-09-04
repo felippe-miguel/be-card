@@ -1,6 +1,7 @@
 {
   "id": "goblin",
   "name": "Goblin",
+  "description": "Fraco e rápido de matar. Ataca o primeiro inimigo da própria lane.",
   "max_hp": 15,
   "attack": 4
 }

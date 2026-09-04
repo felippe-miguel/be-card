@@ -6,6 +6,12 @@ var name: String
 var max_hp: int
 var attack: int
 
+## Texto livre explicando como a unidade funciona (regras, gatilhos,
+## passivas) — mostrado no painel de hover ao lado do tabuleiro aliado,
+## junto da explicação do padrão de ataque (ver Game.show_pattern_info()).
+## "" = sem descrição própria (só o padrão de ataque é mostrado).
+var description: String = ""
+
 ## Padrão de ataque (docs/playtest_3x3.md seção 3/4) — id resolvido por
 ## TargetSystem.get_pattern_attack_targets(). attack_pattern_count só se
 ## aplica a padrões que pegam os "N primeiros" de uma varredura (ver
@@ -48,6 +54,7 @@ static func from_dict(data: Dictionary) -> UnitData:
 
 	unit_data.id = data.get("id", "")
 	unit_data.name = data.get("name", "")
+	unit_data.description = data.get("description", "")
 	unit_data.max_hp = data.get("max_hp", 1)
 	unit_data.attack = data.get("attack", 0)
 	unit_data.attack_pattern = data.get("attack_pattern", "lane_front")

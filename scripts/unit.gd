@@ -10,6 +10,9 @@ var id: String
 var name: String
 var hp: int
 
+## Copiado de UnitData — ver Game.show_pattern_info() (painel de hover).
+var description: String = ""
+
 ## max_hp = base_max_hp + received_max_hp_bonus. base_max_hp é o valor
 ## puro de UnitData; received_max_hp_bonus vem de auras de aliados
 ## adjacentes (Guardião) e é recalculado do zero a cada mudança no grid —
@@ -103,7 +106,8 @@ func _init(
 	unit_aura_bonus: int = 0,
 	unit_triggers: Array[Dictionary] = [],
 	unit_back_row_attack_bonus: int = 0,
-	unit_advance_attack_bonus: int = 0
+	unit_advance_attack_bonus: int = 0,
+	unit_description: String = ""
 ) -> void:
 	id = unit_id
 	name = unit_name
@@ -118,6 +122,7 @@ func _init(
 	triggers = unit_triggers.duplicate(true)
 	back_row_attack_bonus = unit_back_row_attack_bonus
 	advance_attack_bonus = unit_advance_attack_bonus
+	description = unit_description
 
 func attack_unit(target: Unit) -> void:
 	if target == null:

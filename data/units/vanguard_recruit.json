@@ -1,6 +1,7 @@
 {
   "id": "vanguard_recruit",
   "name": "Recruta da Linha de Frente",
+  "description": "Se for invocado na Front, ganha Strength 2 imediatamente. Invocado em qualquer outra row, não ganha nada.",
   "max_hp": 14,
   "attack": 4,
   "attack_pattern": "lane_front",

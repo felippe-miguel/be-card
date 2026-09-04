@@ -609,17 +609,23 @@ func _on_unit_hover_started(unit: Unit) -> void:
 
 	show_pattern_info(unit)
 
-## Preenche o painel de explicação (título + regra do padrão de ataque,
-## mais a aura, se houver) — o texto em si vem de
-## TargetSystem.describe_pattern(), que fica perto da própria
-## implementação de cada padrão.
+## Preenche o painel de explicação (título + descrição da unidade, se
+## houver + regra do padrão de ataque + aura, se houver) — o texto do
+## padrão em si vem de TargetSystem.describe_pattern(), que fica perto da
+## própria implementação de cada padrão; a descrição vem direto de
+## UnitData.description (data/units/*.json), copiada pra Unit na criação.
 func show_pattern_info(unit: Unit) -> void:
 	var title = "%s (%s) — %s" % [
 		unit.name,
 		Unit.Faction.keys()[unit.faction],
 		unit.attack_pattern
 	]
-	var body = battle_state.target_system.describe_pattern(unit.attack_pattern, unit.attack_pattern_count)
+	var body = ""
+
+	if unit.description != "":
+		body += unit.description + "\n\n"
+
+	body += battle_state.target_system.describe_pattern(unit.attack_pattern, unit.attack_pattern_count)
 
 	if unit.aura_adjacent_ally_max_hp_bonus > 0:
 		body += "\n\nPassiva: aliados ortogonalmente adjacentes recebem +%d de HP máximo enquanto esta unidade estiver viva e posicionada aqui." % unit.aura_adjacent_ally_max_hp_bonus

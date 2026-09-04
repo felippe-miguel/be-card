@@ -1,6 +1,7 @@
 {
   "id": "executioner",
   "name": "Executor",
+  "description": "Ao matar uma unidade com seu ataque, ganha Strength 2.",
   "max_hp": 18,
   "attack": 7,
   "attack_pattern": "lane_front",

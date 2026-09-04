@@ -1,6 +1,7 @@
 {
   "id": "guardian",
   "name": "Guardião",
+  "description": "Ataca o primeiro inimigo da própria lane. Passiva: aliados ortogonalmente adjacentes ganham +2 de HP máximo enquanto ele estiver vivo e posicionado.",
   "max_hp": 25,
   "attack": 3,
   "attack_pattern": "lane_front",

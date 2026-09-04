@@ -1,6 +1,7 @@
 {
   "id": "sniper",
   "name": "Franco-Atirador",
+  "description": "O alvo depende da própria posição: na Back, mira o inimigo mais distante da lane; em Front/Middle, mira o mais próximo.",
   "max_hp": 12,
   "attack": 5,
   "attack_pattern": "front_or_rear_by_position"

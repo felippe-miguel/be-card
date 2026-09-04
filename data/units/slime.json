@@ -1,6 +1,7 @@
 {
   "id": "slime",
   "name": "Slime",
+  "description": "HP alto, ataque baixo. Ataca o primeiro inimigo da própria lane.",
   "max_hp": 30,
   "attack": 5
 }

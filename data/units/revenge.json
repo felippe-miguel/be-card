@@ -1,6 +1,7 @@
 {
   "id": "revenge",
   "name": "Vingança",
+  "description": "Ao morrer, TODOS os aliados (em qualquer lane) ganham Strength 1.",
   "max_hp": 12,
   "attack": 4,
   "attack_pattern": "lane_front",

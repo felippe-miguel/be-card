@@ -1,6 +1,7 @@
 {
   "id": "dragon",
   "name": "Dragão",
+  "description": "HP altíssimo e ataque forte. Ataca o primeiro inimigo da própria lane — inimigo pesado, tipicamente de final de wave.",
   "max_hp": 100,
   "attack": 10
 }

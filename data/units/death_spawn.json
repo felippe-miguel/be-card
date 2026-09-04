@@ -1,6 +1,7 @@
 {
   "id": "death_spawn",
   "name": "Ovo de Esqueleto",
+  "description": "Ao morrer, invoca um Skeleton na própria célula, na mesma facção.",
   "max_hp": 10,
   "attack": 2,
   "attack_pattern": "lane_front",

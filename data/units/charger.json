@@ -1,6 +1,7 @@
 {
   "id": "charger",
   "name": "Investida",
+  "description": "Causa +3 de dano no ataque se tiver avançado (movido pra uma row menor) neste turno.",
   "max_hp": 16,
   "attack": 5,
   "attack_pattern": "lane_front",

@@ -1,6 +1,7 @@
 {
   "id": "enemy_mage",
   "name": "Mage",
+  "description": "Ataca o primeiro inimigo da própria lane e também quem estiver na mesma row nas lanes vizinhas (dano em área horizontal).",
   "max_hp": 10,
   "attack": 6,
   "attack_pattern": "primary_plus_adjacent_row"

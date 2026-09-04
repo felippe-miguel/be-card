@@ -1,6 +1,7 @@
 {
   "id": "explosive",
   "name": "Explosivo",
+  "description": "Ao morrer, causa 3 de dano a todos os inimigos da mesma lane em que estava.",
   "max_hp": 12,
   "attack": 4,
   "attack_pattern": "lane_front",

@@ -1,6 +1,7 @@
 {
   "id": "sentinel",
   "name": "Sentinela",
+  "description": "Ganha +4 de ATK enquanto estiver posicionado na Back. Perde o bônus imediatamente ao sair de lá.",
   "max_hp": 18,
   "attack": 4,
   "attack_pattern": "lane_front",

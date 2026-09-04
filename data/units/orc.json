@@ -1,6 +1,7 @@
 {
   "id": "orc",
   "name": "Orc",
+  "description": "Bruto: HP e ATK altos. Ataca o primeiro inimigo da própria lane.",
   "max_hp": 40,
   "attack": 8
 }

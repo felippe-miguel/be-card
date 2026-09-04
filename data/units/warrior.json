@@ -1,6 +1,7 @@
 {
   "id": "warrior",
   "name": "Guerreiro",
+  "description": "Unidade básica: ataca o primeiro inimigo da própria lane. Sem passivas ou triggers.",
   "max_hp": 20,
   "attack": 6,
   "attack_pattern": "lane_front"

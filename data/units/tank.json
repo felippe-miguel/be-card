@@ -1,6 +1,7 @@
 {
   "id": "tank",
   "name": "Tank",
+  "description": "HP alto. Ataca o primeiro inimigo da própria lane — bom pra segurar a Front.",
   "max_hp": 30,
   "attack": 4,
   "attack_pattern": "lane_front"

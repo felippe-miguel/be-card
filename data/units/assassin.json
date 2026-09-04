@@ -1,6 +1,7 @@
 {
   "id": "assassin",
   "name": "Assassino",
+  "description": "Ignora a própria lane: mira o inimigo mais ao fundo (maior row) entre as duas lanes vizinhas.",
   "max_hp": 7,
   "attack": 8,
   "attack_pattern": "adjacent_lanes_furthest"

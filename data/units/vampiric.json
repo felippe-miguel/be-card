@@ -1,6 +1,7 @@
 {
   "id": "vampiric",
   "name": "Vampírico",
+  "description": "Ao acertar um ataque, cura a si mesmo pelo valor exato de dano causado (já descontado bloqueio do alvo).",
   "max_hp": 16,
   "attack": 5,
   "attack_pattern": "lane_front",

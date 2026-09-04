@@ -1,6 +1,7 @@
 {
   "id": "bandit",
   "name": "Bandido",
+  "description": "Perfurante: ataca os 2 primeiros inimigos da própria lane, não só o primeiro.",
   "max_hp": 25,
   "attack": 6,
   "attack_pattern": "lane_front",

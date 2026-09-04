@@ -138,7 +138,8 @@ func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 		unit_data.aura_adjacent_ally_max_hp_bonus,
 		unit_data.triggers,
 		unit_data.back_row_attack_bonus,
-		unit_data.advance_attack_bonus
+		unit_data.advance_attack_bonus,
+		unit_data.description
 	)
 
 	for status_id in unit_data.initial_statuses:
@@ -583,7 +584,8 @@ func clone_for_simulation() -> BattleState:
 			source_unit.aura_adjacent_ally_max_hp_bonus,
 			source_unit.triggers,
 			source_unit.back_row_attack_bonus,
-			source_unit.advance_attack_bonus
+			source_unit.advance_attack_bonus,
+			source_unit.description
 		)
 
 		## Sem isto, o clone nunca dispararia ON_DEATH (nem qualquer outro

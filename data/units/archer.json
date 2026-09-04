@@ -1,6 +1,7 @@
 {
   "id": "archer",
   "name": "Arqueiro",
+  "description": "Mira o inimigo mais distante da própria lane (varre de Back pra Front), não o mais próximo.",
   "max_hp": 10,
   "attack": 4,
   "attack_pattern": "lane_rear"

@@ -1,6 +1,7 @@
 {
   "id": "sacrifice",
   "name": "Sacrifício",
+  "description": "Ao morrer, cura 5 de HP de todos os aliados da mesma lane em que estava.",
   "max_hp": 12,
   "attack": 4,
   "attack_pattern": "lane_front",

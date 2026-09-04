@@ -1,6 +1,7 @@
 {
   "id": "herald",
   "name": "Arauto",
+  "description": "Ao ser invocado, todos os aliados ortogonalmente adjacentes à sua célula ganham 3 de Block.",
   "max_hp": 14,
   "attack": 3,
   "attack_pattern": "lane_front",
