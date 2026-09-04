@@ -1,0 +1,8 @@
+{
+  "id": "sentinel",
+  "name": "Sentinela",
+  "max_hp": 18,
+  "attack": 4,
+  "attack_pattern": "lane_front",
+  "back_row_attack_bonus": 4
+}

@@ -1,0 +1,10 @@
+{
+  "id": "herald",
+  "name": "Arauto",
+  "max_hp": 14,
+  "attack": 3,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_summon", "effect": { "type": "block", "target": "adjacent_allies", "amount": 3 } }
+  ]
+}

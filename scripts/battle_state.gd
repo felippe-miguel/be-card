@@ -69,6 +69,14 @@ func _init(battle_definition: BattleDefinition, database: UnitDatabase) -> void:
 	main_floor.unit_removed.connect(func(_unit, _old_lane, _old_row): recalculate_auras())
 	main_floor.unit_moved.connect(func(_unit, _old_lane, _old_row): recalculate_auras())
 
+	## Combinação "Posição + Modificador" (docs/MECHANICS_EXECUTION_PLAN.md
+	## Etapa 5) — mesma técnica e os mesmos sinais da aura acima, não é um
+	## "evento" (nunca suprimido por suppress_events): é um modificador
+	## derivado, sempre recalculado do zero a partir do grid atual.
+	main_floor.unit_added.connect(func(_unit): recalculate_position_modifiers())
+	main_floor.unit_removed.connect(func(_unit, _old_lane, _old_row): recalculate_position_modifiers())
+	main_floor.unit_moved.connect(func(_unit, _old_lane, _old_row): recalculate_position_modifiers())
+
 	## Eventos/triggers (docs/MECHANICS_EXECUTION_PLAN.md Etapa 2): ON_SUMMON
 	## e ON_MOVE reaproveitam os mesmos sinais do BattleFloor que a aura já
 	## escuta — pelo mesmo motivo (roster inicial não passa por eles, ver
@@ -79,12 +87,23 @@ func _init(battle_definition: BattleDefinition, database: UnitDatabase) -> void:
 		if not suppress_events:
 			fire_event(added_unit, "on_summon")
 	)
-	main_floor.unit_moved.connect(func(moved_unit, _old_lane, _old_row):
+	main_floor.unit_moved.connect(func(moved_unit, old_lane, old_row):
+		## Combinação "Movimento + Ataque" (Etapa 5): "avançou" = moveu pra
+		## uma row MENOR (em direção à Front), não importa a facção — quem
+		## chama decide o sentido junto com quem move (ex.: Empurrão
+		## empurra pra trás, row aumenta, nunca conta como avanço). Marcado
+		## sempre, mesmo com suppress_events (não é um evento de trigger,
+		## é só um registro de fato ocorrido, igual à aura acima) — resetado
+		## no início de cada turno (ver execute_full_turn()).
+		if moved_unit.row < old_row:
+			moved_unit.advanced_this_turn = true
+
 		if not suppress_events:
 			fire_event(moved_unit, "on_move")
 	)
 
 	recalculate_auras()
+	recalculate_position_modifiers()
 
 ## Toda unidade aliada nasce com o dobro de ATK/HP — compensação
 ## temporária e propositalmente grosseira pro loop de 4 waves de
@@ -117,7 +136,9 @@ func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 		unit_data.attack_pattern,
 		unit_data.attack_pattern_count,
 		unit_data.aura_adjacent_ally_max_hp_bonus,
-		unit_data.triggers
+		unit_data.triggers,
+		unit_data.back_row_attack_bonus,
+		unit_data.advance_attack_bonus
 	)
 
 	for status_id in unit_data.initial_statuses:
@@ -183,6 +204,21 @@ func recalculate_auras() -> void:
 
 		for unit in units:
 			unit.set_received_max_hp_bonus(bonuses[unit])
+
+## Combinação "Posição + Modificador" (docs/MECHANICS_EXECUTION_PLAN.md
+## Etapa 5): recalcula do zero, pra cada unidade com back_row_attack_bonus
+## > 0, se ela está na Back agora ou não — mesma técnica/motivo de
+## recalculate_auras() acima (sempre do zero, nunca incremental).
+func recalculate_position_modifiers() -> void:
+	var battle_floor = battlefield.get_floor(0)
+
+	for unit in battle_floor.get_units():
+		if unit.back_row_attack_bonus == 0:
+			continue
+
+		var bonus = unit.back_row_attack_bonus if unit.row == BattleFloor.Row.BACK else 0
+
+		unit.set_position_attack_bonus(bonus)
 
 ## Stun (docs/MECHANICS_EXECUTION_PLAN.md Etapa 1): impede o ataque deste
 ## turno e consome 1 stack — "Stun 1" pula exatamente um turno de ataque.
@@ -265,6 +301,14 @@ func execute_full_turn() -> void:
 	process_end_of_turn_statuses()
 	fire_event_all("on_turn_end")
 
+	## Combinação "Movimento + Ataque" (Etapa 5): advanced_this_turn some no
+	## fim do turno que ele beneficiou — reseta por último (não antes do
+	## combate acima, que é exatamente quem precisa lê-lo) pra começar o
+	## PRÓXIMO turno "limpo", pronto pra registrar os movimentos daquele
+	## turno (cartas de movimento jogadas antes do próximo "Rodar turno").
+	for unit in battlefield.get_floor(0).get_units():
+		unit.advanced_this_turn = false
+
 ## Poison e Burn são processados no fim do turno, depois que os dois lados
 ## já atacaram — os dois causam dano igual aos stacks atuais, mas decaem de
 ## formas diferentes (docs/MECHANICS_EXECUTION_PLAN.md Etapa 1): Poison
@@ -308,9 +352,25 @@ func fire_event(unit: Unit, event_name: String, context: Dictionary = {}) -> voi
 		if trigger.get("event", "") != event_name:
 			continue
 
+		if not trigger_condition_met(unit, trigger.get("condition", {})):
+			continue
+
 		print(unit.name, " disparou trigger '", event_name, "'.")
 
 		execute_trigger_effect(unit, trigger.get("effect", {}), context)
+
+## Combinação "Summon + Posição" (docs/MECHANICS_EXECUTION_PLAN.md Etapa 5:
+## "ao ser invocado na Front, ganha Strength") — não um motor de condições
+## genérico, só a ÚNICA chave que existe necessidade real agora ("row").
+## condition vazio (a grande maioria dos triggers) sempre passa.
+func trigger_condition_met(unit: Unit, condition: Dictionary) -> bool:
+	if condition.is_empty():
+		return true
+
+	if condition.has("row") and unit.row != int(condition["row"]):
+		return false
+
+	return true
 
 ## Dispara event_name pra toda unidade viva no andar — usado pelos eventos
 ## sem uma unidade "dona" natural (ON_TURN_START/ON_TURN_END/ON_CARD_
@@ -342,6 +402,11 @@ func fire_event_all(event_name: String, context: Dictionary = {}) -> void:
 ##   "todos os aliados ganham Strength 1"). Reaproveita TargetSystem.
 ##   get_units_by_faction(), o mesmo usado por cartas "all_enemies"/
 ##   "all_allies" (docs/MECHANICS_EXECUTION_PLAN.md Etapa 4).
+## - "adjacent_allies" (Etapa 5 — "aliados adjacentes ganham Block"): usa
+##   a posição ATUAL de effect_owner (não context — ao contrário de ON_
+##   DEATH, quem dispara isto normalmente ainda está no grid, ex.: ON_
+##   SUMMON), reaproveitando BattleFloor.get_adjacent_units(), a mesma
+##   varredura ortogonal da aura do Guardião.
 func resolve_trigger_targets(target_key: String, effect_owner: Unit, context: Dictionary) -> Array[Unit]:
 	var context_faction: Unit.Faction = context.get("faction", effect_owner.faction)
 
@@ -378,6 +443,9 @@ func resolve_trigger_targets(target_key: String, effect_owner: Unit, context: Di
 
 		"all_enemies":
 			return target_system.get_units_by_faction(target_system.get_opposite_faction(context_faction))
+
+		"adjacent_allies":
+			return battlefield.get_floor(0).get_adjacent_units(effect_owner.faction, effect_owner.lane, effect_owner.row)
 
 		_:
 			print("Alvo de trigger desconhecido: ", target_key)
@@ -499,16 +567,23 @@ func clone_for_simulation() -> BattleState:
 	clone.suppress_events = true
 
 	for source_unit in source_units:
+		## source_unit.attack já inclui position_attack_bonus "assado" nele
+		## (mesma técnica de base_max_hp acima, que exclui de propósito o
+		## bônus de aura) — subtrai aqui pra recalculate_position_modifiers()
+		## reaplicar do zero, reagindo ao place_unit_at() logo abaixo, sem
+		## contar o bônus em dobro (base limpa + bônus de novo).
 		var unit_clone = Unit.new(
 			source_unit.id,
 			source_unit.name,
 			source_unit.base_max_hp,
-			source_unit.attack,
+			source_unit.attack - source_unit.position_attack_bonus,
 			source_unit.faction,
 			source_unit.attack_pattern,
 			source_unit.attack_pattern_count,
 			source_unit.aura_adjacent_ally_max_hp_bonus,
-			source_unit.triggers
+			source_unit.triggers,
+			source_unit.back_row_attack_bonus,
+			source_unit.advance_attack_bonus
 		)
 
 		## Sem isto, o clone nunca dispararia ON_DEATH (nem qualquer outro
@@ -528,6 +603,7 @@ func clone_for_simulation() -> BattleState:
 		unit_clones[i].hp = source_units[i].hp
 		unit_clones[i].block = source_units[i].block
 		unit_clones[i].statuses = source_units[i].statuses.duplicate()
+		unit_clones[i].advanced_this_turn = source_units[i].advanced_this_turn
 
 	## A simulação em si (clone.execute_full_turn(), chamada por quem pediu
 	## este clone) deve disparar eventos normalmente — só a reconstrução

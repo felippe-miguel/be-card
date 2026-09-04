@@ -37,6 +37,24 @@ var attack_pattern_count: int = 1
 ## Copiado de UnitData — ver BattleState.recalculate_auras().
 var aura_adjacent_ally_max_hp_bonus: int = 0
 
+## Combinação "Posição + Modificador" (docs/MECHANICS_EXECUTION_PLAN.md
+## Etapa 5) — back_row_attack_bonus (copiado de UnitData) é a definição
+## estática ("quanto ganha na Back"); position_attack_bonus é o valor
+## efetivamente aplicado agora, recalculado do zero a cada mudança no grid
+## por BattleState.recalculate_position_modifiers() (mesma técnica de
+## received_max_hp_bonus/set_received_max_hp_bonus() acima, só que
+## aplicado à própria unidade em vez de vizinhos).
+var back_row_attack_bonus: int = 0
+var position_attack_bonus: int = 0
+
+## Combinação "Movimento + Ataque" (Etapa 5) — advance_attack_bonus
+## (copiado de UnitData) é a definição estática; advanced_this_turn é
+## ligado quando a unidade avança (move pra uma row menor — ver
+## BattleState, conexão de unit_moved) e resetado no início de cada turno
+## (ver BattleState.execute_full_turn()).
+var advance_attack_bonus: int = 0
+var advanced_this_turn: bool = false
+
 ## Status (docs/MECHANICS_EXECUTION_PLAN.md Etapa 1) — camada separada dos
 ## modificadores diretos já existentes (modify_attack()/
 ## set_received_max_hp_bonus()): representa um estado de gameplay
@@ -83,7 +101,9 @@ func _init(
 	unit_attack_pattern: String = "lane_front",
 	unit_attack_pattern_count: int = 1,
 	unit_aura_bonus: int = 0,
-	unit_triggers: Array[Dictionary] = []
+	unit_triggers: Array[Dictionary] = [],
+	unit_back_row_attack_bonus: int = 0,
+	unit_advance_attack_bonus: int = 0
 ) -> void:
 	id = unit_id
 	name = unit_name
@@ -96,6 +116,8 @@ func _init(
 	attack_pattern_count = unit_attack_pattern_count
 	aura_adjacent_ally_max_hp_bonus = unit_aura_bonus
 	triggers = unit_triggers.duplicate(true)
+	back_row_attack_bonus = unit_back_row_attack_bonus
+	advance_attack_bonus = unit_advance_attack_bonus
 
 func attack_unit(target: Unit) -> void:
 	if target == null:
@@ -186,6 +208,22 @@ func set_received_max_hp_bonus(new_bonus: int) -> void:
 
 	changed.emit()
 
+## Chamado por BattleState.recalculate_position_modifiers() — new_bonus é
+## o valor final já decidido pra AGORA (0 ou back_row_attack_bonus,
+## dependendo da row atual), não um delta. Mesmo padrão de
+## set_received_max_hp_bonus() acima: recalcula do zero a cada chamada,
+## nunca acumula.
+func set_position_attack_bonus(new_bonus: int) -> void:
+	if new_bonus == position_attack_bonus:
+		return
+
+	var delta = new_bonus - position_attack_bonus
+
+	position_attack_bonus = new_bonus
+	attack += delta
+
+	changed.emit()
+
 func get_status_stacks(status_id: String) -> int:
 	return statuses.get(status_id, 0)
 
@@ -234,12 +272,18 @@ func clear_all_statuses() -> void:
 
 	changed.emit()
 
-## ATK efetivo = ATK base + Strength - Weakness, nunca negativo. Usado por
-## attack_unit() (dano real) e pela UI (UnitView) — unit.attack continua
-## sendo o valor base, só alterado por modify_attack() (Flanquear/Linha de
-## Frente/Concentração).
+## ATK efetivo = ATK base + Strength - Weakness (+ bônus de "avançou este
+## turno", se houver), nunca negativo. Usado por attack_unit() (dano real)
+## e pela UI (UnitView). "attack" já inclui modify_attack() (Flanquear/
+## Linha de Frente/Concentração) E position_attack_bonus (Etapa 5 —
+## set_position_attack_bonus() soma/retira o delta direto em attack, mesma
+## técnica de set_received_max_hp_bonus()); advance_attack_bonus é o único
+## somado aqui, por ser condicional a advanced_this_turn (não faz sentido
+## "bakear" permanentemente algo que só vale no turno em que avançou).
 func get_effective_attack() -> int:
-	return maxi(0, attack + get_status_stacks("strength") - get_status_stacks("weakness"))
+	var advance_bonus = advance_attack_bonus if advanced_this_turn else 0
+
+	return maxi(0, attack + get_status_stacks("strength") - get_status_stacks("weakness") + advance_bonus)
 
 ## Texto legível dos status ativos, ex.: "Strength 2, Poison 3" — "" quando
 ## não há nenhum. Ver UnitView.render_display().

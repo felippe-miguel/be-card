@@ -48,6 +48,20 @@ func get_pattern_attack_targets(attacker: Unit) -> Array[Unit]:
 		"primary_plus_adjacent_row":
 			return get_primary_plus_adjacent_row(target_faction, attacker.lane)
 
+		## Combinação "Posição + Targeting" (docs/MECHANICS_EXECUTION_PLAN.md
+		## Etapa 5): o padrão em si depende da posição ATUAL do atacante, não
+		## só da sua identidade — na própria Back, mira igual "lane_rear"
+		## (mais distante); em qualquer outra row, mira igual "lane_front"
+		## (mais próximo). Reaproveita as duas varreduras que já existem
+		## acima, só decide qual delas usar.
+		"front_or_rear_by_position":
+			var lane_units = get_battle_floor().get_lane_units(target_faction, attacker.lane)
+
+			if attacker.row == BattleFloor.Row.BACK:
+				lane_units.reverse()
+
+			return take_first(lane_units, count)
+
 		_:
 			print("Padrão de ataque desconhecido: ", attacker.attack_pattern)
 			return []
@@ -67,6 +81,7 @@ const PATTERN_DESCRIPTIONS = {
 	"lane_rear": "Mira o(s) inimigo(s) mais distante(s) da própria lane, procurando da Back para a Front.",
 	"adjacent_lanes_furthest": "Ignora a própria lane. Olha as duas lanes vizinhas (só uma, se estiver numa lane de borda) e mira o inimigo mais ao fundo (maior row) entre os candidatos das duas.",
 	"primary_plus_adjacent_row": "Mira o primeiro inimigo da própria lane (Front → Back) e também quem estiver na MESMA row nas lanes vizinhas — naturalmente limitado pelo grid quando o alvo está numa lane de borda.",
+	"front_or_rear_by_position": "Depende da PRÓPRIA posição: na Back, mira o inimigo mais distante da lane (como lane_rear); em Front/Middle, mira o mais próximo (como lane_front).",
 }
 
 func describe_pattern(pattern_id: String, count: int = 1) -> String:

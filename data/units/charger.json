@@ -1,0 +1,8 @@
+{
+  "id": "charger",
+  "name": "Investida",
+  "max_hp": 16,
+  "attack": 5,
+  "attack_pattern": "lane_front",
+  "advance_attack_bonus": 3
+}

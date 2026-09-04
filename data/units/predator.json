@@ -1,0 +1,10 @@
+{
+  "id": "predator",
+  "name": "Predador",
+  "max_hp": 15,
+  "attack": 6,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_kill", "effect": { "type": "move", "target": "self", "row_delta": -1 } }
+  ]
+}

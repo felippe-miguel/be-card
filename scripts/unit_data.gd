@@ -30,6 +30,19 @@ var initial_statuses: Dictionary = {}
 ## Unit.triggers/BattleState.fire_event() para a resolução em si.
 var triggers: Array[Dictionary] = []
 
+## Combinação "Posição + Modificador" (docs/MECHANICS_EXECUTION_PLAN.md
+## Etapa 5): bônus de ATK concedido à própria unidade só enquanto ela
+## estiver na Back (row 2), recalculado do zero a cada mudança no grid —
+## mesma técnica de aura_adjacent_ally_max_hp_bonus acima, só que aplicado
+## à própria unidade em vez de vizinhos. Ver Unit.position_attack_bonus/
+## BattleState.recalculate_position_modifiers().
+var back_row_attack_bonus: int = 0
+
+## Combinação "Movimento + Ataque" (Etapa 5): bônus de ATK só no turno em
+## que a unidade avançou (moveu pra uma row menor) — ver Unit.
+## advanced_this_turn/get_effective_attack().
+var advance_attack_bonus: int = 0
+
 static func from_dict(data: Dictionary) -> UnitData:
 	var unit_data = UnitData.new()
 
@@ -42,5 +55,7 @@ static func from_dict(data: Dictionary) -> UnitData:
 	unit_data.aura_adjacent_ally_max_hp_bonus = data.get("aura_adjacent_ally_max_hp_bonus", 0)
 	unit_data.initial_statuses = data.get("initial_statuses", {})
 	unit_data.triggers.assign(data.get("triggers", []))
+	unit_data.back_row_attack_bonus = data.get("back_row_attack_bonus", 0)
+	unit_data.advance_attack_bonus = data.get("advance_attack_bonus", 0)
 
 	return unit_data
