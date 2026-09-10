@@ -28,12 +28,11 @@ const UNAFFORDABLE_COST_COLOR = Color(1, 0.4, 0.4, 1)
 @onready var target_label: Label = $TargetLabel
 @onready var summon_preview_label: Label = $SummonPreviewLabel
 
-## Convenção de nome de arquivo pra arte de carta — por enquanto só cartas
-## de invocação têm arte (uma por unidade, ligada pelo id da própria
-## UnitData), já que são as únicas conceitualmente ligadas a uma única
-## Unit; cartas sem arte correspondente (ainda a maioria) escondem o
-## TextureRect, mostrando só a moldura (Frame) por cima do fundo padrão.
-const ART_PATH_FORMAT = "res://resources/unit-%s.png"
+## Convenção de nome de arquivo pra arte de carta: res://resources/
+## <CardData.id>.png. Cartas sem arquivo correspondente (ainda a maioria)
+## escondem o TextureRect, mostrando só a moldura (Frame) por cima do
+## fundo padrão.
+const ART_PATH_FORMAT = "res://resources/%s.png"
 
 var data: CardData
 
@@ -98,14 +97,12 @@ func setup(card_data: CardData, unit_database: UnitDatabase = null) -> void:
 	update_summon_preview(unit_database)
 	update_art()
 
-## Carrega res://resources/unit-<id_da_unidade_invocada>.png, se existir —
-## ainda não é um lookup por CardData.id porque só cartas de invocação têm
-## uma Unit associada de verdade; ver ART_PATH_FORMAT acima.
+## Carrega res://resources/<CardData.id>.png, se existir — ver
+## ART_PATH_FORMAT acima.
 func update_art() -> void:
-	var unit_id = data.get_summon_unit_id()
-	var path = ART_PATH_FORMAT % unit_id if unit_id != "" else ""
+	var path = ART_PATH_FORMAT % data.id
 
-	if path != "" and ResourceLoader.exists(path):
+	if ResourceLoader.exists(path):
 		art.texture = load(path)
 		art.visible = true
 	else:

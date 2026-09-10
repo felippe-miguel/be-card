@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cu4nuh5oumfop"
-path="res://.godot/imported/unit-archer.png-6be05b17f36edd744e6d34c5668d0d11.ctex"
+uid="uid://bfdxvqxio3tf5"
+path="res://.godot/imported/poison_dart.png-3fb07f8f2e9355af5442d43065cc557b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://resources/unit-archer.png"
-dest_files=["res://.godot/imported/unit-archer.png-6be05b17f36edd744e6d34c5668d0d11.ctex"]
+source_file="res://resources/poison_dart.png"
+dest_files=["res://.godot/imported/poison_dart.png-3fb07f8f2e9355af5442d43065cc557b.ctex"]
 
 [params]
 
