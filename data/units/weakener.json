@@ -1,0 +1,11 @@
+{
+  "id": "weakener",
+  "name": "Enfraquecedor",
+  "description": "Ao acertar um ataque, aplica Weakness 2 no alvo atingido (análogo ao Venenoso, mas com debuff em vez de dano ao longo do tempo).",
+  "max_hp": 14,
+  "attack": 4,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_hit", "effect": { "type": "apply_status", "target": "trigger_target", "status": "weakness", "stacks": 2 } }
+  ]
+}

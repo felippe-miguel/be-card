@@ -403,11 +403,14 @@ func fire_event_all(event_name: String, context: Dictionary = {}) -> void:
 ##   "todos os aliados ganham Strength 1"). Reaproveita TargetSystem.
 ##   get_units_by_faction(), o mesmo usado por cartas "all_enemies"/
 ##   "all_allies" (docs/MECHANICS_EXECUTION_PLAN.md Etapa 4).
-## - "adjacent_allies" (Etapa 5 — "aliados adjacentes ganham Block"): usa
-##   a posição ATUAL de effect_owner (não context — ao contrário de ON_
-##   DEATH, quem dispara isto normalmente ainda está no grid, ex.: ON_
-##   SUMMON), reaproveitando BattleFloor.get_adjacent_units(), a mesma
-##   varredura ortogonal da aura do Guardião.
+## - "adjacent_allies" (Etapa 5 — "aliados adjacentes ganham Block"; Etapa 6
+##   também usa em ON_DEATH — "cura aliados adjacentes"): lane/row vêm de
+##   context se presentes (ON_DEATH — on_unit_died() já removeu a unidade
+##   do grid antes de disparar o evento, então effect_owner.lane/row já
+##   estariam zerados), senão da posição ATUAL de effect_owner (ON_SUMMON,
+##   que não passa lane/row no context — a unidade ainda está no grid).
+##   Reaproveita BattleFloor.get_adjacent_units(), a mesma varredura
+##   ortogonal da aura do Guardião.
 func resolve_trigger_targets(target_key: String, effect_owner: Unit, context: Dictionary) -> Array[Unit]:
 	var context_faction: Unit.Faction = context.get("faction", effect_owner.faction)
 
@@ -446,7 +449,10 @@ func resolve_trigger_targets(target_key: String, effect_owner: Unit, context: Di
 			return target_system.get_units_by_faction(target_system.get_opposite_faction(context_faction))
 
 		"adjacent_allies":
-			return battlefield.get_floor(0).get_adjacent_units(effect_owner.faction, effect_owner.lane, effect_owner.row)
+			var lane: int = context.get("lane", effect_owner.lane)
+			var row: int = context.get("row", effect_owner.row)
+
+			return battlefield.get_floor(0).get_adjacent_units(context_faction, lane, row)
 
 		_:
 			print("Alvo de trigger desconhecido: ", target_key)

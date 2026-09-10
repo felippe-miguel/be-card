@@ -1,0 +1,13 @@
+{
+  "id": "venomous_assassin",
+  "name": "Assassino Venenoso",
+  "description": "Exemplo do critério de sucesso da Etapa 6 (docs/MECHANICS_EXECUTION_PLAN.md): ignora a própria lane e mira o inimigo mais ao fundo entre as lanes vizinhas; ao acertar, aplica Poison 2; toda vez que se move, ganha Strength 1; na Back, ganha +3 de ATK. Quatro primitivas de etapas diferentes combinadas numa unidade só, sem nenhum código novo.",
+  "max_hp": 16,
+  "attack": 8,
+  "attack_pattern": "adjacent_lanes_furthest",
+  "back_row_attack_bonus": 3,
+  "triggers": [
+    { "event": "on_hit", "effect": { "type": "apply_status", "target": "trigger_target", "status": "poison", "stacks": 2 } },
+    { "event": "on_move", "effect": { "type": "apply_status", "target": "self", "status": "strength", "stacks": 1 } }
+  ]
+}
