@@ -21,11 +21,19 @@ const AFFORDABLE_COST_COLOR = Color(1, 1, 1, 1)
 const UNAFFORDABLE_COST_COLOR = Color(1, 0.4, 0.4, 1)
 
 @onready var background: Panel = $Background
+@onready var art: TextureRect = $Art
 @onready var name_label: Label = $NameLabel
 @onready var description_label: Label = $DescriptionLabel
 @onready var cost_label: Label = $CostLabel
 @onready var target_label: Label = $TargetLabel
 @onready var summon_preview_label: Label = $SummonPreviewLabel
+
+## Convenção de nome de arquivo pra arte de carta — por enquanto só cartas
+## de invocação têm arte (uma por unidade, ligada pelo id da própria
+## UnitData), já que são as únicas conceitualmente ligadas a uma única
+## Unit; cartas sem arte correspondente (ainda a maioria) escondem o
+## TextureRect, mostrando só a moldura (Frame) por cima do fundo padrão.
+const ART_PATH_FORMAT = "res://resources/unit-%s.png"
 
 var data: CardData
 
@@ -88,6 +96,20 @@ func setup(card_data: CardData, unit_database: UnitDatabase = null) -> void:
 	target_label.text = "Alvo: " + data.get_target_description()
 
 	update_summon_preview(unit_database)
+	update_art()
+
+## Carrega res://resources/unit-<id_da_unidade_invocada>.png, se existir —
+## ainda não é um lookup por CardData.id porque só cartas de invocação têm
+## uma Unit associada de verdade; ver ART_PATH_FORMAT acima.
+func update_art() -> void:
+	var unit_id = data.get_summon_unit_id()
+	var path = ART_PATH_FORMAT % unit_id if unit_id != "" else ""
+
+	if path != "" and ResourceLoader.exists(path):
+		art.texture = load(path)
+		art.visible = true
+	else:
+		art.visible = false
 
 ## Mostra ATK/HP base da unidade invocada, para cartas de invocação, sem
 ## precisar abrir data/units/*.json ou jogar a carta pra descobrir. Não
