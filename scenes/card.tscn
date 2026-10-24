@@ -48,10 +48,10 @@ mouse_filter = 2
 
 [node name="Art" type="TextureRect" parent="." unique_id=378276900]
 layout_mode = 1
-offset_left = 36.0
-offset_top = 29.0
-offset_right = 188.0
-offset_bottom = 165.0
+offset_left = 24.0
+offset_top = 23.0
+offset_right = 194.0
+offset_bottom = 181.0
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 6
