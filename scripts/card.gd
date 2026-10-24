@@ -28,11 +28,11 @@ const UNAFFORDABLE_COST_COLOR = Color(1, 0.4, 0.4, 1)
 @onready var target_label: Label = $TargetLabel
 @onready var summon_preview_label: Label = $SummonPreviewLabel
 
-## Convenção de nome de arquivo pra arte de carta: res://resources/
-## <CardData.id>.png. Cartas sem arquivo correspondente (ainda a maioria)
-## escondem o TextureRect, mostrando só a moldura (Frame) por cima do
-## fundo padrão.
-const ART_PATH_FORMAT = "res://resources/%s.png"
+## Convenção de nome de arquivo pra arte de carta: res://resources/images/
+## cards/<CardData.id>.png. Cartas sem arquivo correspondente (ainda a
+## maioria) escondem o TextureRect, mostrando só a moldura (Frame) por
+## cima do fundo padrão.
+const ART_PATH_FORMAT = "res://resources/images/cards/%s.png"
 
 var data: CardData
 
@@ -97,8 +97,8 @@ func setup(card_data: CardData, unit_database: UnitDatabase = null) -> void:
 	update_summon_preview(unit_database)
 	update_art()
 
-## Carrega res://resources/<CardData.id>.png, se existir — ver
-## ART_PATH_FORMAT acima.
+## Carrega res://resources/images/cards/<CardData.id>.png, se existir —
+## ver ART_PATH_FORMAT acima.
 func update_art() -> void:
 	var path = ART_PATH_FORMAT % data.id
 

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="SfxSheet" format=3 uid="uid://bxqo12mtxkvch"]
+
+[ext_resource type="Script" uid="uid://b3wltms7n6ig" path="res://scripts/sfx_sheet.gd" id="1_sheet"]
+[ext_resource type="AudioStream" uid="uid://ckmyqmvf3x0cw" path="res://resources/audio/sfx/draw.mp3" id="2_stream"]
+
+[resource]
+script = ExtResource("1_sheet")
+stream = ExtResource("2_stream")
+segments = Array[Vector2]([Vector2(0, 0.35), Vector2(1.07, 1.35), Vector2(2.5, 3), Vector2(3.6, 4.2)])
+fixed_index = 3

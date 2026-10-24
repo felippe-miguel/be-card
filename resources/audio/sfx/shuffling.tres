@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="SfxSheet" format=3 uid="uid://b70lkh8ptovxa"]
+
+[ext_resource type="Script" uid="uid://b3wltms7n6ig" path="res://scripts/sfx_sheet.gd" id="1_sheet"]
+[ext_resource type="AudioStream" uid="uid://cyprram0655ra" path="res://resources/audio/sfx/shuffling.mp3" id="2_stream"]
+
+[resource]
+script = ExtResource("1_sheet")
+stream = ExtResource("2_stream")
+segments = Array[Vector2]([Vector2(0, 1.251), Vector2(2.4, 3.6), Vector2(4.2, 5.1), Vector2(6.1, 7.6)])

@@ -50,6 +50,10 @@ enum PendingAction {
 @onready var discard_pile_view: CardPileView = $Layout/MainColumn/BottomBar/DiscardPileView
 @onready var graveyard_pile_view: CardPileView = $Layout/MainColumn/BottomBar/GraveyardPileView
 @onready var mana_label: Label = $Layout/MainColumn/BottomBar/ManaLabel
+@onready var menu_button: Button = $MenuButton
+@onready var menu_panel: PanelContainer = $MenuPanel
+@onready var exit_button: Button = $MenuPanel/MenuPanelVBox/ExitButton
+@onready var sfx_player: SfxPlayer = $SfxPlayer
 
 var unit_database: UnitDatabase
 var battle_database: BattleDatabase
@@ -63,6 +67,17 @@ var mana: Mana
 const STARTING_HAND_SIZE = 5
 const STARTING_MANA = 4
 const RANDOM_UNITS_PER_FACTION = 3
+
+## Pausa entre cada carta de uma compra múltipla (draw_cards()) — sem isto,
+## comprar 5 cartas de uma vez tocaria o som de compra 5 vezes
+## sobrepostas no mesmo instante, em vez de 5 vezes em sequência.
+const CARD_DRAW_DELAY = 0.2
+
+## SfxSheet — um áudio com várias variações do mesmo efeito, cortado em
+## segments (ver scripts/sfx_sheet.gd) — os cortes em si vivem nos .tres,
+## editáveis no Inspector, não aqui.
+const DRAW_SFX: SfxSheet = preload("res://resources/audio/sfx/draw.tres")
+const SHUFFLE_SFX: SfxSheet = preload("res://resources/audio/sfx/shuffling.tres")
 
 ## Loop do jogo (docs/playtest_3x3.md não define isto — pedido à parte):
 ## uma wave de ENEMIES_PER_WAVE inimigos entra no campo a cada "Rodar
@@ -168,6 +183,7 @@ func setup_deck_and_mana() -> void:
 
 	deck = Deck.new(all_cards)
 	deck.changed.connect(_on_deck_changed)
+	deck.reshuffled.connect(_on_deck_reshuffled)
 
 	mana = Mana.new(STARTING_MANA)
 	mana.changed.connect(_on_mana_changed)
@@ -177,7 +193,36 @@ func setup_deck_and_mana() -> void:
 	discard_pile_view.setup("Descarte")
 	graveyard_pile_view.setup("Cemitério")
 
-	deck.draw(STARTING_HAND_SIZE)
+	draw_cards(STARTING_HAND_SIZE)
+
+## Compra amount cartas e toca o som de puxar carta (DRAW_SFX) — só se
+## algo foi de fato comprado (Deck.draw() retorna 0 se a mão já estava
+## cheia ou o baralho esgotado mesmo após reembaralhar).
+## Compra amount cartas UMA DE CADA VEZ (não num lote só), tocando DRAW_SFX
+## a cada carta de verdade comprada e esperando CARD_DRAW_DELAY entre uma
+## compra e a próxima — sem isto, comprar a mão inteira seria instantâneo
+## e os 5 sons de compra tocariam todos sobrepostos no mesmo frame.
+## deck.draw(1), não draw_single_card(), porque só draw() emite "changed"
+## (o que atualiza a mão visível a cada carta — é isso que dá o efeito de
+## "revelar" uma por uma, não só o som).
+## async (usa await) — quem chama isto não precisa (nem deveria)
+## esperar a sequência inteira terminar antes de continuar.
+func draw_cards(amount: int) -> void:
+	run_turn_button.disabled = true
+
+	for i in range(amount):
+		var drawn = deck.draw(1)
+
+		if drawn > 0:
+			sfx_player.play_random(DRAW_SFX)
+
+		if i < amount - 1:
+			await get_tree().create_timer(CARD_DRAW_DELAY).timeout
+
+	run_turn_button.disabled = game_over
+
+func _on_deck_reshuffled() -> void:
+	sfx_player.play_random(SHUFFLE_SFX)
 
 func _on_mana_changed() -> void:
 	mana_label.text = "Mana: %d/%d" % [mana.current, mana.max_mana]
@@ -297,6 +342,20 @@ func setup_global_controls() -> void:
 	preview_checkbox.toggled.connect(_on_preview_checkbox_toggled)
 	reset_button.pressed.connect(_on_reset_button_pressed)
 	random_button.pressed.connect(_on_random_button_pressed)
+	menu_button.pressed.connect(_on_menu_button_pressed)
+	exit_button.pressed.connect(_on_exit_button_pressed)
+
+## Botão único no canto superior direito (docs/playtest_3x3.md não cobre
+## isto — pedido à parte, "não tem um jeito fácil de fechar o jogo hoje"):
+## só abre/fecha o MenuPanel, sem nenhum estado de jogo envolvido.
+func _on_menu_button_pressed() -> void:
+	menu_panel.visible = not menu_panel.visible
+
+## Única opção do menu por enquanto. get_tree().quit() fecha a janela —
+## equivalente a clicar no X, mas acessível sem o jogo estar em modo
+## janela/com decoração.
+func _on_exit_button_pressed() -> void:
+	get_tree().quit()
 
 func _on_preview_checkbox_toggled(_pressed: bool) -> void:
 	update_turn_preview()
@@ -1027,7 +1086,7 @@ func _on_run_turn_button_pressed() -> void:
 
 	mana.refill()
 	deck.discard_hand()
-	deck.draw(STARTING_HAND_SIZE)
+	draw_cards(STARTING_HAND_SIZE)
 
 	status_label.text = "Turno resolvido — inimigos e aliados atacaram (turno %d)." % current_turn
 

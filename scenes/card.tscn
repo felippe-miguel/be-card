@@ -1,13 +1,14 @@
 [gd_scene format=3 uid="uid://10b3yat0mi0n"]
 
 [ext_resource type="Script" uid="uid://dlbabvpevoqh7" path="res://scripts/card.gd" id="1_d81rb"]
-[ext_resource type="Texture2D" uid="uid://mg6cmdgf2lvm" path="res://resources/default-card-shadow.png" id="2_frame"]
+[ext_resource type="Texture2D" uid="uid://c2if82ctl3mji" path="res://resources/images/frames/default-card-shadow.png" id="2_frame"]
 
 [sub_resource type="LabelSettings" id="LabelSettings_kg30u"]
 font_size = 15
 font_color = Color(0.012617188, 0.012617188, 0.012617188, 1)
 
 [sub_resource type="SystemFont" id="SystemFont_ktuci"]
+subpixel_positioning = 0
 
 [sub_resource type="LabelSettings" id="LabelSettings_6u4wf"]
 line_spacing = -3.0
