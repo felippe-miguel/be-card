@@ -94,6 +94,7 @@ const ENEMIES_PER_WAVE = 3
 ## separada. HAND_CARD_WIDTH deve bater com custom_minimum_size.x do
 ## card.tscn.
 const HAND_CARD_WIDTH = 220.0
+const HAND_CARD_HEIGHT = 335.0
 const HAND_CARD_GAP = 20.0
 const HAND_AREA_WIDTH = 900.0
 
@@ -224,8 +225,28 @@ func draw_cards(amount: int) -> void:
 func _on_deck_reshuffled() -> void:
 	sfx_player.play_random(SHUFFLE_SFX)
 
+## Também usado por _on_deck_changed() (sempre que a mão muda), não só
+## aqui. Sem isto, o custo de uma carta só ficava vermelho/branco de novo
+## na próxima vez que a MÃO mudasse (comprar/descartar) — gastar mana sem
+## isso (ex: jogar uma carta) nunca atualizava a cor das cartas que
+## ficaram na mão, então nada avisava visualmente que a mana acabou.
+##
+## TODO: usuário reportou que isto ainda não funciona no jogo de verdade
+## mesmo depois deste ajuste (testado só via script headless, que passou —
+## ver histórico) — revisar com calma quando ele retomar: pode ser algo
+## que o teste headless não cobre (timing real de UI, outra chamada
+## pisando em set_affordable() depois desta, etc.).
 func _on_mana_changed() -> void:
 	mana_label.text = "Mana: %d/%d" % [mana.current, mana.max_mana]
+
+	update_hand_affordability()
+
+func update_hand_affordability() -> void:
+	for child in card_container.get_children():
+		var card: Card = child
+
+		if not card.is_leaving:
+			card.set_affordable(mana.can_afford(card.data.cost))
 
 func _on_deck_changed() -> void:
 	render_hand()
@@ -234,34 +255,88 @@ func _on_deck_changed() -> void:
 	discard_pile_view.set_count(deck.discard_pile.size())
 	graveyard_pile_view.set_count(deck.graveyard_pile.size())
 
-## Reconstrói os cards visuais da mão a partir de deck.hand — a mão é
-## pequena o suficiente para reconstruir por completo a cada mudança.
+## Reconcilia os cards visuais com deck.hand, em vez de destruir e
+## recriar tudo a cada mudança (como antes): cada CardData é uma instância
+## única por tipo de carta (ver setup_deck_and_mana()), então a própria
+## referência serve de identidade estável entre uma chamada e a próxima —
+## dá pra saber quais Card já existiam (só reposiciona, com tween — ver
+## Card.move_to_hand_position()), quais são novas (acabaram de ser
+## compradas — entram animando a partir do baralho, ver new_cards/
+## layout_hand()) e quais saíram (jogada ou descarte em massa ao rodar o
+## turno — animam saindo em vez de sumir na hora, ver animate_card_leaving()).
 func render_hand() -> void:
-	for child in card_container.get_children():
-		child.queue_free()
+	var existing_by_data: Dictionary = {}
 
-	## A carta pendente nunca chama Card.set_pending(false) sozinha
-	## quando é descartada (seu nó é destruído junto); zera aqui pra
-	## garantir que a flag estática nunca fique travada em true.
-	Card.any_card_pending = false
+	for child in card_container.get_children():
+		var existing_card: Card = child
+
+		if not existing_card.is_leaving:
+			existing_by_data[existing_card.data] = existing_card
 
 	var card_views: Array[Card] = []
+	var new_cards: Dictionary = {}
 
 	for card_data in deck.hand:
-		var card = preload("res://scenes/card.tscn").instantiate()
+		var card: Card = existing_by_data.get(card_data)
 
-		card_container.add_child(card)
-		card.setup(card_data, unit_database)
+		if card != null:
+			existing_by_data.erase(card_data)
+		else:
+			card = preload("res://scenes/card.tscn").instantiate()
+
+			card_container.add_child(card)
+			card.setup(card_data, unit_database)
+			card.played.connect(_on_card_played)
+
+			new_cards[card] = true
+
 		card.set_affordable(mana.can_afford(card_data.cost))
-		card.played.connect(_on_card_played)
-
 		card_views.append(card)
 
-	layout_hand(card_views)
+	## Sobrou em existing_by_data: cartas que estavam na mão e não estão
+	## mais nela — a própria render_hand() já não tem como saber se cada
+	## uma foi jogada (vai pro descarte ou cemitério) ou descartada em
+	## massa (Deck.discard_hand(), ao rodar o turno); ver
+	## animate_card_leaving().
+	for leftover_card in existing_by_data.values():
+		animate_card_leaving(leftover_card)
+
+	## Game.cancel_pending_action() chama Card.set_pending(false) na carta
+	## pendente logo depois de jogá-la, mas a essa altura ela já pode ter
+	## sido descartada acima (set_pending() ignora isso sozinho via
+	## is_leaving) — ainda assim, zera aqui pra garantir que a flag
+	## estática nunca fique travada em true (ex: se o nó fosse destruído
+	## antes de qualquer set_pending(false) rodar).
+	Card.any_card_pending = false
+
+	layout_hand(card_views, new_cards)
+
+## Posição (em coordenadas locais de card_container) do centro de uma
+## CardPileView — usada tanto pra fazer uma carta nova "sair" do baralho
+## (play_draw_entrance()) quanto pra fazer uma carta jogada/descartada
+## "entrar" no descarte ou cemitério (animate_card_leaving()).
+func pile_entry_position(pile_view: CardPileView) -> Vector2:
+	var global_center = pile_view.global_position + pile_view.size * 0.5
+	var local_center: Vector2 = card_container.get_global_transform().affine_inverse() * global_center
+
+	return local_center - Vector2(HAND_CARD_WIDTH, HAND_CARD_HEIGHT) * 0.5
+
+## Anima card saindo da mão rumo à pilha certa — cemitério se ela acabou de
+## ir parar em deck.graveyard_pile (invocação jogada, ver Deck.bury()),
+## descarte nos demais casos (carta normal jogada ou descarte em massa ao
+## rodar o turno).
+func animate_card_leaving(card: Card) -> void:
+	var target_pile = graveyard_pile_view if deck.graveyard_pile.has(card.data) else discard_pile_view
+
+	card.play_discard_exit(pile_entry_position(target_pile))
 
 ## Cartas da esquerda para a direita, sobrepondo-as quando não há espaço
-## suficiente pra separá-las por completo (ver docs/ARCHITECTURE.md).
-func layout_hand(card_views: Array[Card]) -> void:
+## suficiente pra separá-las por completo (ver docs/ARCHITECTURE.md). Uma
+## carta em new_cards acabou de ser comprada nesta mesma chamada — entra
+## animando a partir do baralho (Card.play_draw_entrance()); as demais já
+## estavam na mão e só deslizam suavemente até o novo lugar
+## (Card.move_to_hand_position()), caso a mão tenha mudado de tamanho.
+func layout_hand(card_views: Array[Card], new_cards: Dictionary) -> void:
 	var count = card_views.size()
 
 	if count == 0:
@@ -274,7 +349,12 @@ func layout_hand(card_views: Array[Card]) -> void:
 		step = min(step, max_step)
 
 	for i in range(count):
-		card_views[i].set_hand_position(Vector2(i * step, 0), i)
+		var target_position = Vector2(i * step, 0)
+
+		if new_cards.has(card_views[i]):
+			card_views[i].play_draw_entrance(pile_entry_position(deck_pile_view), target_position, i)
+		else:
+			card_views[i].move_to_hand_position(target_position, i)
 
 ## Cria (ou recria, no reset/random) o BattleState a partir de
 ## battle_definition e prende floor_view a ele. Separado de _ready() pra
@@ -376,13 +456,13 @@ func update_turn_preview() -> void:
 		var prediction = predictions.get(view.unit)
 
 		if prediction == null:
-			view.render_display(0, 0)
+			view.set_turn_preview(0, 0)
 		else:
-			view.render_display(prediction.hp, prediction.block)
+			view.set_turn_preview(prediction.hp, prediction.block)
 
 func clear_turn_preview() -> void:
 	for view in floor_view.get_all_unit_views():
-		view.update_display()
+		view.disable_turn_preview()
 
 ## Chamado a cada mudança no andar (BattleFloor.battlefield_changed) —
 ## só recalcula o preview se o checkbox estiver ligado; do contrário não
@@ -502,12 +582,11 @@ func cancel_pending_action() -> void:
 
 	## Sem custo checar: é um no-op nas UnitViews que não têm nenhum
 	## preview armado (só EFFECT_UNIT arma algum). disarm_effect_preview()
-	## força update_display() (valores reais) nas unidades que tinham
-	## preview de carta armado — por isso o refresh_turn_preview_if_
-	## active() logo abaixo, senão essas unidades ficariam mostrando o
-	## valor real "preso" em vez do preview do turno, mesmo com o
-	## checkbox ligado (o bug relatado: preview "para de funcionar" depois
-	## de cancelar uma carta ou clicar um alvo inválido).
+	## já restaura o preview de turno sozinho se ele estiver ativo (ver
+	## UnitView.restore_base_display()) — o refresh_turn_preview_if_
+	## active() logo abaixo continua aqui como reforço, cobrindo qualquer
+	## unidade cujo preview de turno tenha ficado desatualizado nesse meio
+	## tempo (ex: a própria carta cancelada mudou o campo de algum jeito).
 	disarm_all_unit_effect_previews()
 	clear_all_attack_previews()
 

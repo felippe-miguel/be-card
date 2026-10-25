@@ -230,10 +230,25 @@ hardcoded to the space `BottomBar`'s layout currently leaves for `Cards`;
 it must be revisited if a sibling of `Cards` in `BottomBar` changes size.
 
 Stacking order is fixed and left-to-right: `Card.z_index` = hand index (via
-`set_hand_position()`), so the rightmost card is always on top at rest.
-Hovering a card raises it to `Card.HOVERED_Z_INDEX` temporarily; it always
-drops back to its own `rest_z_index` on mouse-exit — hovering never
-permanently changes the resting stacking order.
+`Card.move_to_hand_position()`/`play_draw_entrance()`), so the rightmost
+card is always on top at rest. Hovering a card raises it to
+`Card.HOVERED_Z_INDEX` temporarily; it always drops back to its own
+`rest_z_index` on mouse-exit — hovering never permanently changes the
+resting stacking order.
+
+`Game.render_hand()` reconciles against the previous hand instead of
+destroying and recreating every `Card` node on each `Deck.changed`: each
+`CardData` is a single stable instance per card type (see
+`Game.setup_deck_and_mana()`), so that reference is used as identity to
+tell which `Card` views already existed (repositioned with a tween — see
+`Card.move_to_hand_position()`), which are brand new this call (just
+drawn — animated in from `DeckPileView`'s position, see
+`Card.play_draw_entrance()`), and which left the hand (played, or
+discarded in bulk by `Deck.discard_hand()` — animated out towards
+`DiscardPileView`/`GraveyardPileView` before being freed, see
+`Game.animate_card_leaving()`/`Card.play_discard_exit()`). A leaving
+`Card` sets `is_leaving = true` and is ignored by the next
+`render_hand()` call until its own tween frees it.
 
 ## Mana
 

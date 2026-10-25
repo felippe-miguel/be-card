@@ -6,5 +6,5 @@
 [resource]
 script = ExtResource("1_sheet")
 stream = ExtResource("2_stream")
-segments = Array[Vector2]([Vector2(0, 0.35), Vector2(1.07, 1.35), Vector2(2.5, 3), Vector2(3.6, 4.2)])
+segments = Array[Vector2]([Vector2(0.15, 0.35), Vector2(1.07, 1.35), Vector2(2.5, 3), Vector2(3.6, 4.2)])
 fixed_index = 3

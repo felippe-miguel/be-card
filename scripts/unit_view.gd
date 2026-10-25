@@ -42,6 +42,19 @@ var effect_armed: bool = false
 ## diferente do caso "selected_unit" (hover-only).
 var persistent_preview: bool = false
 
+## true enquanto Game.preview_checkbox (preview de "rodar o turno" inteiro)
+## está ligado — ver set_turn_preview()/disable_turn_preview(), chamados
+## por Game.update_turn_preview()/clear_turn_preview(). Enquanto isto for
+## true, "voltar ao normal" depois de um preview de carta (tirar o mouse de
+## cima, cancelar a carta) deve restaurar ESTE preview, não os valores
+## reais — ver restore_base_display(), usado no lugar de update_display()
+## nesses pontos. Sem isto, passar o mouse numa carta de dano com o
+## checkbox ligado e depois tirar o mouse fazia a unidade "esquecer" o
+## preview de turno e voltar a mostrar HP/Block atuais.
+var turn_preview_active: bool = false
+var turn_preview_hp: int = 0
+var turn_preview_block: int = 0
+
 ## Reaproveitada por set_highlight()/clear_highlight() — criada uma vez,
 ## só a border_color muda entre vermelho (alvo de ataque) e verde
 ## (recebendo aura).
@@ -65,6 +78,32 @@ func _ready() -> void:
 
 func update_display() -> void:
 	render_display(unit.hp, unit.block)
+
+## Mostra o preview de "rodar o turno" (Game.update_turn_preview()) e
+## lembra esses valores como a baseline de "repouso" enquanto ele estiver
+## ligado — ver turn_preview_active acima.
+func set_turn_preview(hp: int, block: int) -> void:
+	turn_preview_active = true
+	turn_preview_hp = hp
+	turn_preview_block = block
+
+	render_display(hp, block)
+
+func disable_turn_preview() -> void:
+	turn_preview_active = false
+
+	update_display()
+
+## "Repouso" de verdade: os valores reais, a menos que o preview de turno
+## esteja ligado, caso em que ele é a baseline correta a restaurar (ver
+## turn_preview_active). Usado em vez de update_display() direto sempre
+## que um preview de CARTA termina (hover sai de cima, carta cancelada),
+## pra não "pisar" num preview de turno que já estava ativo antes.
+func restore_base_display() -> void:
+	if turn_preview_active:
+		render_display(turn_preview_hp, turn_preview_block)
+	else:
+		update_display()
 
 ## Preenche os labels com os valores reais, ou com o resultado
 ## hipotético de um efeito pendente (destination_hp/destination_block).
@@ -124,7 +163,7 @@ func disarm_effect_preview() -> void:
 	pending_effects = []
 	effect_armed = false
 	persistent_preview = false
-	update_display()
+	restore_base_display()
 
 func _on_mouse_entered() -> void:
 	if effect_armed:
@@ -134,7 +173,7 @@ func _on_mouse_entered() -> void:
 
 func _on_mouse_exited() -> void:
 	if effect_armed and not persistent_preview:
-		update_display()
+		restore_base_display()
 
 	hover_ended.emit(unit)
 

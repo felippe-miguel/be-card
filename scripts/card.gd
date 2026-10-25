@@ -4,12 +4,20 @@ extends Control
 ## Ajuste visual de hover: a carta sob o mouse cresce um pouco, sobe um
 ## pouco, ganha um contorno mais claro e vai para o topo da pilha
 ## enquanto o mouse estiver sobre ela. Ao sair, volta ao z_index de
-## repouso (fixo, definido por set_hand_position) — não fica "grudada"
-## no topo.
+## repouso (fixo, definido por move_to_hand_position()/play_draw_entrance())
+## — não fica "grudada" no topo.
 const HOVER_SCALE = 1.12
 const HOVER_LIFT = 24.0
 const HOVER_ANIMATION_DURATION = 0.1
 const HOVERED_Z_INDEX = 100
+
+## Compra: a carta entra pequena/transparente na posição do baralho e
+## cresce até o tamanho normal no lugar dela na mão (ver
+## play_draw_entrance()). Descarte: o inverso, encolhendo rumo à pilha de
+## descarte/cemitério antes de ser destruída (ver play_discard_exit()).
+const DRAW_ANIMATION_DURATION = 0.25
+const DISCARD_ANIMATION_DURATION = 0.2
+const REFLOW_ANIMATION_DURATION = 0.15
 
 const BACKGROUND_COLOR = Color(0.18359044, 0.18359044, 0.18359044, 1)
 const BORDER_COLOR = Color(0.4, 0.4, 0.4, 1)
@@ -54,10 +62,18 @@ var is_pending: bool = false
 ## Compartilhado entre todas as cartas da mão — só pode haver uma carta
 ## pendente por vez (Game.pending_card), então uma flag estática simples
 ## já basta para bloquear o hover das demais enquanto isso durar.
-## Game.render_hand() zera isso a cada reconstrução da mão, já que a
-## carta pendente nunca chama set_pending(false) sozinha — o nó dela é
-## destruído junto (ver docs/ARCHITECTURE.md).
+## Game.render_hand() também zera isso a cada reconstrução da mão, como
+## rede de segurança (set_pending(false) já zera sozinho no caminho
+## normal, mas é um no-op se a carta pendente já estiver is_leaving — ver
+## set_pending()).
 static var any_card_pending: bool = false
+
+## true a partir do momento em que esta carta foi jogada/descartada e está
+## animando para fora da mão (play_discard_exit()) — o nó continua vivo
+## (queue_free só roda ao fim do tween) só pra terminar a animação; nesse
+## meio-tempo ela já não conta mais como "carta da mão" pra ninguém (ver
+## Game.render_hand()), então hover/pending não devem mais mexer nela.
+var is_leaving: bool = false
 
 var hover_tween: Tween
 
@@ -135,14 +151,60 @@ func set_affordable(affordable: bool) -> void:
 
 	cost_label.add_theme_color_override("font_color", color)
 
-## Define a posição/z-index de repouso da carta na mão (ordem de
-## empilhamento fixa: cartas mais à direita recebem z_index maior).
-func set_hand_position(new_position: Vector2, z: int) -> void:
+## Reposiciona uma carta que JÁ está na mão (ex: outra carta foi jogada ao
+## lado e a mão inteira reorganizou) — anima suavemente até o novo lugar,
+## em vez de saltar na hora (reaproveita animate_to(), o mesmo tween do
+## hover, já que é a mesma coisa: mover position/scale com um tween).
+func move_to_hand_position(new_position: Vector2, z: int) -> void:
+	rest_position = new_position
+	rest_z_index = z
+	z_index = z
+
+	animate_to(new_position, 1.0, REFLOW_ANIMATION_DURATION)
+
+## Compra: a carta nasce em from_position (a posição do baralho, em
+## coordenadas locais do container da mão — ver Game.pile_entry_position()),
+## pequena e transparente, e anima crescendo/aparecendo até new_position —
+## o efeito de "sair do baralho e ir pra mão".
+func play_draw_entrance(from_position: Vector2, new_position: Vector2, z: int) -> void:
 	rest_position = new_position
 	rest_z_index = z
 
-	position = new_position
+	position = from_position
+	scale = Vector2(0.4, 0.4)
+	modulate.a = 0.0
 	z_index = z
+
+	if hover_tween != null:
+		hover_tween.kill()
+
+	hover_tween = create_tween()
+	hover_tween.set_parallel(true)
+	hover_tween.set_trans(Tween.TRANS_CUBIC)
+	hover_tween.set_ease(Tween.EASE_OUT)
+	hover_tween.tween_property(self, "position", new_position, DRAW_ANIMATION_DURATION)
+	hover_tween.tween_property(self, "scale", Vector2.ONE, DRAW_ANIMATION_DURATION)
+	hover_tween.tween_property(self, "modulate:a", 1.0, DRAW_ANIMATION_DURATION * 0.6)
+
+## Jogada/descartada: anima encolhendo/sumindo rumo a to_position (a
+## pilha de descarte ou cemitério, conforme o destino real da carta — ver
+## Game.animate_card_leaving()) e só então destrói o nó. mouse_filter vira
+## IGNORE pra esta carta não reagir mais a hover enquanto se despede.
+func play_discard_exit(to_position: Vector2) -> void:
+	is_leaving = true
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	if hover_tween != null:
+		hover_tween.kill()
+
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.set_trans(Tween.TRANS_CUBIC)
+	tween.set_ease(Tween.EASE_IN)
+	tween.tween_property(self, "position", to_position, DISCARD_ANIMATION_DURATION)
+	tween.tween_property(self, "scale", Vector2(0.3, 0.3), DISCARD_ANIMATION_DURATION)
+	tween.tween_property(self, "modulate:a", 0.0, DISCARD_ANIMATION_DURATION)
+	tween.chain().tween_callback(queue_free)
 
 ## Marca/desmarca esta carta como a que está aguardando alvo. Chamado por
 ## Game ao entrar em TARGETING_UNIT/TARGETING_FLOOR/TARGETING_POSITION.
@@ -150,6 +212,14 @@ func set_hand_position(new_position: Vector2, z: int) -> void:
 ## até deixar de estar pendente — e, enquanto isso durar, nenhuma carta
 ## (nem esta) reage a hover de verdade (ver any_card_pending).
 func set_pending(pending: bool) -> void:
+	## Esta carta já está animando pra fora da mão (play_discard_exit()) —
+	## isto chega aqui quando Game.cancel_pending_action() tenta "destravar"
+	## a carta pendente DEPOIS de ela já ter sido descartada com sucesso
+	## (Game.render_hand() já rodou e iniciou a saída); nada a fazer, e
+	## animate_to() aqui brigaria com o tween de saída.
+	if is_leaving:
+		return
+
 	is_pending = pending
 	any_card_pending = pending
 
@@ -170,7 +240,7 @@ func apply_resting_style() -> void:
 	background.add_theme_stylebox_override("panel", pending_style if is_pending else normal_style)
 
 func _on_mouse_entered() -> void:
-	if any_card_pending:
+	if any_card_pending or is_leaving:
 		return
 
 	background.add_theme_stylebox_override("panel", hover_style)
@@ -180,7 +250,7 @@ func _on_mouse_entered() -> void:
 	animate_to(rest_position - Vector2(0, HOVER_LIFT), HOVER_SCALE)
 
 func _on_mouse_exited() -> void:
-	if any_card_pending:
+	if any_card_pending or is_leaving:
 		return
 
 	apply_resting_style()
@@ -189,14 +259,14 @@ func _on_mouse_exited() -> void:
 
 	animate_to(rest_position, 1.0)
 
-func animate_to(target_position: Vector2, target_scale: float) -> void:
+func animate_to(target_position: Vector2, target_scale: float, duration: float = HOVER_ANIMATION_DURATION) -> void:
 	if hover_tween != null:
 		hover_tween.kill()
 
 	hover_tween = create_tween()
 	hover_tween.set_parallel(true)
-	hover_tween.tween_property(self, "position", target_position, HOVER_ANIMATION_DURATION)
-	hover_tween.tween_property(self, "scale", Vector2(target_scale, target_scale), HOVER_ANIMATION_DURATION)
+	hover_tween.tween_property(self, "position", target_position, duration)
+	hover_tween.tween_property(self, "scale", Vector2(target_scale, target_scale), duration)
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
