@@ -25,7 +25,6 @@ const HOVER_BORDER_COLOR = Color(0.95, 0.85, 0.55, 0.9)
 const PENDING_BORDER_COLOR = Color(0.35, 0.75, 1.0, 1)
 const SHADOW_COLOR = Color(0, 0, 0, 0.3)
 
-const AFFORDABLE_COST_COLOR = Color(1, 1, 1, 1)
 const UNAFFORDABLE_COST_COLOR = Color(1, 0.4, 0.4, 1)
 
 @onready var background: Panel = $Background
@@ -52,6 +51,12 @@ var rest_z_index: int = 0
 var normal_style: StyleBoxFlat
 var hover_style: StyleBoxFlat
 var pending_style: StyleBoxFlat
+
+## Cor normal (affordable) do custo, lida do próprio CostLabel.label_settings
+## no _ready() — qualquer cor que for escolhida no editor pra ele vira
+## automaticamente a cor "de volta ao normal" em set_affordable(), sem um
+## valor fixo divergir do que o editor mostra.
+var cost_label_normal_color: Color = Color.WHITE
 
 ## true enquanto esta carta é a jogada aguardando alvo (Game.pending_card).
 ## Muda a cor de repouso da borda para se distinguir das demais na mão, e
@@ -86,6 +91,17 @@ func _ready() -> void:
 	hover_style = build_style(HOVER_BORDER_COLOR, 3)
 	pending_style = build_style(PENDING_BORDER_COLOR, 4)
 	background.add_theme_stylebox_override("panel", normal_style)
+
+	## CostLabel usa um LabelSettings (não theme_override_colors) pra cor —
+	## e um LabelSettings embutido na cena é COMPARTILHADO por todas as
+	## instâncias de card.tscn, a menos que seja duplicado aqui: sem isto,
+	## set_affordable() mudaria a cor do custo de TODAS as cartas da mão de
+	## uma vez (a última chamada "venceria" pra todo mundo), em vez de só
+	## desta carta. Guarda a cor original (a escolhida no editor) como "a
+	## cor de quando dá pra pagar", antes de qualquer set_affordable() rodar.
+	if cost_label.label_settings != null:
+		cost_label.label_settings = cost_label.label_settings.duplicate()
+		cost_label_normal_color = cost_label.label_settings.font_color
 
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
@@ -145,11 +161,17 @@ func update_summon_preview(unit_database: UnitDatabase) -> void:
 	summon_preview_label.visible = true
 
 ## Destaca o custo em vermelho quando o jogador não tem mana suficiente
-## para jogar esta carta agora.
+## para jogar esta carta agora. CostLabel tem um LabelSettings próprio (ver
+## _ready()), e um LabelSettings atribuído sempre vence sobre
+## theme_override_colors/font_color — por isso a cor é mudada direto nele,
+## não via add_theme_color_override() (que não teria efeito nenhum aqui).
 func set_affordable(affordable: bool) -> void:
-	var color = AFFORDABLE_COST_COLOR if affordable else UNAFFORDABLE_COST_COLOR
+	var color = cost_label_normal_color if affordable else UNAFFORDABLE_COST_COLOR
 
-	cost_label.add_theme_color_override("font_color", color)
+	if cost_label.label_settings != null:
+		cost_label.label_settings.font_color = color
+	else:
+		cost_label.add_theme_color_override("font_color", color)
 
 ## Reposiciona uma carta que JÁ está na mão (ex: outra carta foi jogada ao
 ## lado e a mão inteira reorganizou) — anima suavemente até o novo lugar,
