@@ -38,6 +38,7 @@ offset_bottom = 335.0
 script = ExtResource("1_d81rb")
 
 [node name="Background" type="Panel" parent="." unique_id=378276793]
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
