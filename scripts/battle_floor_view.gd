@@ -20,6 +20,22 @@ const ROW_NAMES = ["Front", "Middle", "Back"]
 var floor_index: int
 var battle_floor: BattleFloor
 
+## true durante a reprise de "Rodar turno" (Game.play_turn_replay()) — uma
+## unidade que morre já é removida de verdade do BattleFloor na hora
+## (síncrono, bem antes da reprise começar: ver BattleFloor._on_unit_
+## changed()), mas enquanto isto for true a UnitView dela NÃO desaparece
+## do tabuleiro junto — fica pendente em pending_removals até Game mandar
+## sumir no momento certo (reveal_pending_removal()/flush_pending_
+## removals()), no passo do replay em que o golpe fatal é mostrado. Sem
+## isto, toda unidade que vai morrer já sumia instantaneamente no cálculo
+## real, antes da reprise sequer começar.
+var suppress_removal_refresh: bool = false
+
+## unit (ainda existe, só não está mais no BattleFloor) -> (old_lane,
+## old_row) de onde a UnitView dela continua, visualmente, até ser
+## revelada — ver suppress_removal_refresh acima.
+var pending_removals: Dictionary = {}
+
 ## Uma célula por (lane, row), no mesmo índice de BattleFloor.cell_index()
 ## — array plano de tamanho LANES * ROWS por facção. Cada célula é um
 ## Button (não um PanelContainer) para poder ser clicada quando vazia —
@@ -165,7 +181,48 @@ func _on_unit_added(unit: Unit) -> void:
 	refresh_cell(unit.faction, unit.lane, unit.row)
 
 func _on_unit_removed(unit: Unit, old_lane: int, old_row: int) -> void:
+	if suppress_removal_refresh:
+		pending_removals[unit] = Vector2i(old_lane, old_row)
+		return
+
 	refresh_cell(unit.faction, old_lane, old_row)
+
+## Chamado por Game no momento exato da reprise em que uma unidade que já
+## morreu de verdade (ver suppress_removal_refresh) deve finalmente sumir
+## do tabuleiro. No-op se não houver remoção pendente pra esta unidade
+## (não morreu neste turno, ou já foi revelada).
+func reveal_pending_removal(unit: Unit) -> void:
+	if not pending_removals.has(unit):
+		return
+
+	var position: Vector2i = pending_removals[unit]
+
+	pending_removals.erase(unit)
+
+	refresh_cell(unit.faction, position.x, position.y)
+
+## Rede de segurança no fim da reprise (Game.play_turn_replay()): qualquer
+## morte que suppress_removal_refresh tenha segurado mas que a reprise não
+## soubesse revelar no momento certo (ex.: dano de status — Poison/Burn —
+## processado no fim do turno, fora de BattleState.attack_resolved) ainda
+## assim precisa sumir do tabuleiro antes do turno seguinte, mesmo sem um
+## golpe específico pra mostrar.
+func flush_pending_removals() -> void:
+	for unit in pending_removals.keys().duplicate():
+		reveal_pending_removal(unit)
+
+## Como get_unit_view(), mas também encontra a UnitView de uma unidade que
+## JÁ morreu (unit.lane/row já são -1 — ver BattleFloor.remove_unit()) cuja
+## remoção visual ainda está pendente — sem isto, Game.play_turn_replay()
+## não conseguiria achar a view de quem morre no próprio golpe sendo
+## reproduzido, já que a posição real da unidade não existe mais.
+func get_unit_view_including_pending(unit: Unit) -> UnitView:
+	if pending_removals.has(unit):
+		var position: Vector2i = pending_removals[unit]
+
+		return get_cell(unit.faction, position.x, position.y).get_node_or_null("UnitView") as UnitView
+
+	return get_unit_view(unit)
 
 func _on_unit_moved(unit: Unit, old_lane: int, old_row: int) -> void:
 	refresh_cell(unit.faction, old_lane, old_row)

@@ -73,6 +73,27 @@ const RANDOM_UNITS_PER_FACTION = 3
 ## sobrepostas no mesmo instante, em vez de 5 vezes em sequência.
 const CARD_DRAW_DELAY = 0.2
 
+## Pausa entre cada ataque reproduzido por play_turn_replay() — ver
+## turn_replay_log/_on_attack_resolved() logo abaixo.
+const TURN_REPLAY_STEP_DELAY = 0.35
+
+## Pausa extra, só quando um golpe reproduzido zera o HP de verdade, entre
+## mostrar o golpe (flash/número de dano) e a unidade finalmente sumir do
+## tabuleiro (floor_view.reveal_pending_removal()) — sem isto, ela sumiria
+## no mesmo instante do flash, cortando a animação pela metade.
+const DEATH_REVEAL_DELAY = 0.3
+
+## Preenchido via BattleState.attack_resolved durante o
+## BattleState.execute_full_turn() de verdade (nunca durante uma simulação
+## de preview — ver o comentário do sinal em battle_state.gd), um
+## {"attacker": Unit, "target": Unit, "damage_dealt": int, "target_hp_
+## after": int, "target_block_after": int} por ataque que teve alvo, NA
+## ORDEM em que aconteceram. _on_run_turn_button_pressed() limpa isto antes
+## de cada "Rodar turno" e usa a sequência inteira logo depois em
+## play_turn_replay() pra reconstruir a resolução do turno com ritmo, já
+## que o turno em si sempre resolve instantâneo (ver comentário do sinal).
+var turn_replay_log: Array[Dictionary] = []
+
 ## SfxSheet — um áudio com várias variações do mesmo efeito, cortado em
 ## segments (ver scripts/sfx_sheet.gd) — os cortes em si vivem nos .tres,
 ## editáveis no Inspector, não aqui.
@@ -225,17 +246,20 @@ func draw_cards(amount: int) -> void:
 func _on_deck_reshuffled() -> void:
 	sfx_player.play_random(SHUFFLE_SFX)
 
+func _on_attack_resolved(attacker: Unit, target: Unit, damage_dealt: int, target_hp_after: int, target_block_after: int) -> void:
+	turn_replay_log.append({
+		"attacker": attacker,
+		"target": target,
+		"damage_dealt": damage_dealt,
+		"target_hp_after": target_hp_after,
+		"target_block_after": target_block_after,
+	})
+
 ## Também usado por _on_deck_changed() (sempre que a mão muda), não só
 ## aqui. Sem isto, o custo de uma carta só ficava vermelho/branco de novo
 ## na próxima vez que a MÃO mudasse (comprar/descartar) — gastar mana sem
 ## isso (ex: jogar uma carta) nunca atualizava a cor das cartas que
 ## ficaram na mão, então nada avisava visualmente que a mana acabou.
-##
-## TODO: usuário reportou que isto ainda não funciona no jogo de verdade
-## mesmo depois deste ajuste (testado só via script headless, que passou —
-## ver histórico) — revisar com calma quando ele retomar: pode ser algo
-## que o teste headless não cobre (timing real de UI, outra chamada
-## pisando em set_affordable() depois desta, etc.).
 func _on_mana_changed() -> void:
 	mana_label.text = "Mana: %d/%d" % [mana.current, mana.max_mana]
 
@@ -367,6 +391,14 @@ func layout_hand(card_views: Array[Card], new_cards: Dictionary) -> void:
 func start_new_battle_state(battle_definition: BattleDefinition) -> void:
 	battle_state = BattleState.new(battle_definition, unit_database)
 	effect_system = EffectSystem.new(battle_state)
+
+	## battle_state é recriado aqui a cada reset/random (objeto novo, sem
+	## nenhuma conexão própria ainda) — diferente do clone isolado que
+	## BattleState.simulate_full_turn() cria pra prever o turno, que nunca
+	## tem ninguém plugado neste sinal (ver attack_resolved em
+	## battle_state.gd), então só o turno de verdade alimenta
+	## turn_replay_log.
+	battle_state.attack_resolved.connect(_on_attack_resolved)
 
 	var battle_floor = battle_state.battlefield.get_floor(0)
 
@@ -1140,23 +1172,46 @@ func _on_remove_button_pressed() -> void:
 
 ## Resolve o turno inteiro (BattleState.execute_full_turn): inimigos
 ## atacam, depois os aliados — debug pedido pela seção 7 do documento.
-## Também reabastece a mana e renova a mão inteira (descarta tudo que
-## sobrou e compra STARTING_HAND_SIZE cartas novas, em vez de só somar
-## mais algumas às que já estavam na mão) — "Rodar turno" faz tudo de
-## uma vez neste sandbox, já que não há mais uma fase separada de ação
-## do jogador vs. combate. Fecha o loop de 4 waves (ver MAX_ENEMY_WAVES):
-## depois do turno resolvido, entra mais 1 inimigo (se ainda houver wave
-## sobrando) e checa fim de jogo.
+## BattleState.execute_full_turn() em si continua 100% instantâneo (domínio
+## não sabe nada de tempo real/Node); o ritmo visual é só uma REPRISE por
+## cima do resultado já resolvido — ver play_turn_replay(). Também
+## reabastece a mana e renova a mão inteira (descarta tudo que sobrou e
+## compra STARTING_HAND_SIZE cartas novas, em vez de só somar mais algumas
+## às que já estavam na mão) — "Rodar turno" faz tudo de uma vez neste
+## sandbox, já que não há mais uma fase separada de ação do jogador vs.
+## combate. Fecha o loop de 4 waves (ver MAX_ENEMY_WAVES): depois do turno
+## resolvido, entra mais 1 inimigo (se ainda houver wave sobrando) e checa
+## fim de jogo.
 func _on_run_turn_button_pressed() -> void:
 	if game_over:
 		return
 
+	run_turn_button.disabled = true
+
+	var pre_turn_snapshot = capture_alive_unit_snapshot()
+
+	turn_replay_log.clear()
+
+	## Uma unidade que morre é removida de verdade do BattleFloor na hora,
+	## dentro do próprio execute_full_turn() (ver BattleFloor._on_unit_
+	## changed()) — suprime só a parte VISUAL dessa remoção (a UnitView
+	## continua no tabuleiro) até play_turn_replay() mandar sumir no passo
+	## certo da reprise (o golpe que zera o HP dela), em vez de sumir
+	## instantaneamente aqui, antes da reprise sequer começar.
+	floor_view.suppress_removal_refresh = true
 	battle_state.execute_full_turn()
 
-	## check_battle_end() já roda reativamente (battlefield_changed) a
-	## cada baixa durante o combate acima — se os aliados foram
-	## zerados NO MEIO do turno, o jogo já acabou; não faz sentido
-	## avançar turno/mão/wave depois disso.
+	await play_turn_replay(pre_turn_snapshot)
+
+	floor_view.flush_pending_removals()
+	floor_view.suppress_removal_refresh = false
+
+	## check_battle_end() já roda reativamente (battlefield_changed) a cada
+	## baixa durante o combate acima — se os aliados foram zerados NO MEIO
+	## do turno, o jogo já acabou (e run_turn_button já ficou desabilitado
+	## por ela); não faz sentido avançar turno/mão/wave depois disso, mas a
+	## reprise acima já rodou, pra mostrar o que aconteceu antes do fim de
+	## jogo.
 	if game_over:
 		return
 
@@ -1174,6 +1229,60 @@ func _on_run_turn_button_pressed() -> void:
 		enemy_waves_spawned += 1
 
 	check_battle_end()
+
+## hp/block de cada Unit ainda viva ANTES do turno rodar — a base de onde
+## play_turn_replay() começa a reconstruir a resolução passo a passo (ver
+## lá). Inclui quem vai morrer neste turno também: a remoção visual deles
+## fica suspensa até o golpe fatal ser reproduzido (ver floor_view.
+## suppress_removal_refresh), então a UnitView ainda existe pra rebobinar.
+func capture_alive_unit_snapshot() -> Dictionary:
+	var snapshot: Dictionary = {}
+
+	for view in floor_view.get_all_unit_views():
+		snapshot[view.unit] = Vector2i(view.unit.hp, view.unit.block)
+
+	return snapshot
+
+## BattleState.execute_full_turn() (chamado pelo chamador, antes disto) já
+## resolveu TUDO de verdade, instantaneamente — toda UnitView sobrevivente
+## já está mostrando o HP/Block FINAIS, e quem morreu continua visível,
+## suspenso (ver floor_view.suppress_removal_refresh). Isto reconstrói
+## visualmente a sequência de ataques com ritmo por cima disso: primeiro
+## "rebobina" cada unidade (viva ou suspensa) pro valor de ANTES do turno
+## (pre_turn_snapshot), depois revela turn_replay_log passo a passo (um
+## ataque por vez, com flash no atacante e no alvo + número de dano) — e
+## quando um golpe zera o HP de verdade, SÓ AÍ a unidade finalmente some do
+## tabuleiro (reveal_pending_removal(), depois de um instante pro jogador
+## ver o golpe fatal). No fim, restaura todo mundo que sobrou pro estado
+## "de repouso" de verdade (real, ou o preview do PRÓXIMO turno, se o
+## checkbox continuar ligado — ver UnitView.restore_base_display()).
+func play_turn_replay(pre_turn_snapshot: Dictionary) -> void:
+	for unit in pre_turn_snapshot:
+		var view = floor_view.get_unit_view_including_pending(unit)
+
+		if view != null:
+			view.render_display(pre_turn_snapshot[unit].x, pre_turn_snapshot[unit].y)
+
+	for entry in turn_replay_log:
+		await get_tree().create_timer(TURN_REPLAY_STEP_DELAY).timeout
+
+		var attacker_view = floor_view.get_unit_view_including_pending(entry.attacker)
+		var target_view = floor_view.get_unit_view_including_pending(entry.target)
+
+		if attacker_view != null:
+			attacker_view.play_attack_pulse()
+
+		if target_view != null:
+			target_view.render_display(entry.target_hp_after, entry.target_block_after)
+			target_view.play_hit_flash()
+			target_view.show_damage_popup(entry.damage_dealt)
+
+		if entry.target_hp_after <= 0:
+			await get_tree().create_timer(DEATH_REVEAL_DELAY).timeout
+			floor_view.reveal_pending_removal(entry.target)
+
+	for view in floor_view.get_all_unit_views():
+		view.restore_base_display()
 
 ## Derrota: nenhum aliado restou (a qualquer momento). Vitória: nenhum
 ## inimigo restou, mas só depois que as MAX_ENEMY_WAVES já entraram —

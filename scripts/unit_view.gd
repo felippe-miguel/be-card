@@ -18,6 +18,20 @@ const TARGET_HIGHLIGHT_COLOR = Color(0.85, 0.25, 0.25, 1)
 const BUFF_HIGHLIGHT_COLOR = Color(0.35, 0.85, 0.35, 1)
 const HIGHLIGHT_BG_COLOR = Color(0.16, 0.16, 0.16, 1)
 
+## Efeito de dano da resolução de turno (Game.play_turn_replay()) — sem
+## sprites de unidade ainda, isto é só um flash vermelho na própria
+## UnitView de quem levou o golpe, um "pulso" de escala em quem atacou (pra
+## separar visualmente atacante de alvo quando vários eventos acontecem em
+## sequência) e um número de dano subindo e sumindo — ver play_hit_flash()/
+## play_attack_pulse()/show_damage_popup().
+const HIT_FLASH_COLOR = Color(1, 0.35, 0.35, 1)
+const HIT_FLASH_DURATION = 0.3
+const ATTACK_PULSE_SCALE = 1.08
+const ATTACK_PULSE_DURATION = 0.15
+const DAMAGE_POPUP_COLOR = Color(1, 0.35, 0.35, 1)
+const DAMAGE_POPUP_RISE = 30.0
+const DAMAGE_POPUP_DURATION = 0.6
+
 @onready var name_label: Label = $Content/NameLabel
 @onready var faction_label: Label = $Content/FactionLabel
 @onready var hp_label: Label = $Content/HpLabel
@@ -60,6 +74,9 @@ var turn_preview_block: int = 0
 ## (recebendo aura).
 var highlight_style: StyleBoxFlat = null
 
+var hit_flash_tween: Tween
+var attack_pulse_tween: Tween
+
 signal selected(unit: Unit)
 
 ## Emitidos em todo mouse_entered/exited, independente de haver preview
@@ -73,6 +90,10 @@ func setup(setup_unit: Unit) -> void:
 	update_display()
 
 func _ready() -> void:
+	## Pro pulso de ataque (play_attack_pulse()) escalar a partir do centro
+	## do slot, não do canto superior esquerdo — mesma técnica de Card.gd.
+	pivot_offset = size / 2.0
+
 	mouse_entered.connect(_on_mouse_entered)
 	mouse_exited.connect(_on_mouse_exited)
 
@@ -207,6 +228,56 @@ func preview_attack(new_attack: int) -> void:
 func clear_attack_preview() -> void:
 	atk_label.text = "ATK: " + str(unit.get_effective_attack())
 	atk_label.add_theme_color_override("font_color", NORMAL_COLOR)
+
+## Flash vermelho rápido — chamado em quem LEVOU um ataque durante a
+## reprise de "Rodar turno" (Game.play_turn_replay()). Guarda o tween numa
+## var própria (em vez de só criar um novo) porque várias unidades podem
+## atacar o mesmo alvo no mesmo turno — sem matar o tween anterior, dois
+## tweens brigariam pela mesma propriedade "modulate" ao mesmo tempo.
+func play_hit_flash() -> void:
+	if hit_flash_tween != null:
+		hit_flash_tween.kill()
+
+	modulate = HIT_FLASH_COLOR
+
+	hit_flash_tween = create_tween()
+	hit_flash_tween.tween_property(self, "modulate", NORMAL_COLOR, HIT_FLASH_DURATION)
+
+## Pulso rápido de escala — chamado em quem DEU um ataque durante a
+## reprise de turno, só pra separar visualmente "quem agiu" de "quem foi
+## atingido" quando vários eventos se sucedem rápido.
+func play_attack_pulse() -> void:
+	if attack_pulse_tween != null:
+		attack_pulse_tween.kill()
+
+	scale = Vector2(ATTACK_PULSE_SCALE, ATTACK_PULSE_SCALE)
+
+	attack_pulse_tween = create_tween()
+	attack_pulse_tween.tween_property(self, "scale", Vector2.ONE, ATTACK_PULSE_DURATION)
+
+## Número de dano subindo e sumindo por cima do slot — um Label avulso,
+## criado e destruído a cada chamada (não há porque reaproveitar: vários
+## podem se acumular se a mesma unidade levar mais de um golpe no turno).
+func show_damage_popup(amount: int) -> void:
+	if amount <= 0:
+		return
+
+	var popup = Label.new()
+
+	popup.text = "-%d" % amount
+	popup.add_theme_color_override("font_color", DAMAGE_POPUP_COLOR)
+	popup.add_theme_font_size_override("font_size", 20)
+	popup.z_index = 50
+	popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	popup.position = size * 0.5 - Vector2(10, 10)
+
+	add_child(popup)
+
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(popup, "position:y", popup.position.y - DAMAGE_POPUP_RISE, DAMAGE_POPUP_DURATION)
+	tween.tween_property(popup, "modulate:a", 0.0, DAMAGE_POPUP_DURATION)
+	tween.chain().tween_callback(popup.queue_free)
 
 ## Simula, na ordem em que os efeitos da carta seriam resolvidos de
 ## verdade (EffectSystem.execute_effect(), um efeito por vez, na ordem

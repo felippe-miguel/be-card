@@ -6,6 +6,18 @@ var pyre: Pyre
 var unit_database: UnitDatabase
 var target_system: TargetSystem
 
+## Emitido por ataque que de fato encontrou alvo, logo depois do dano já
+## ter sido aplicado de verdade (nunca numa simulação — clone_for_
+## simulation() cria um BattleState totalmente à parte, sem ninguém
+## plugado neste sinal dele). target_hp_after/target_block_after são o
+## estado do alvo IMEDIATAMENTE depois deste ataque específico, não o
+## final do turno inteiro — usado só por Game (ver
+## Game.play_turn_replay()) pra reconstruir, depois do turno já ter
+## resolvido por completo (isto aqui nunca pausa nem espera nada), uma
+## reprise com ritmo/efeito visual de cada ataque, sem precisar duplicar
+## CombatMath nem nenhuma lógica de combate fora do domínio.
+signal attack_resolved(attacker: Unit, target: Unit, damage_dealt: int, target_hp_after: int, target_block_after: int)
+
 ## true só enquanto clone_for_simulation() está reconstruindo o roster
 ## existente num clone novo — sem isto, colocar cada unidade no clone via
 ## place_unit_at() dispararia ON_SUMMON de novo pra unidades que já
@@ -255,6 +267,8 @@ func execute_unit_attack(unit: Unit) -> void:
 		unit.attack_unit(target)
 
 		var damage_dealt = hp_before - target.hp
+
+		attack_resolved.emit(unit, target, damage_dealt, target.hp, target.block)
 
 		## ON_HIT só ocorre quando existe contato/dano válido — aqui, pra
 		## cada alvo de verdade atingido (não pra ataques sem alvo, já
