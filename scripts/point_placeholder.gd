@@ -2,11 +2,10 @@ class_name PointPlaceholder
 extends Control
 
 ## Tela provisória de um ponto do overworld que ainda não tem conteúdo
-## (docs/CAMPAIGN_EXECUTION_PLAN.md, Passo 1.6): mercadores e eventos. Só
-## mostra o nome/tipo do ponto e volta pro mapa. Cada tipo ganha a sua tela
-## de verdade na etapa correspondente (mercador de cartas na Etapa 4,
-## artefatos na 6, eventos na 7) — e aí esta tela deixa de ser usada por
-## aquele tipo.
+## (docs/CAMPAIGN_EXECUTION_PLAN.md, Passo 1.6). Os mercadores (Etapas 4 e
+## 6) e os eventos (Etapa 7) têm telas próprias; esta só sobra como fallback
+## quando o ponto aponta pra um estoque/evento que não existe. Mostra o
+## nome/tipo do ponto e volta pro mapa.
 
 signal back_pressed
 

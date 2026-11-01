@@ -1,0 +1,21 @@
+{
+  "id": "ancient_shrine",
+  "name": "Santuário Antigo",
+  "text": "Um altar coberto de musgo guarda uma tigela de pedra vazia. Dizem que quem deixa uma oferenda recebe o poder do fogo.",
+  "repeatable": true,
+  "choices": [
+    {
+      "label": "Deixar uma oferenda (30 ouro)",
+      "result_text": "As moedas somem na tigela e uma carta aparece no altar: Bola de Fogo.",
+      "effects": [
+        { "type": "gold", "amount": -30 },
+        { "type": "card", "card_id": "fireball", "count": 1 }
+      ]
+    },
+    {
+      "label": "Seguir caminho",
+      "result_text": "Você se curva diante do altar e segue viagem.",
+      "effects": []
+    }
+  ]
+}

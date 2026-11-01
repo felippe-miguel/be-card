@@ -34,7 +34,7 @@ static func from_dict(data: Dictionary, card_database: CardDatabase, artifact_da
 	var raw_artifact: String = data.get("artifact", "")
 
 	if raw_artifact != "" and not artifact_database.artifacts.has(raw_artifact):
-		print("Deck \"", deck_list.name, "\": artefato desconhecido ignorado: ", raw_artifact)
+		push_warning("Deck \"%s\": artefato desconhecido ignorado: %s" % [deck_list.name, raw_artifact])
 	else:
 		deck_list.artifact_id = raw_artifact
 
@@ -44,16 +44,26 @@ static func from_dict(data: Dictionary, card_database: CardDatabase, artifact_da
 		var raw_copies = raw_cards[card_id]
 
 		if not card_database.cards.has(card_id):
-			print("Deck \"", deck_list.name, "\": carta desconhecida ignorada: ", card_id)
+			push_warning("Deck \"%s\": carta desconhecida ignorada: %s" % [deck_list.name, card_id])
 			continue
 
 		if not (raw_copies is float or raw_copies is int) or int(raw_copies) < 1:
-			print("Deck \"", deck_list.name, "\": quantidade inválida pra ", card_id, ": ", raw_copies)
+			push_warning("Deck \"%s\": quantidade inválida pra %s: %s" % [deck_list.name, card_id, raw_copies])
 			continue
 
 		deck_list.cards[card_id] = int(raw_copies)
 
 	return deck_list
+
+## Inverso de from_dict() — o formato do save (Etapa 8). O artefato só
+## entra se houver um equipado.
+func to_dict() -> Dictionary:
+	var data: Dictionary = {"name": name, "cards": cards.duplicate()}
+
+	if artifact_id != "":
+		data["artifact"] = artifact_id
+
+	return data
 
 ## Cópia independente — cada campanha nova recebe as suas a partir dos
 ## decks iniciais de Main, e editar um deck (Etapa 5) nunca pode alterar

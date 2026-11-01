@@ -28,8 +28,8 @@ const CURRENT_POINT_MODULATE = Color(1, 0.85, 0.4, 1)
 const CURRENT_POINT_MARKER = "★ "
 const ENTER_HINT = " — entrar"
 
-## Estado dos pontos (Passo 1.5), igualmente cru: combate vencido ganha um
-## marcador no nome; ponto já visitado (fora o atual) ganha um tom azulado.
+## Estado dos pontos (Passo 1.5), igualmente cru: combate vencido (e, desde
+## a Etapa 7, evento único resolvido) ganha um marcador no nome; ponto já visitado (fora o atual) ganha um tom azulado.
 const WON_COMBAT_MARKER = "✔ "
 const VISITED_POINT_MODULATE = Color(0.7, 0.85, 1, 1)
 
@@ -302,7 +302,8 @@ func apply_type_color(button: Button, type: String) -> void:
 func get_point_text(point: WorldPointData) -> String:
 	var is_current = point.id == campaign_state.current_point_id
 	var marker = CURRENT_POINT_MARKER if is_current else ""
-	var won_marker = WON_COMBAT_MARKER if campaign_state.is_combat_won(point.id) else ""
+	var done = campaign_state.is_combat_won(point.id) or (point.type == "event" and campaign_state.is_event_completed(point.event_id))
+	var won_marker = WON_COMBAT_MARKER if done else ""
 	var hint = ENTER_HINT if is_current and point.can_enter() else ""
 
 	return "%s%s%s\n[%s]%s" % [marker, won_marker, point.name, point.get_type_name().to_lower(), hint]

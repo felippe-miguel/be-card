@@ -1,0 +1,19 @@
+{
+  "id": "deserter_duel",
+  "name": "Desafio do Desertor",
+  "text": "Um desertor bloqueia a passagem e desafia você: vença o bando dele e a bolsa de ouro que ele carrega é sua. A luta só acontece uma vez, ganhando ou perdendo.",
+  "repeatable": false,
+  "choices": [
+    {
+      "label": "Aceitar o desafio",
+      "effects": [
+        { "type": "battle", "battle_id": "bandit_camp", "gold": 50 }
+      ]
+    },
+    {
+      "label": "Recusar e seguir caminho",
+      "result_text": "Você contorna o desertor, que ri e volta ao seu posto.",
+      "effects": []
+    }
+  ]
+}

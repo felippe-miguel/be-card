@@ -84,7 +84,7 @@ combate nasce a partir de uma `DeckList`.
 Hoje `game.tscn` é a cena principal e já É a batalha. A campanha precisa de
 uma camada acima dela. `Main` troca a tela atual instanciando a cena
 filha correspondente (e liberando a anterior). As telas não trocam de
-cena sozinhas: emitem sinais (`play_pressed`, `point_entered`,
+cena sozinhas: emitem sinais (`new_campaign_pressed`, `point_entered`,
 `battle_finished`...) e `Main` decide o que vem a seguir. Isso mantém o
 `CampaignState` num lugar só, sem autoload global, e as telas
 desacopladas umas das outras.
@@ -499,6 +499,26 @@ Pontos do mapa com escolhas fora de combate.
   ganhar artefato, iniciar um combate especial).
 - Eventos definidos em dado. Sem árvore de diálogo ramificada nesta etapa.
 - Evento único vs. repetível: definido por evento, no dado.
+- **Decidido:** eventos em `data/events/<id>.json` (`id`, `name`, `text`,
+  `repeatable`, `choices: [{label, result_text?, effects}]`). Efeitos:
+  `gold` (`amount`, negativo = pagar), `card` (`card_id`, `count`),
+  `artifact` (`artifact_id`) e `battle` (`battle_id`, `gold` pago só ao
+  vencer). Ids de carta/artefato/batalha são validados ao carregar (efeito
+  inválido é descartado com aviso). Os efeitos usam as operações de sempre
+  do `CampaignState` (`add_gold()`, `add_card()`, `add_artifact()`).
+- **Decidido:** o ponto `event` do mapa tem `"event": "<id>"`. Escolha que
+  cobra ouro sem o jogador poder pagar, ou que dá um artefato já possuído,
+  fica desabilitada (com o motivo no botão). Depois de escolher, a tela
+  mostra o `result_text` (ou um resumo gerado) e "Voltar". Esc = Voltar.
+- **Decidido:** evento único (`repeatable: false`) é marcado em
+  `CampaignState.completed_event_ids` ao ESCOLHER; o ponto ganha ✔ no mapa
+  e entrar de novo mostra "Você já resolveu este evento." só com Voltar.
+  Repetível nunca é marcado.
+- **Decidido:** escolha com `battle` abre a batalha pelo fluxo normal de
+  `Main` (`event_battle_gold` guarda o ouro da vitória). Vencer paga o ouro
+  e volta ao mapa; derrota/fuga só volta. O evento conta como resolvido ao
+  escolher, ganhando ou perdendo, e a batalha de evento não marca o ponto
+  como combate vencido.
 
 ## Conteúdo de teste
 
@@ -508,6 +528,12 @@ Pontos do mapa com escolhas fora de combate.
 
 - Cada escolha aplica exatamente o efeito descrito.
 - Um evento único não pode ser repetido.
+
+Feito: tela `Event` (`event.tscn`), `EventData`/`EventDatabase`, 3 eventos
+(Santuário Antigo: 30 ouro por uma Bola de Fogo, repetível; Baú Abandonado:
+Amuleto do Guardião ou 40 ouro, único; Desafio do Desertor: batalha
+`bandit_camp` por 50 ouro, único) e 2 pontos novos no mapa (Baú Abandonado,
+Desertor), além do Santuário que já existia.
 
 ---
 
@@ -529,12 +555,35 @@ não algo opcional.
 - Salvar automaticamente fora de combate (ao voltar ao mapa, ao comprar).
   Save no meio de um combate não entra nesta etapa.
 - Campo de versão no save, para migrações futuras.
+- **Decidido:** `user://campaign_save.json`, `"version": 1`, só ids:
+  coleção, decks (nome, cartas, artefato), deck ativo, ouro, artefatos,
+  ponto atual, visitados, combates vencidos e eventos resolvidos.
+  `CampaignState.to_dict()`/`from_dict()` + `CampaignSave` (escrita atômica
+  via arquivo temporário). `Main` dispara o save.
+- **Decidido:** autosave ligado ao sinal `CampaignState.changed` (cobre
+  viagem, compra, deck salvo/apagado/ativado, escolha de evento e resultado
+  de combate) e ao voltar ao overworld. A batalha não mexe no
+  `CampaignState`, então nunca há save no meio dela.
+- **Decidido:** load tolerante: carta/artefato/ponto/evento desconhecido é
+  descartado com `push_warning`; cópias de deck limitadas à coleção;
+  artefato de deck não possuído é removido do deck; deck que ficar vazio é
+  descartado; ponto atual desconhecido = ponto inicial; deck ativo inválido
+  = primeiro; sem nenhum deck = decks iniciais (e a coleção é elevada para
+  cobri-los). Save ilegível ou de versão desconhecida = sem save.
+- **Decidido:** menu principal com "Continuar" (só aparece com save válido)
+  e "Nova campanha" (substitui "Jogar"; com save existente pede
+  confirmação antes de sobrescrever).
 
 ## Critérios de aceite
 
 - Fechar e reabrir o jogo mantém todo o progresso de campanha.
 - Um card_id que não existe mais no catálogo não quebra o load (é
   ignorado, com aviso no console).
+
+Feito: `CampaignSave`, `CampaignState.to_dict()/from_dict()`, autosave em
+`Main`, "Continuar"/"Nova campanha" no menu. Verificado headless com um
+teste de integração descartável (round trip idêntico, ids inválidos, save
+corrompido/versão desconhecida).
 
 Nota: se ficar chato perder progresso a cada sessão de playtest, esta etapa
 pode ser antecipada para logo depois da Etapa 1 ou 2.
@@ -548,6 +597,12 @@ pode ser antecipada para logo depois da Etapa 1 ou 2.
 Jogar um trecho de campanha do começo ao fim: explorar o mapa → combates →
 ouro/cartas → mercadores → montar decks diferentes → artefatos → eventos →
 salvar e continuar.
+
+Preparação (feita): um teste headless descartável percorreu o loop inteiro
+(campanha nova → viagem → vitória via `Main._on_battle_finished()` → ouro
+→ compra → edição de deck → eventos → save → load em um `CampaignState`
+novo, com estado igual). O playtest de verdade, jogando no editor, ainda é
+do usuário: as perguntas abaixo ficam em aberto até lá.
 
 ## Perguntas do playtest
 

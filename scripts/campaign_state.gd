@@ -6,10 +6,13 @@ extends RefCounted
 ## inteira — onde ele está no overworld, o que já fez em cada ponto, quais
 ## cartas e artefatos possui (Etapas 2 e 6), os decks que montou (Etapa 3)
 ## e quanto ouro tem (Etapa 4). Guarda só ids (nunca WorldPointData/CardData), pra
-## serializar direto num save no futuro (Etapa 8) e pra uma mudança no
-## JSON de uma carta valer na hora.
+## serializar direto no save (Etapa 8, to_dict()/from_dict()) e pra uma
+## mudança no JSON de uma carta valer na hora.
 
 signal changed
+
+## Versão do formato do save (campo "version"), pra migrações futuras.
+const SAVE_VERSION = 1
 
 const STARTING_COLLECTION_PATH = "res://data/campaign/starting_collection.json"
 const STARTING_DECKS_PATH = "res://data/campaign/starting_decks.json"
@@ -53,6 +56,10 @@ var visited_point_ids: Dictionary = {}
 ## refazer o combate quantas vezes quiser (decisão do Passo 1.5), só fica
 ## marcado — refazer rende menos ouro (ver record_current_combat_result()).
 var won_combat_point_ids: Dictionary = {}
+
+## Eventos únicos (EventData.repeatable == false) já resolvidos, por id do
+## EVENTO (não do ponto) — Etapa 7. Eventos repetíveis nunca entram aqui.
+var completed_event_ids: Dictionary = {}
 
 ## starting_collection/starting_decks normalmente vêm de
 ## load_starting_collection()/load_starting_decks() (já validados contra o
@@ -157,37 +164,48 @@ static func load_starting_artifacts(artifact_database: ArtifactDatabase, path: S
 ## ou quantidade inválida é descartada com aviso — mesmo espírito dos
 ## databases e do WorldMapData: um erro no JSON não trava o jogo.
 static func load_starting_collection(card_database: CardDatabase, path: String = STARTING_COLLECTION_PATH) -> Dictionary:
-	var result: Dictionary = {}
 	var file = FileAccess.open(path, FileAccess.READ)
 
 	if file == null:
 		print("Não consegui abrir: ", path)
-		return result
+		return {}
 
 	var data = JSON.parse_string(file.get_as_text())
 
 	if data == null or not data is Dictionary:
 		print("JSON inválido: ", path)
+		return {}
+
+	var result = parse_collection(data.get("cards", {}), card_database, "Coleção inicial")
+
+	print("Coleção inicial carregada: ", result.size(), " cartas diferentes")
+
+	return result
+
+## {"<card_id>": <cópias>} -> coleção validada, usado pela coleção inicial e
+## pelo load do save. Carta fora do catálogo ou quantidade inválida é
+## descartada com aviso; label diz de onde veio, pra mensagem.
+static func parse_collection(raw_cards, card_database: CardDatabase, label: String) -> Dictionary:
+	var result: Dictionary = {}
+
+	if not raw_cards is Dictionary:
+		push_warning("%s: coleção inválida ignorada" % label)
 		return result
 
-	var cards: Dictionary = data.get("cards", {})
-
-	for card_id in cards:
+	for card_id in raw_cards:
 		## JSON sempre devolve número como float — int() aqui, depois de
 		## checar que é número mesmo.
-		var raw_copies = cards[card_id]
+		var raw_copies = raw_cards[card_id]
 
 		if not card_database.cards.has(card_id):
-			print("Coleção inicial: carta desconhecida ignorada: ", card_id)
+			push_warning("%s: carta desconhecida ignorada: %s" % [label, card_id])
 			continue
 
 		if not (raw_copies is float or raw_copies is int) or int(raw_copies) < 1:
-			print("Coleção inicial: quantidade inválida pra ", card_id, ": ", raw_copies)
+			push_warning("%s: quantidade inválida pra %s: %s" % [label, card_id, raw_copies])
 			continue
 
 		result[card_id] = int(raw_copies)
-
-	print("Coleção inicial carregada: ", result.size(), " cartas diferentes")
 
 	return result
 
@@ -401,5 +419,215 @@ func select_deck(index: int) -> bool:
 	active_deck_index = index
 
 	changed.emit()
+
+	return true
+
+## Ganha (ou, com valor negativo, perde) ouro, sem nunca ficar abaixo de 0.
+## Usado pelos eventos (Etapa 7); compras seguem por buy_card()/buy_artifact().
+func add_gold(amount: int) -> void:
+	gold = max(0, gold + amount)
+
+	changed.emit()
+
+func is_event_completed(event_id: String) -> bool:
+	return completed_event_ids.has(event_id)
+
+## Só eventos únicos são marcados (ver EventData.repeatable).
+func complete_event(event_id: String) -> void:
+	completed_event_ids[event_id] = true
+
+	changed.emit()
+
+## Uma escolha de evento só pode ser feita com ouro pra pagar o que ela
+## cobra e sem entregar um artefato que o jogador já tem.
+func can_choose_event_choice(event: EventData, choice_index: int) -> bool:
+	if choice_index < 0 or choice_index >= event.choices.size():
+		return false
+
+	if not can_afford(event.get_gold_cost(choice_index)):
+		return false
+
+	for artifact_id in event.get_artifact_ids(choice_index):
+		if owns_artifact(artifact_id):
+			return false
+
+	return true
+
+## Aplica os efeitos da escolha pelas operações de sempre (add_gold(),
+## add_card(), add_artifact()) e marca o evento como resolvido se ele for
+## único. Retorna {"applied": false} se a escolha foi recusada (evento
+## único já resolvido, sem ouro, artefato repetido) e, se aplicada,
+## {"applied": true, "battle": <efeito de batalha ou {}>} — a batalha em si
+## é aberta por quem chama (Main), não aqui. O evento conta como resolvido
+## ao ESCOLHER, mesmo que a batalha seja perdida depois.
+func apply_event_choice(event: EventData, choice_index: int) -> Dictionary:
+	if (not event.repeatable and is_event_completed(event.id)) or not can_choose_event_choice(event, choice_index):
+		return {"applied": false}
+
+	if not event.repeatable:
+		complete_event(event.id)
+
+	for effect in event.choices[choice_index].effects:
+		match effect.type:
+			"gold":
+				add_gold(effect.amount)
+
+			"card":
+				add_card(effect.card_id, effect.count)
+
+			"artifact":
+				add_artifact(effect.artifact_id)
+
+	return {"applied": true, "battle": event.get_battle_effect(choice_index)}
+
+## Estado serializável (Etapa 8): só ids e números, nunca dados do catálogo.
+## Conjuntos viram listas ordenadas (save estável entre execuções).
+func to_dict() -> Dictionary:
+	var decks: Array[Dictionary] = []
+
+	for deck_list in deck_lists:
+		decks.append(deck_list.to_dict())
+
+	return {
+		"version": SAVE_VERSION,
+		"current_point": current_point_id,
+		"gold": gold,
+		"collection": collection.duplicate(),
+		"artifacts": sorted_keys(artifacts),
+		"decks": decks,
+		"active_deck": active_deck_index,
+		"visited_points": sorted_keys(visited_point_ids),
+		"won_combats": sorted_keys(won_combat_point_ids),
+		"completed_events": sorted_keys(completed_event_ids),
+	}
+
+static func sorted_keys(set: Dictionary) -> Array:
+	var keys = set.keys()
+
+	keys.sort()
+
+	return keys
+
+## Reconstrói a campanha de um save lido do disco. Tolerante de propósito:
+## o catálogo pode ter mudado desde o save, então id que não existe mais é
+## descartado com aviso (coleção, decks, artefatos, pontos, eventos), o
+## número de cópias de um deck é limitado ao da coleção, e o que ficar
+## inconsistente é consertado (ponto atual desconhecido = ponto inicial,
+## deck ativo inválido = primeiro deck, sem nenhum deck = fallback_decks,
+## normalmente os decks iniciais).
+static func from_dict(data: Dictionary, world_map: WorldMapData, card_database: CardDatabase, artifact_database: ArtifactDatabase, event_database: EventDatabase, fallback_decks: Array[DeckList] = []) -> CampaignState:
+	var state = CampaignState.new(world_map.start_point_id)
+
+	var raw_point = data.get("current_point", "")
+
+	if world_map.points.has(raw_point):
+		state.current_point_id = raw_point
+	else:
+		push_warning("Save: ponto atual desconhecido (%s), usando o ponto inicial" % str(raw_point))
+
+	var raw_gold = data.get("gold", 0)
+
+	if (raw_gold is float or raw_gold is int) and int(raw_gold) >= 0:
+		state.gold = int(raw_gold)
+	else:
+		push_warning("Save: ouro inválido: %s" % str(raw_gold))
+
+	state.collection = parse_collection(data.get("collection", {}), card_database, "Save")
+
+	for artifact_id in as_array(data.get("artifacts", [])):
+		if artifact_database.artifacts.has(artifact_id):
+			state.artifacts[artifact_id] = true
+		else:
+			push_warning("Save: artefato desconhecido ignorado: %s" % str(artifact_id))
+
+	## O ponto atual e o inicial contam como visitados mesmo que o save
+	## não diga (o save de uma campanha em andamento sempre os inclui).
+	state.visited_point_ids = known_id_set(data.get("visited_points", []), world_map.points, "ponto visitado")
+	state.visited_point_ids[world_map.start_point_id] = true
+	state.visited_point_ids[state.current_point_id] = true
+	state.won_combat_point_ids = known_id_set(data.get("won_combats", []), world_map.points, "combate vencido")
+	state.completed_event_ids = known_id_set(data.get("completed_events", []), event_database.events, "evento resolvido")
+
+	var raw_active = data.get("active_deck", -1)
+	var raw_decks = as_array(data.get("decks", []))
+	var saved_active_new_index = -1
+
+	for i in range(raw_decks.size()):
+		if not raw_decks[i] is Dictionary:
+			push_warning("Save: deck inválido ignorado: %s" % str(raw_decks[i]))
+			continue
+
+		var deck_list = DeckList.from_dict(raw_decks[i], card_database, artifact_database)
+
+		if not state.clamp_deck_to_collection(deck_list):
+			continue
+
+		state.deck_lists.append(deck_list)
+
+		if (raw_active is float or raw_active is int) and int(raw_active) == i:
+			saved_active_new_index = state.deck_lists.size() - 1
+
+	if state.deck_lists.is_empty():
+		push_warning("Save: nenhum deck válido, usando os decks iniciais")
+
+		for fallback in fallback_decks:
+			var fallback_copy = fallback.duplicate_list()
+
+			## Save sem coleção utilizável: garante as cartas do deck
+			## inicial, senão a campanha ficaria sem nenhum deck válido.
+			for card_id in fallback_copy.cards:
+				state.collection[card_id] = max(state.get_copies(card_id), fallback_copy.cards[card_id])
+
+			if state.clamp_deck_to_collection(fallback_copy):
+				state.deck_lists.append(fallback_copy)
+
+	state.active_deck_index = saved_active_new_index
+
+	if state.active_deck_index < 0 and not state.deck_lists.is_empty():
+		push_warning("Save: deck ativo inválido, usando o primeiro deck")
+		state.active_deck_index = 0
+
+	return state
+
+## Tolera lista ausente ou de tipo errado no JSON do save.
+static func as_array(raw) -> Array:
+	return raw if raw is Array else []
+
+## Lista de ids do save -> conjunto só com os que existem em known (um
+## Dictionary cujas chaves são os ids válidos); os outros são descartados
+## com aviso. label: o que a lista representa, pra mensagem.
+static func known_id_set(raw_ids, known: Dictionary, label: String) -> Dictionary:
+	var result: Dictionary = {}
+
+	for id in as_array(raw_ids):
+		if known.has(id):
+			result[id] = true
+		else:
+			push_warning("Save: %s desconhecido ignorado: %s" % [label, str(id)])
+
+	return result
+
+## Conserta um deck vindo do save pra ele voltar a ser válido: cópias
+## limitadas ao que a coleção possui, artefato não possuído removido.
+## Retorna false se o deck ficou vazio (e deve ser descartado).
+func clamp_deck_to_collection(deck_list: DeckList) -> bool:
+	for card_id in deck_list.cards.keys():
+		var owned = get_copies(card_id)
+
+		if deck_list.cards[card_id] > owned:
+			push_warning("Save: deck \"%s\" usava %d× %s mas a coleção tem %d" % [deck_list.name, deck_list.cards[card_id], card_id, owned])
+
+			if owned > 0:
+				deck_list.cards[card_id] = owned
+			else:
+				deck_list.cards.erase(card_id)
+
+	if deck_list.artifact_id != "" and not owns_artifact(deck_list.artifact_id):
+		push_warning("Save: deck \"%s\" usava um artefato não possuído (%s), removido" % [deck_list.name, deck_list.artifact_id])
+		deck_list.artifact_id = ""
+
+	if deck_list.get_total_card_count() == 0:
+		push_warning("Save: deck \"%s\" ficou vazio e foi descartado" % deck_list.name)
+		return false
 
 	return true

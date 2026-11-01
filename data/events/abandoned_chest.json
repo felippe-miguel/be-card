@@ -1,0 +1,22 @@
+{
+  "id": "abandoned_chest",
+  "name": "Baú Abandonado",
+  "text": "Um baú esquecido à beira da estrada, sem dono à vista. Dá para levar só uma coisa antes que alguém apareça.",
+  "repeatable": false,
+  "choices": [
+    {
+      "label": "Pegar o amuleto",
+      "result_text": "Você leva o Amuleto do Guardião.",
+      "effects": [
+        { "type": "artifact", "artifact_id": "guardian_amulet" }
+      ]
+    },
+    {
+      "label": "Pegar as moedas",
+      "result_text": "Você enche a bolsa com as moedas do baú.",
+      "effects": [
+        { "type": "gold", "amount": 40 }
+      ]
+    }
+  ]
+}

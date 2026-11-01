@@ -39,11 +39,17 @@ theme_override_font_sizes/font_size = 64
 text = "BeCard"
 horizontal_alignment = 1
 
-[node name="PlayButton" type="Button" parent="Center/Buttons"]
+[node name="ContinueButton" type="Button" parent="Center/Buttons"]
 custom_minimum_size = Vector2(260, 56)
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "Jogar"
+text = "Continuar"
+
+[node name="NewCampaignButton" type="Button" parent="Center/Buttons"]
+custom_minimum_size = Vector2(260, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Nova campanha"
 
 [node name="QuitButton" type="Button" parent="Center/Buttons"]
 custom_minimum_size = Vector2(260, 56)
