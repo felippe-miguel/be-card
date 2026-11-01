@@ -29,6 +29,8 @@ const UNAFFORDABLE_COST_COLOR = Color(1, 0.4, 0.4, 1)
 
 @onready var background: Panel = $Background
 @onready var art: TextureRect = $Art
+@onready var unit_frame: TextureRect = $UnitFrame
+@onready var spell_frame: TextureRect = $SpellFrame
 @onready var name_label: Label = $NameLabel
 @onready var description_label: RichTextLabel = $DescriptionLabel
 @onready var cost_label: Label = $CostLabel
@@ -37,8 +39,8 @@ const UNAFFORDABLE_COST_COLOR = Color(1, 0.4, 0.4, 1)
 
 ## Convenção de nome de arquivo pra arte de carta: res://resources/images/
 ## cards/<CardData.id>.png. Cartas sem arquivo correspondente (ainda a
-## maioria) escondem o TextureRect, mostrando só a moldura (Frame) por
-## cima do fundo padrão.
+## maioria) escondem o TextureRect, mostrando só a moldura (UnitFrame/
+## SpellFrame) por cima do fundo padrão.
 const ART_PATH_FORMAT = "res://resources/images/cards/%s.png"
 
 var data: CardData
@@ -135,6 +137,7 @@ func setup(card_data: CardData, unit_database: UnitDatabase = null, keyword_data
 
 	update_summon_preview(unit_database)
 	update_art()
+	update_frame()
 	update_keyword_tooltip(unit_database, keyword_database)
 
 ## Único lugar que escreve a descrição: recebe BBCode já pronto (destacado
@@ -152,6 +155,16 @@ func update_art() -> void:
 		art.visible = true
 	else:
 		art.visible = false
+
+## Moldura por tipo de carta: invocação (type "unit") mostra UnitFrame; o
+## resto (feitiços, type "skill") mostra SpellFrame. Cada moldura é um nó
+## próprio na cena pra poder ser posicionada à mão no editor (as imagens
+## não têm o mesmo enquadramento).
+func update_frame() -> void:
+	var is_unit = data.type == "unit"
+
+	unit_frame.visible = is_unit
+	spell_frame.visible = not is_unit
 
 ## Mostra ATK/HP base da unidade invocada, para cartas de invocação, sem
 ## precisar abrir data/units/*.json ou jogar a carta pra descobrir. Não
