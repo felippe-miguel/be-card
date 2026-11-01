@@ -175,12 +175,20 @@ both fully implemented. See `docs/ARCHITECTURE.md` for how it works, and
 The current phase is the **campaign layer**, planned in
 `docs/CAMPAIGN_EXECUTION_PLAN.md` (raw overworld → collection → deck lists
 → merchants → deck builder → artifacts → events → save/load). Etapa 1
-(raw overworld) is split into small passos (1.1 → 1.6). Passos 1.1 (main
-menu + `Main` root scene), 1.2 (world map graph from JSON drawn on the
-overworld), 1.3 (`CampaignState` + travel between connected points) and
-1.4 (entering a combat point opens the battle, which returns to the map)
-and 1.5 (visited/won point state, plus Esc menu behavior) are implemented.
-Next is 1.6 (placeholder merchant/event points). Follow
+(raw overworld, passos 1.1 → 1.6) is implemented: main menu, `Main` root
+scene, world map graph from JSON, `CampaignState` + travel, entering combat
+points (battle returns to the map), visited/won point state, Esc behavior,
+and placeholder merchant/event points. Etapa 2 (card collection in
+`CampaignState`, starting collection from
+`data/campaign/starting_collection.json`, raw "Coleção" panel on the
+overworld) is implemented. Etapa 3 (`DeckList`s from
+`data/campaign/starting_decks.json`, active deck chosen on the overworld,
+battle `Deck` built from it with one `CardData` instance per copy) is
+implemented. Etapa 4 (gold from combat points, half on repeats; card
+merchant screen with fixed infinite stock from `data/merchants/`) is
+implemented. Etapa 5 (DeckBuilder screen opened from the overworld deck
+panel: create/edit/rename/delete decks on a working copy) is implemented.
+Next is Etapa 6 (artifacts + artifact merchant). Follow
 the plan one passo/etapa at a time, and stop for the user to test in the
 editor before the next. The plan lists open design questions to settle
 with the user when each etapa comes up.

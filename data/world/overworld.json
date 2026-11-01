@@ -2,22 +2,31 @@
   "start_point": "camp",
   "points": [
     { "id": "camp", "name": "Acampamento", "type": "camp", "position": [220, 520] },
-    { "id": "forest_road", "name": "Estrada da Floresta", "type": "combat", "battle": "bandit_camp", "position": [520, 300] },
-    { "id": "river_ford", "name": "Vau do Rio", "type": "combat", "battle": "test_battle", "position": [520, 740] },
-    { "id": "old_mill", "name": "Moinho Velho", "type": "combat", "battle": "test_battle", "position": [860, 520] },
-    { "id": "watchtower", "name": "Torre de Vigia", "type": "combat", "battle": "bandit_camp", "position": [1180, 260] },
-    { "id": "swamp", "name": "Pântano", "type": "combat", "battle": "test_battle", "position": [1180, 780] },
-    { "id": "ruins", "name": "Ruínas", "type": "combat", "battle": "ruins_guardians", "position": [1520, 520] }
+    { "id": "village_market", "name": "Feira da Vila", "type": "card_merchant", "merchant": "village_market", "position": [220, 220] },
+    { "id": "forest_road", "name": "Estrada da Floresta", "type": "combat", "battle": "bandit_camp", "gold": 30, "position": [520, 300] },
+    { "id": "river_ford", "name": "Vau do Rio", "type": "combat", "battle": "test_battle", "gold": 25, "position": [520, 740] },
+    { "id": "shrine", "name": "Santuário Antigo", "type": "event", "position": [860, 160] },
+    { "id": "old_mill", "name": "Moinho Velho", "type": "combat", "battle": "test_battle", "gold": 30, "position": [860, 520] },
+    { "id": "wandering_trader", "name": "Mascate Errante", "type": "artifact_merchant", "position": [860, 860] },
+    { "id": "watchtower", "name": "Torre de Vigia", "type": "combat", "battle": "bandit_camp", "gold": 40, "position": [1180, 260] },
+    { "id": "swamp", "name": "Pântano", "type": "combat", "battle": "test_battle", "gold": 35, "position": [1180, 780] },
+    { "id": "ruins", "name": "Ruínas", "type": "combat", "battle": "ruins_guardians", "gold": 60, "position": [1520, 520] }
   ],
   "connections": [
     ["camp", "forest_road"],
     ["camp", "river_ford"],
+    ["camp", "village_market"],
+    ["village_market", "forest_road"],
     ["forest_road", "old_mill"],
     ["river_ford", "old_mill"],
+    ["forest_road", "shrine"],
+    ["shrine", "watchtower"],
     ["forest_road", "watchtower"],
     ["old_mill", "watchtower"],
     ["old_mill", "swamp"],
     ["river_ford", "swamp"],
+    ["river_ford", "wandering_trader"],
+    ["wandering_trader", "swamp"],
     ["watchtower", "ruins"],
     ["swamp", "ruins"]
   ]

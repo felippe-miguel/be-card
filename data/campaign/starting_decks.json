@@ -1,0 +1,39 @@
+{
+  "decks": [
+    {
+      "name": "Inicial",
+      "cards": {
+        "strike": 3,
+        "defend": 3,
+        "heal": 2,
+        "poison_dart": 1,
+        "reposition": 1,
+        "advance": 1,
+        "summon_warrior": 2,
+        "summon_archer": 1,
+        "summon_lancer": 1
+      }
+    },
+    {
+      "name": "Invocações",
+      "cards": {
+        "summon_warrior": 2,
+        "summon_archer": 1,
+        "summon_lancer": 1,
+        "defend": 3,
+        "heal": 2,
+        "reposition": 1
+      }
+    },
+    {
+      "name": "Ataque",
+      "cards": {
+        "strike": 3,
+        "poison_dart": 1,
+        "advance": 1,
+        "defend": 2,
+        "heal": 1
+      }
+    }
+  ]
+}

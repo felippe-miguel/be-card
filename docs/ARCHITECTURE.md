@@ -33,11 +33,12 @@ grown along a branching path and lost at the end of the run) was
 run", "run deck", run-scoped relics).
 
 The roadmap lives in `docs/CAMPAIGN_EXECUTION_PLAN.md`. Its Etapa 1
-(raw overworld) has started: the game opens on a main menu, and "Jogar"
+(raw overworld) is implemented: the game opens on a main menu, and "Jogar"
 leads to an overworld that draws the world map graph from JSON, where
 the player travels between connected points (see Scene flow and Overworld
-below). Entering a combat point opens the battle, and the battle
-returns to the map when it ends.
+below). Entering a combat point opens the battle, which returns to the map
+when it ends. Merchant and event points exist on the map but only open a
+"coming soon" placeholder for now.
 
 ## Architecture layers
 
@@ -65,8 +66,9 @@ Keep these clearly separated, especially once the campaign layer exists:
   once and never mutated.
 - **Campaign state** (`CampaignState`): what is specific to this player
   and survives the whole campaign. Today it holds the current map point,
-  visited points and won combats. Planned: collection as
-  `card_id -> copies`, saved deck lists, gold, artifacts. Store ids, not catalog objects, so it serializes
+  visited points, won combats and the card collection (`card_id ->
+  copies`) and the player's deck lists plus which one is active.
+  and gold. Planned: artifacts. Store ids, not catalog objects, so it serializes
   cleanly to a save file.
 - **Battle state** (`BattleState`, `Battlefield`, `BattleFloor`, `Unit`,
   plus `Deck`/`Mana` owned by `Game`): exists only during one combat.
@@ -78,7 +80,9 @@ Nodes (presentation/input):
 - `Main` (`Node`, `main.tscn`): the project's main scene. Owns the current
   screen (see Scene flow).
 - `MainMenu` (`Control`, `main_menu.tscn`), `Overworld` (`Control`,
-  `overworld.tscn`): screens instantiated by `Main`.
+  `overworld.tscn`), `CardMerchant` (`Control`, `card_merchant.tscn`),
+  `DeckBuilder` (`Control`, `deck_builder.tscn`), `PointPlaceholder` (`Control`, `point_placeholder.tscn`): screens
+  instantiated by `Main`.
 - `Game` (`Control`, `game.tscn`): the battle scene. It orchestrates one
   combat plus the debug sandbox UI. Opened by `Main` from a combat point,
   or directly in the editor (F6) as a standalone sandbox.
@@ -97,6 +101,8 @@ Nodes (presentation/input):
 - `Battlefield`, `BattleFloor`
 - `EffectSystem`, `TargetSystem`
 - `CombatMath` (shared block-absorption math)
+- `MerchantData`, `MerchantDatabase` (card merchant stock catalog)
+- `DeckList` (a campaign deck built from the collection)
 - `Deck` (in-combat draw pile / hand / discard / graveyard)
 - `Mana`
 - `WorldMapData`, `WorldPointData` (overworld graph catalog)
@@ -110,11 +116,13 @@ res://
 │   ├── cards/     (24 cards)
 │   ├── units/     (38 unit types)
 │   ├── battles/   (test_battle.json)
-│   └── world/     (overworld.json)
+│   ├── world/     (overworld.json)
+│   ├── merchants/ (card merchant stock, e.g. village_market.json)
+│   └── campaign/  (starting_collection.json, starting_decks.json, starting_resources.json)
 ├── resources/
 │   ├── audio/     (music, sfx + SfxSheet .tres)
 │   └── images/    (cards/<card_id>.png art, frames)
-├── scenes/        (main, main_menu, overworld, game, battle_floor, unit_view, card, card_pile_view, sfx_player)
+├── scenes/        (main, main_menu, overworld, card_merchant, deck_builder, point_placeholder, game, battle_floor, unit_view, card, card_pile_view, sfx_player)
 ├── scripts/
 └── docs/
     ├── ARCHITECTURE.md              (this file)
@@ -138,9 +146,14 @@ Card art is resolved by convention, `res://resources/images/cards/<card_id>.png`
 ```text
 Main (main.tscn, run/main_scene)
  ├── MainMenu   — "Jogar" → Overworld, "Sair" → quit
- ├── Overworld  — world map; enter current combat point → Game,
- │                "Voltar ao menu"/Esc → MainMenu
- └── Game       — battle; battle_finished(victory) → Overworld
+ ├── Overworld        — world map; enter current point → Game (combat),
+ │                      CardMerchant (card_merchant) or PointPlaceholder
+ │                      (others); deck panel "Editar"/"Criar novo deck"
+ │                      → DeckBuilder; "Voltar ao menu"/Esc → MainMenu
+ ├── Game             — battle; battle_finished(victory) → Overworld
+ ├── CardMerchant     — buy cards; "Voltar ao mapa"/Esc → Overworld
+ ├── DeckBuilder      — edit a deck; Salvar/Apagar/Cancelar/Esc → Overworld
+ └── PointPlaceholder — "em breve"; "Voltar ao mapa"/Esc → Overworld
 ```
 
 `Main` holds exactly one screen at a time (`current_screen`,
@@ -152,8 +165,9 @@ next. `Main` also owns the `CampaignState` (a fresh one on every "Jogar",
 since there's no save/continue yet), with no global autoload. `Main` only passes the battle a `battle_id` (`Game.setup_battle()`), not
 the whole `CampaignState`. The battle reports back through
 `battle_finished(victory)`. `Main` records it on the current point
-(`CampaignState.record_current_combat_result()`) and returns to the
-overworld at the same point.
+(`CampaignState.record_current_combat_result()`, which also pays the gold
+reward) and returns to the overworld at the same point, with a one-line
+notice ("Vitória em X: +N ouro") passed through `Overworld.setup()`.
 
 ## Overworld
 
@@ -170,8 +184,13 @@ new `Overworld` via `setup()` before it enters the tree. `Overworld.render_map()
 `Line2D` per connection, then one `Button` per point (in that order, so
 buttons draw on top of line ends) to `MapCanvas`. Each button is centered
 on its point **after** entering the tree (`reset_size()`), because its
-real size depends on the theme font and the two-line text. Point types so
-far are `camp` (neutral) and `combat`.
+real size depends on the theme font and the two-line text. Point types
+(`WorldPointData.TYPE_NAMES`, which also holds their display names):
+`camp` (neutral, nothing to enter), `combat`, `card_merchant`,
+`artifact_merchant`, `event`. Each type gets a raw visual: a font color
+(`Overworld.POINT_TYPE_COLORS`, every font state overridden so hover
+doesn't lose it, dimmed when disabled). Color goes on the text, not on
+`modulate`, because `modulate` already marks current/visited points.
 
 Movement: `CampaignState.current_point_id` starts at the map's
 `start_point`. `CampaignState.can_travel_to()`/`travel_to()` own the rule
@@ -188,14 +207,133 @@ combat stays **repeatable** (user decision): it only gets a "✔" marker, and
 a later defeat doesn't unmark it. Visited points (other than the current
 one) get a bluish tint. Repeat rewards will be decided once gold exists.
 
-Esc on the overworld (`_unhandled_input`) goes back to the main menu, same
-as "Voltar ao menu".
+Esc on the overworld (`_unhandled_input`) climbs one level: it closes the
+open side panel (collection or decks) if any, otherwise goes back to the
+main menu (same as "Voltar ao menu").
+
+## Card collection
+
+`CampaignState.collection` is `card_id -> copies` (always >= 1, missing =
+not owned). It is what the player **owns**, not what they bring to a
+battle (that's a `DeckList`, see Deck lists below).
+
+- A new campaign starts from `data/campaign/starting_collection.json`
+  (`{"cards": {"<card_id>": <copies>}}`, meant to be hand-edited).
+  `CampaignState.load_starting_collection()` validates it against the
+  `CardDatabase`: unknown card ids and non-positive/non-numeric counts are
+  skipped with a console warning. JSON numbers come back as floats, so
+  counts are converted with `int()`.
+- `Main` loads its own `CardDatabase` and the starting collection once in
+  `_ready()`, and copies the collection into every new `CampaignState`
+  (`duplicate()`, so a campaign never mutates the starting data). `Game`
+  still loads its own catalog, which is fine because it only receives card
+  ids.
+- `CampaignState.add_card(card_id, copies)` is the **only** way to grow
+  the collection. Merchants, combat rewards and events must all go through
+  it.
+- The overworld has a raw read-only "Coleção" panel (top bar button):
+  total count + "Name ×N" lines sorted by display name, refreshed on
+  `CampaignState.changed`. The real collection UI is the DeckBuilder
+  (Etapa 5).
+
+## Deck lists
+
+A `DeckList` (`RefCounted`) is a deck the player built outside combat:
+`name` + `cards` (`card_id -> copies`, same shape as the collection). It is
+**not** the in-combat `Deck` (draw/hand/discard). A battle's `Deck` is
+built from a `DeckList`.
+
+- `CampaignState.deck_lists` + `active_deck_index`. The active deck is
+  chosen **on the overworld** and used for every battle until changed
+  (user decision: no per-combat deck prompt).
+- Rules are deliberately permissive (user decision): no min/max size and no
+  per-card copy limit. `CampaignState.is_deck_valid()` only requires at
+  least one card and no card using more copies than the collection owns.
+  `select_deck()` refuses invalid decks. A new campaign's active deck is
+  the first valid one.
+- Starting decks come from `data/campaign/starting_decks.json`
+  (`{"decks": [{"name": ..., "cards": {...}}]}`, hand-editable; the first
+  one starts active). `DeckList.from_dict()` validates card ids/counts
+  like the collection loader. `Main` loads them once, and each campaign
+  gets copies (`DeckList.duplicate_list()`).
+- Overworld UI: a "Deck: <name>" top-bar button opens a side panel (same
+  corner as the collection panel; opening one closes the other) with one
+  row per deck: a select button ("✔" on the active one, disabled with
+  "— inválido" if invalid; click = `select_deck()`) and an "Editar" button
+  (invalid decks stay editable so they can be fixed), plus "Criar novo
+  deck". Edit/new emit `Overworld.deck_edit_requested(index)` (-1 = new),
+  and `Main` opens the `DeckBuilder`.
+
+## DeckBuilder
+
+A full screen (user decision: the side panel is too small for editing).
+Collection on the left (name, mana cost, "no deck: X / owned", "+"
+disabled once every owned copy is in the deck), deck on the right
+("Name ×N", "−"), plus a name field, card count, Salvar / Cancelar /
+Apagar deck.
+
+- All editing happens on a **copy** (`working_deck =
+  DeckList.duplicate_list()`, or a new `DeckList` named "Novo deck N").
+  Nothing touches `CampaignState` until Salvar. Cancelar/Esc discard (with
+  the name field focused, the first Esc only unfocuses it).
+- `DeckList.add_copy()`/`remove_copy()` edit the copy (an entry is erased
+  at zero, keeping the "copies >= 1" invariant). The builder blocks going
+  over owned copies, and Salvar is disabled while
+  `CampaignState.is_deck_valid()` is false (empty deck).
+- `CampaignState.save_deck(index, deck)` (-1 = append) refuses invalid
+  decks, turns a blank name into "Sem nome" (`normalize_deck_name()`), and
+  makes the saved deck active only if there was no active deck.
+- Deck names are unique (user decision): `is_deck_name_taken(name,
+  except_index)` compares trimmed, case-insensitive names, ignoring the
+  deck being edited. `save_deck()` refuses a taken name, and the builder
+  shows "Já existe um deck com esse nome" and disables Salvar as you type
+  (`refresh_save_state()`). Editing the active deck keeps
+  it active.
+- `CampaignState.delete_deck(index)`: the last remaining deck can't be
+  deleted (`can_delete_deck()`, so there's always something to fight
+  with). Deleting the active deck activates the first valid remaining one,
+  and deleting a deck before the active one shifts the index.
+- Closing emits `closed(message)` ("Deck \"X\" salvo"/"apagado", or ""
+  on cancel). `Main` returns to the overworld with it as the notice.
+- Into battle: `Main.show_battle()` passes
+  `active_deck.get_card_ids()` (one id per copy) to
+  `Game.setup_battle(battle_id, card_ids)`. With no valid active deck, the
+  battle isn't started (console warning).
+
+## Gold and card merchant
+
+`CampaignState.gold` starts from `data/campaign/starting_resources.json`
+(`{"gold": N}`, `CampaignState.load_starting_gold()`; a separate file from
+the collection because it's where non-card starting resources go).
+
+- Earning: each `combat` point has a `gold` value in the map JSON
+  (`WorldPointData.gold_reward`). `record_current_combat_result(victory,
+  gold_reward)` pays the full value on the first win and
+  `REPEAT_COMBAT_GOLD_FACTOR` (0.5, rounded down) on repeats, and returns
+  the amount earned. Defeat/flee pays nothing.
+- Spending: `card_merchant` points have a `merchant` id pointing at
+  `data/merchants/<file>.json` (`{"id": ..., "cards": {"<card_id>":
+  <price>}}`), loaded by `MerchantDatabase` into `MerchantData.prices`
+  (unknown cards/invalid prices skipped with a warning). Stock is fixed and
+  infinite in this raw version: always the same cards, buy as many as you
+  like.
+- `CampaignState.buy_card(card_id, price)` refuses without enough gold,
+  otherwise subtracts the price and calls `add_card()` (the single way to
+  grow the collection), which emits `changed` once.
+- `CardMerchant` shows one row per card (name, mana cost, description,
+  "Você tem: N", "Comprar — P ouro"), sorted by price then name. Buy
+  buttons are disabled when unaffordable. It refreshes on
+  `CampaignState.changed`. The overworld top bar shows "Ouro: N".
 
 Entering: arriving at a point never enters it (you can pass through a
 combat point without fighting). Clicking the **current** point emits
-`point_entered(point_id)` if `WorldPointData.can_enter()` (today: `combat`
-with a `battle` id, shown with a "— entrar" hint). `Main` opens the battle
-for `combat` points.
+`point_entered(point_id)` if `WorldPointData.can_enter()` (`combat` with a
+`battle` id, or any merchant/event; shown with a "— entrar" hint). `Main`
+opens the battle for `combat`, the `CardMerchant` for a `card_merchant`
+with a known `merchant` id, and a `PointPlaceholder` for everything else.
+`PointPlaceholder` only shows the point name and "<tipo> — em breve", and
+returns to the map without recording anything. The remaining types swap it
+for a real screen in their plan etapa (artifacts: 6, events: 7).
 
 This is a deliberately raw clickable-graph map (no camera, scroll or art).
 If the map later becomes a free-walking character map, only this
@@ -510,11 +648,13 @@ unit's ATK/HP preview.
 `Deck` is owned by `Game`, not `BattleState`. It is the **in-combat**
 shuffle: `draw_pile`, `hand`, `discard_pile`, `graveyard_pile`.
 
-- Today `setup_deck_and_mana()` builds it from **every card in
-  `CardDatabase`**, one copy each. In the campaign this becomes "build the
-  combat `Deck` from the chosen deck list" (see
-  `CAMPAIGN_EXECUTION_PLAN.md` Etapa 2). Don't confuse the two concepts or
-  reuse the name `Deck` for the campaign deck list.
+- `setup_deck_and_mana()` builds it via `build_deck_cards()`: from
+  `deck_card_ids` (the active `DeckList`, set by `setup_battle()`), or from
+  every card in `CardDatabase` (one copy each) when the scene is opened
+  directly in the editor. Every copy is a **new** `CardData` instance
+  (`CardData.copy()`), see Hand layout below for why. Don't confuse `Deck`
+  with the campaign `DeckList`. "Resetar combate" rebuilds from the same
+  ids.
 - `draw(amount)` reshuffles discard into draw when empty (emits
   `reshuffled`), and respects `MAX_HAND_SIZE = 7`.
 - End of turn: `discard_hand()` discards the whole hand, then 5 new cards
@@ -534,10 +674,9 @@ out (`HAND_CARD_GAP`) and overlaps them once they no longer fit
 `Card.HOVERED_Z_INDEX`.
 
 `Game.render_hand()` reconciles instead of rebuilding. The `CardData`
-reference is used as identity, which works today because each card type
-is a single `CardData` instance. **Multiple copies of a card (campaign
-decks) will break this assumption** and need distinct instances or another
-identity. Existing views tween to their new slot, new ones animate in from
+reference is used as identity (as is `Deck`'s `hand.erase()`), which is
+why `build_deck_cards()` gives every copy its own instance: two copies
+sharing one instance would be treated as a single card. Existing views tween to their new slot, new ones animate in from
 the deck pile (`play_draw_entrance()`), and leaving ones animate to the
 discard/graveyard pile (`animate_card_leaving()`) with `is_leaving = true`.
 `draw_cards()` draws one at a time with `CARD_DRAW_DELAY` and a draw sound.

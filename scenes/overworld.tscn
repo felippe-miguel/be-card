@@ -51,3 +51,98 @@ text = "Overworld"
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Você está em: ?"
+
+[node name="GoldLabel" type="Label" parent="TopBar"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
+theme_override_font_sizes/font_size = 20
+text = "Ouro: 0"
+
+[node name="CollectionButton" type="Button" parent="TopBar"]
+layout_mode = 2
+text = "Coleção"
+
+[node name="DeckButton" type="Button" parent="TopBar"]
+layout_mode = 2
+text = "Deck: -"
+
+[node name="NoticeLabel" type="Label" parent="."]
+visible = false
+layout_mode = 1
+offset_left = 16.0
+offset_top = 64.0
+offset_right = 800.0
+offset_bottom = 96.0
+theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
+theme_override_font_sizes/font_size = 20
+text = "Aviso"
+
+[node name="DeckPanel" type="PanelContainer" parent="."]
+visible = false
+custom_minimum_size = Vector2(380, 0)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -396.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 56.0
+grow_horizontal = 0
+
+[node name="DeckMargin" type="MarginContainer" parent="DeckPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="DeckVBox" type="VBoxContainer" parent="DeckPanel/DeckMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DeckTitle" type="Label" parent="DeckPanel/DeckMargin/DeckVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Decks"
+
+[node name="DeckList" type="VBoxContainer" parent="DeckPanel/DeckMargin/DeckVBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="NewDeckButton" type="Button" parent="DeckPanel/DeckMargin/DeckVBox"]
+layout_mode = 2
+text = "Criar novo deck"
+
+[node name="CollectionPanel" type="PanelContainer" parent="."]
+visible = false
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -336.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 56.0
+grow_horizontal = 0
+
+[node name="CollectionMargin" type="MarginContainer" parent="CollectionPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="CollectionVBox" type="VBoxContainer" parent="CollectionPanel/CollectionMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CollectionTitle" type="Label" parent="CollectionPanel/CollectionMargin/CollectionVBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Coleção"
+
+[node name="CollectionList" type="Label" parent="CollectionPanel/CollectionMargin/CollectionVBox"]
+layout_mode = 2
+text = "-"

@@ -20,6 +20,23 @@ static func from_dict(data: Dictionary) -> CardData:
 
 	return card
 
+## Instância nova com os mesmos dados. Um deck com várias cópias da mesma
+## carta (DeckList — Etapa 3) precisa de uma instância por cópia: a mão
+## (Game.render_hand()) e o Deck (hand.erase() etc.) usam a referência do
+## CardData como identidade, e duas cópias compartilhando a mesma instância
+## seriam tratadas como uma carta só.
+func copy() -> CardData:
+	var card = CardData.new()
+
+	card.id = id
+	card.name = name
+	card.description = description
+	card.cost = cost
+	card.type = type
+	card.effects = effects.duplicate(true)
+
+	return card
+
 ## Descrição legível dos alvos desta carta, derivada de effects. Usada pela
 ## visual Card para mostrar o alvo sem precisar olhar o console.
 func get_target_description() -> String:

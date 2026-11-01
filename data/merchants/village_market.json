@@ -1,0 +1,23 @@
+{
+  "id": "village_market",
+  "cards": {
+    "strike": 15,
+    "defend": 15,
+    "heal": 25,
+    "retreat": 10,
+    "swap": 15,
+    "cleanse": 15,
+    "weaken": 20,
+    "enrage": 20,
+    "ignite": 25,
+    "flank": 25,
+    "teleport": 30,
+    "stun": 35,
+    "frontline": 35,
+    "concentration": 35,
+    "fireball": 40,
+    "summon_assassin": 40,
+    "summon_mage": 40,
+    "summon_guardian": 50
+  }
+}

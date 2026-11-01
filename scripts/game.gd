@@ -81,6 +81,11 @@ var battle_id: String = DEFAULT_BATTLE_ID
 ## onde voltar.
 var in_campaign: bool = false
 
+## Um card_id por CÓPIA do deck escolhido no overworld (DeckList.
+## get_card_ids() — Etapa 3). Vazio = aberta direto no editor: aí o Deck
+## usa o catálogo inteiro, uma cópia de cada, como sempre foi no sandbox.
+var deck_card_ids: Array[String] = []
+
 ## Resultado da partida atual, válido só depois de game_over — o que
 ## "Voltar ao mapa" reporta em battle_finished.
 var battle_won: bool = false
@@ -195,8 +200,9 @@ var enemy_waves_spawned: int = 0
 var game_over: bool = false
 
 ## Chamado por Main antes de adicionar a cena à árvore (antes do _ready()).
-func setup_battle(id: String) -> void:
+func setup_battle(id: String, card_ids: Array[String]) -> void:
 	battle_id = id
+	deck_card_ids = card_ids
 	in_campaign = true
 
 ## BattleDefinition de battle_id, ou a de DEFAULT_BATTLE_ID (com aviso) se o
@@ -242,12 +248,7 @@ func _ready() -> void:
 ## .changed de novo aqui nunca duplica conexão — cada objeto novo começa
 ## sem nenhuma.
 func setup_deck_and_mana() -> void:
-	var all_cards: Array[CardData] = []
-
-	for card_id in card_database.cards:
-		all_cards.append(card_database.cards[card_id])
-
-	deck = Deck.new(all_cards)
+	deck = Deck.new(build_deck_cards())
 	deck.changed.connect(_on_deck_changed)
 	deck.reshuffled.connect(_on_deck_reshuffled)
 
@@ -260,6 +261,26 @@ func setup_deck_and_mana() -> void:
 	graveyard_pile_view.setup("Cemitério")
 
 	draw_cards(STARTING_HAND_SIZE)
+
+## Cartas do Deck deste combate: as do deck escolhido (deck_card_ids), ou o
+## catálogo inteiro se aberta direto no editor. Sempre uma instância de
+## CardData NOVA por cópia (CardData.copy()) — render_hand() usa a
+## referência como identidade, então duas cópias da mesma carta precisam
+## ser objetos diferentes. Id desconhecido é ignorado com aviso.
+func build_deck_cards() -> Array[CardData]:
+	var result: Array[CardData] = []
+	var ids: Array = deck_card_ids if not deck_card_ids.is_empty() else card_database.cards.keys()
+
+	for card_id in ids:
+		var card_data: CardData = card_database.cards.get(card_id)
+
+		if card_data == null:
+			print("Carta do deck não encontrada: ", card_id)
+			continue
+
+		result.append(card_data.copy())
+
+	return result
 
 ## Compra amount cartas e toca o som de puxar carta (DRAW_SFX) — só se
 ## algo foi de fato comprado (Deck.draw() retorna 0 se a mão já estava

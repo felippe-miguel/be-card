@@ -267,6 +267,10 @@ centralizado (Continuar / Fugir pro mapa / Sair do Jogo).
 Critério: o mapa já tem a "cara" dos tipos de ponto que as próximas
 etapas vão preencher.
 
+Feito: 3 pontos novos (Feira da Vila, Santuário Antigo, Mascate Errante),
+cor de texto por tipo, e uma tela `PointPlaceholder` genérica (Voltar ou
+Esc volta ao mapa). Com isso a Etapa 1 está completa.
+
 ## Fora do escopo da Etapa 1
 
 - Arte, animação de viagem, personagem andando, câmera/scroll do mapa.
@@ -308,6 +312,10 @@ coleção começa pequena e é distinta do catálogo inteiro.
 - A coleção é menor que o catálogo e suporta múltiplas cópias da mesma
   carta.
 
+Feito: coleção inicial de 14 cartas (8 diferentes) em
+`data/campaign/starting_collection.json`, validada contra o catálogo, e um
+painel "Coleção" cru (só leitura) no overworld pra conferir no editor.
+
 ---
 
 # ETAPA 3 — Decks montados (DeckList) e escolha de deck para o combate
@@ -324,8 +332,9 @@ inteiro.
   cópias). Vários `DeckList` ficam guardados no `CampaignState`.
 - Validação de deck contra a coleção: um deck não pode usar mais cópias de
   uma carta do que o jogador possui.
-- Regras de tamanho de deck (mínimo/máximo, limite de cópias por carta):
-  **decidir com o usuário** e documentar aqui. Começar permissivo.
+- **Decidido:** regras permissivas por enquanto. Sem tamanho mínimo/máximo
+  nem limite de cópias por carta; só não dá pra usar mais cópias do que a
+  coleção tem, e deck vazio não é escolhível.
 - `Game` recebe um `DeckList` junto da `BattleDefinition` (Passo 1.4) e
   `setup_deck_and_mana()` monta o `Deck` do combate a partir dele, em vez
   do catálogo inteiro. Isso inclui criar uma instância de `CardData` por
@@ -333,10 +342,12 @@ inteiro.
   `Game.render_hand()` usa essa referência como identidade, então cópias
   repetidas precisam de instâncias distintas (ou outra identidade) para a
   mão não confundir duas cópias da mesma carta.
-- Escolha de deck ao entrar num ponto de combate (seletor simples antes de
-  trocar para a batalha).
-- Um deck padrão gerado a partir da coleção inicial, para o combate ter
-  algo para usar antes de existir a tela de montagem (Etapa 5).
+- **Decidido:** o deck NÃO é escolhido a cada combate. O overworld tem um
+  indicador "Deck: <nome>" ao lado de "Coleção". Clicar abre um painel
+  pra escolher o deck ativo (e, na Etapa 5, criar/editar decks), que vale
+  pra todo combate até ser trocado.
+- Decks iniciais em `data/campaign/starting_decks.json` (fácil de editar).
+  O primeiro ("Inicial", igual à coleção inicial) começa ativo.
 
 ## Conteúdo de teste
 
@@ -350,6 +361,10 @@ inteiro.
   sem se confundir.
 - Um deck que usa mais cópias do que a coleção possui é recusado.
 - Resetar o combate não altera a coleção nem os decks.
+
+Feito: 3 decks iniciais (Inicial, Invocações, Ataque), painel de decks no
+overworld, e a batalha montando o `Deck` a partir dos ids do deck ativo,
+com uma instância de `CardData` por cópia (`CardData.copy()`).
 
 ---
 
@@ -368,6 +383,10 @@ comprar cartas.
   Comprar debita ouro e adiciona uma cópia à coleção (Etapa 2).
 - Estoque de cada mercador definido em dado (quais cartas vende, preço).
   Pode ser fixo no início. Rotação/reabastecimento fica para depois.
+- **Decidido (versão crua):** cada ponto de combate define o ouro no JSON
+  do mapa (`"gold"`), e refazer um combate já vencido dá metade. Estoque
+  fixo e infinito, preço por carta em `data/merchants/<id>.json`. Ouro
+  inicial em `data/campaign/starting_resources.json` (50).
 - Recompensa de combate em carta (além de ouro) usa a MESMA operação
   "adicionar à coleção". Não criar um sistema novo.
 - Colecionar até a coleção completa: o catálogo inteiro precisa ser
@@ -383,6 +402,10 @@ comprar cartas.
 - Ouro acumula entre combates.
 - Comprar sem ouro suficiente é bloqueado.
 - A carta comprada aparece na coleção e pode ser colocada num deck.
+
+Feito: 1 mercador (Feira da Vila) com 18 cartas, tela `CardMerchant`, ouro
+no topo do overworld e aviso "Vitória em X: +N ouro" ao voltar do combate.
+Um segundo mercador e recompensa em carta ficam pra quando fizerem falta.
 
 ---
 
@@ -402,12 +425,22 @@ decks a partir da coleção (até aqui, decks eram de debug).
 - Acessível fora do combate (no mapa). Também oferecer a escolha de deck
   antes de entrar num combate, se ainda não existir na UI.
 - Reaproveitar a visual `Card` (`card.tscn`) para mostrar as cartas.
+- **Decidido:** a edição é uma tela própria (`DeckBuilder`), aberta pelo
+  painel de decks do overworld ("Editar" em cada deck, "Criar novo deck").
+  O painel continua só pra escolher o deck ativo.
+- **Decidido:** dois decks não podem ter o mesmo nome (sem diferenciar
+  maiúsculas/minúsculas). Com nome repetido, o Salvar fica desabilitado e
+  aparece um aviso.
 
 ## Critérios de aceite
 
 - Dá para montar um deck novo do zero, salvá-lo e usá-lo no próximo
   combate.
 - Não é possível montar um deck inválido.
+
+Feito: tela `DeckBuilder` crua (listas com "+"/"−", sem a visual `Card`
+ainda), edição numa cópia com Salvar/Cancelar, renomear e apagar (o último
+deck não pode ser apagado).
 
 ---
 
@@ -539,9 +572,10 @@ e então registrar a decisão neste documento:
   Personagem andando livremente pode vir depois, só mudando a
   apresentação.
 - Consequência de derrota num combate (Passo 1.4/1.5).
-- Recompensa de combate repetido (Etapa 4, quando houver ouro). Já
-  decidido no Passo 1.5 que combates vencidos podem ser refeitos.
-- Regras de deck: tamanho mínimo/máximo, limite de cópias por carta (Etapa 3).
+- Recompensa de combate repetido: decidido na Etapa 4 (metade do ouro).
+  Revisitar se virar farm.
+- Regras de deck mais rígidas (tamanho mínimo/máximo, limite de cópias)
+  podem voltar a ser discutidas depois. Hoje são permissivas (Etapa 3).
 - Artefatos globais ou equipados por deck (Etapa 6).
 - De onde vêm as unidades aliadas iniciais de um combate. Hoje
   `test_battle.json` já pré-posiciona aliados, e unidades também entram via
