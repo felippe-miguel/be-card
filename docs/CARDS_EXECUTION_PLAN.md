@@ -66,7 +66,9 @@ próprio.
   `all_allies` (`TargetSystem.get_card_targets()`).
 - Mana: `STARTING_MANA = 4`. Cartas de invocar vão para o cemitério
   (`Deck.bury()`), então cada uma é jogada uma vez por combate.
-- Aliados recebem `ALLY_STAT_MULTIPLIER = 2` em HP e ATK.
+- Aliados recebem `ALLY_STAT_MULTIPLIER = 2` em HP e ATK (substituído por
+  `ENEMY_STAT_DIVISOR`, que divide os inimigos — ver
+  MERCHANT_CARDS_EXECUTION_PLAN.md Passo 1).
 - Arte de carta é opcional (`res://resources/images/cards/<id>.png`; sem
   arquivo, a carta só não mostra arte).
 

@@ -119,23 +119,26 @@ Nodes (presentation/input):
 ```text
 res://
 ├── data/
-│   ├── cards/     (24 cards)
-│   ├── units/     (38 unit types)
+│   ├── cards/     (61 cards)
+│   ├── units/     (42 unit types, stats at player scale)
 │   ├── battles/   (test_battle.json)
 │   ├── world/     (overworld.json)
 │   ├── merchants/ (merchant stock: village_market.json, wandering_trader.json)
 │   ├── artifacts/ (4 artifacts)
+│   ├── keywords/  (glossary: 14 keywords, statuses and trigger events)
 │   ├── events/    (ancient_shrine.json, abandoned_chest.json, deserter_duel.json)
 │   └── campaign/  (starting_collection.json, starting_decks.json, starting_resources.json)
 ├── resources/
 │   ├── audio/     (music, sfx + SfxSheet .tres)
-│   └── images/    (cards/<card_id>.png art, frames)
-├── scenes/        (main, main_menu, overworld, merchant, deck_builder, point_placeholder, game, battle_floor, unit_view, card, card_pile_view, sfx_player)
+│   └── images/    (cards/<card_id>.png, artifacts/<artifact_id>.png art, frames)
+├── scenes/        (main, main_menu, overworld, merchant, deck_builder, point_placeholder, game, battle_floor, unit_view, card, artifact_card, keyword_tooltip, card_pile_view, sfx_player)
 ├── scripts/
 └── docs/
     ├── ARCHITECTURE.md              (this file)
     ├── CAMPAIGN_EXECUTION_PLAN.md   (next phase: campaign/world map/collection)
     ├── MECHANICS_EXECUTION_PLAN.md  (completed: status/triggers/etc.)
+    ├── CARDS_EXECUTION_PLAN.md      (card archetypes)
+    ├── MERCHANT_CARDS_EXECUTION_PLAN.md (real cards in merchant/deck builder, keyword glossary)
     └── playtest_3x3.md              (completed: original 3x3 sandbox spec)
 ```
 
@@ -147,7 +150,29 @@ JSON is the content layer. Code is the engine. Avoid hardcoding
 content-specific behavior into generic systems.
 
 Card art is resolved by convention, `res://resources/images/cards/<card_id>.png`
-(`Card.ART_PATH_FORMAT`). A card without art simply shows none.
+(`Card.ART_PATH_FORMAT`). A card without art simply shows none. Artifact art
+follows the same rule with `res://resources/images/artifacts/<artifact_id>.png`
+(`ArtifactCard.ART_PATH_FORMAT`).
+
+**Content language rule:** all player-facing text (card/artifact/event/unit
+descriptions) is Portuguese, but mechanic terms the player uses in English
+stay in English, spelled exactly like the glossary names in
+`data/keywords/` (Strength, Weakness, Poison, Burn, Stun, Block, Cleanse,
+On Hit, On Death, On Kill, On Summon, On Move, On Attack, On Card Played).
+Card and unit *names* stay as authored (some English like "Poison Dart",
+some Portuguese like "Fortificar"). Ids and JSON keys are always English.
+Highlighting matches by name, so a term spelled differently in a
+description is not highlighted.
+
+**Unit and summon card text:** a unit's `description` lists only its own
+effects (triggers, passives, special stats), e.g. "On Death: cura 5 de HP
+dos aliados da própria lane."; a unit with no effect gets a one-line summary
+of its attack pattern. Unit names are character names ("Mártir",
+"Porta-Estandarte"), never the name of the effect. Summon cards leave
+`description` empty: `CardData.get_display_description()` then shows the
+summoned unit's description on the card, so each effect is written once.
+A summon card with a rule of its own can still set its `description`, which
+wins.
 
 ## Scene flow
 
@@ -279,10 +304,33 @@ built from a `DeckList`.
 ## DeckBuilder
 
 A full screen (user decision: the side panel is too small for editing).
-Collection on the left (name, mana cost, "no deck: X / owned", "+"
-disabled once every owned copy is in the deck), deck on the right
-("Name ×N", "−"), plus a name field, card count, Salvar / Cancelar /
-Apagar deck.
+Collection on the left as a 3-column grid of real `Card`s (each with
+"no deck: X / owned" and a "+" disabled once every owned copy is in the
+deck; **clicking the card also adds a copy**, via `Card.played`), deck on
+the right as a compact list ("Name ×N", "−") in a fixed-width (400 px)
+column, plus a name field, card count, Salvar / Cancelar / Apagar deck.
+
+- The collection grid is built **once** in `_ready()`
+  (`build_collection()`): the collection can't change while the builder is
+  open. `refresh()` only updates the "no deck" labels and "+" buttons
+  (`collection_usage_labels`/`collection_add_buttons`, by card id) and
+  rebuilds the deck column, so Cards aren't recreated under the mouse
+  (hover would flicker). Each tile is a holder `Control` + `Card`
+  (`mouse_filter = PASS`, `rest_position = ZERO`, same pattern as the
+  merchant tile) + footer; a `HoverMargin` `MarginContainer` in the scene
+  keeps the lifted card from being clipped by the `ScrollContainer`.
+- Cards get `Card.setup(data, unit_database, keyword_database)`, so they
+  have their own keyword tooltip. Deck rows share a single
+  `KeywordTooltip` owned by the builder (`row_tooltip`): row
+  `mouse_entered` fills it (keywords + summoned unit block, same logic as
+  `Card`) and shows it beside the row; `mouse_exited` and every
+  `refresh()` hide it, so a rebuilt row never leaves a stale tooltip.
+- `Main` passes `UnitDatabase` and `KeywordDatabase` to
+  `DeckBuilder.setup()`.
+- The equipped artifact is shown as an `ArtifactCard` under the "Deck"
+  title (hidden for "Nenhum"), scaled to `ARTIFACT_PREVIEW_SCALE` (0.65)
+  inside a holder of the scaled size. Its hover grows from
+  `ArtifactCard.base_scale`, not from full size.
 
 - All editing happens on a **copy** (`working_deck =
   DeckList.duplicate_list()`, or a new `DeckList` named "Novo deck N").
@@ -338,11 +386,26 @@ it's where non-card starting resources go).
 - `CampaignState.buy_artifact(id, price)` also refuses an already owned
   artifact, then calls `add_artifact()` (the single way to gain one).
 - One `Merchant` screen serves both merchant types: an "Artefatos" section
-  and/or a "Cartas" section depending on the stock, one row per item
-  (name, details, "Você tem: N" / "Já possui", "Comprar — P ouro"), sorted
-  by price then name. Buy buttons are disabled when unaffordable (or the
-  artifact is owned). It refreshes on `CampaignState.changed`. The
-  overworld top bar shows "Ouro: N".
+  and/or a "Cartas" section depending on the stock, each a 3-column
+  `GridContainer` of real `ArtifactCard`s/`Card`s, sorted by price then
+  name. Each tile (`create_tile()`) is a holder `Control` of the card's
+  size + the card + a footer with "Você tem: N" / "Já possui" and
+  "Comprar — P ouro". Buy buttons are disabled when unaffordable (or the
+  artifact is owned); the card itself isn't clickable (no accidental
+  buy). It refreshes on `CampaignState.changed`. The overworld top bar
+  shows "Ouro: N".
+- Why the holder: `Card` positions itself (`position` is animated on
+  hover from `rest_position`), which would fight a `Container`'s layout.
+  The holder is a plain `Control` that ignores the mouse; the card inside
+  uses `mouse_filter = PASS` (hover works, and the mouse wheel still
+  scrolls the `ScrollContainer`, which the default STOP would swallow).
+  The grid sits in a margin (`GRID_MARGIN_*`) so the lifted/scaled
+  hovered card isn't clipped by the scroll area; a hovered card draws
+  over neighbours through its `z_index`.
+- `Main` loads `UnitDatabase` and `KeywordDatabase` once (next to
+  `CardDatabase`/`ArtifactDatabase`) and passes them to `Merchant.setup()`
+  and `DeckBuilder.setup()` (summon preview and tooltips). `Game` still
+  loads its own copies, since it also runs standalone from the editor.
 
 ## Artifacts
 
@@ -355,22 +418,33 @@ equipped per deck), not global passives.
   battle already does: `max_mana` (added to `Mana.max_mana`), `hand_size`
   (added to cards drawn at start and every turn, `Game.get_hand_size()`),
   `ally_max_hp`/`ally_attack` (added to every ally created in the battle,
-  roster and summons, in `BattleState.create_unit()`, **after**
-  `ALLY_STAT_MULTIPLIER` so "+6 HP" isn't doubled).
+  roster and summons, in `BattleState.create_unit()`; allies use the JSON
+  stats as-is and enemies are divided by `ENEMY_STAT_DIVISOR`, which the
+  bonus does not go through).
 - Ownership: `CampaignState.artifacts` (`id -> true` set). The same
   artifact can be equipped in several decks at once. A new campaign starts
   with `starting_resources.json`'s `artifacts`.
 - Equipping: `DeckList.artifact_id` ("" = none; a single field because the
   rule is max 1). `is_deck_valid()` also requires the artifact to be
   owned. Starting decks can set `"artifact"` in `starting_decks.json`. The
-  DeckBuilder has an "Artefato:" `OptionButton` (Nenhum + owned artifacts,
-  with description), and the overworld deck panel shows each deck's
+  DeckBuilder has an "Artefato:" `OptionButton` (Nenhum + owned artifacts)
+  with an `ArtifactCard` preview (see DeckBuilder), and the overworld deck panel shows each deck's
   artifact. The collection panel lists owned artifacts too.
 - Into battle: `Main.show_battle()` passes the active deck's
   `ArtifactData` (or null) to `Game.setup_battle()`. `Game` only reads
   bonuses via `get_artifact_bonus(type)` and passes the ally bonuses into
   `BattleState.new(...)`, which also copies them into simulation clones.
   The equipped artifact is shown next to the turn counter.
+- Presentation: `ArtifactCard` (`artifact_card.tscn`) mirrors `Card`'s size
+  and frame but has no cost/target/summon preview, a small gold "Artefato"
+  marker in the footer, and no `played` signal. Its hover (lift/scale/
+  z-index) is a minimal copy of `Card`'s, from `rest_position` and
+  `base_scale` (resting scale, so a shrunk preview doesn't jump to full
+  size). `setup(artifact, keyword_database = null)` creates a
+  `KeywordTooltip` from `ArtifactData.get_keyword_ids()`, which is empty
+  for today's four effects (none is a glossary mechanic), so no tooltip
+  shows yet. `set_description_bbcode()` is the single place that writes
+  the description.
 
 Entering: arriving at a point never enters it (you can pass through a
 combat point without fighting). Clicking the **current** point emits
@@ -499,8 +573,8 @@ otherwise render over the modal. Input was already blocked by tree order;
 only drawing was wrong.
 
 The wave loop, `MAX_ENEMY_WAVES`/`ENEMIES_PER_WAVE`, and
-`BattleState.ALLY_STAT_MULTIPLIER = 2` (allies spawn with double ATK/HP)
-are temporary sandbox tuning, not settled design. They should become
+`BattleState.ENEMY_STAT_DIVISOR = 2` (enemies spawn with half the JSON
+ATK/HP) are temporary sandbox tuning, not settled design. They should become
 per-encounter data once the campaign layer exists.
 
 ### Debug sandbox
@@ -567,9 +641,15 @@ legacy shape, not a feature (see Legacy shape at the end).
 spawn context decides it.
 
 `BattleState.create_unit(unit_id, faction)` is the central creation path.
-It copies data from `UnitData`, applies `ALLY_STAT_MULTIPLIER` to allies,
+It copies data from `UnitData`, divides enemy ATK/HP by `ENEMY_STAT_DIVISOR`
+(min 1, rounded down), adds the artifact bonuses to allies,
 applies `initial_statuses`, and wires the death event
 (`wire_unit_events()`).
+
+**Stats are at player scale**: `attack`/`max_hp` in `data/units/` are what
+the player sees on the card's summon preview and on the ally in combat
+(allies use them unchanged). Enemies use half (`ENEMY_STAT_DIVISOR = 2`),
+so the same unit data serves both sides.
 
 `UnitData` fields (all optional except id/name/stats):
 
@@ -777,7 +857,61 @@ data/cards/*.json → CardDatabase → CardData → Card (visual)
 `type`; `damage`/`heal`/`block`/`apply_status`/`cleanse`/`remove_status`/
 `modify_attack`/`double_status`/`detonate_poison`/`shield_bash` go through
 `begin_effect_card()` (click-a-unit or confirm-all). `CardData.get_summon_unit_id()` lets `Card` show the summoned
-unit's ATK/HP preview.
+unit's ATK/HP preview. `Card` shows `CardData.get_display_description()`
+(the unit's description for summon cards with an empty one), and then the
+tooltip's unit block skips the description so it isn't shown twice
+(`KeywordTooltip.set_unit(..., show_description)`).
+
+### Keywords and tooltips
+
+The mechanics glossary is content: `data/keywords/<id>.json` →
+`KeywordDatabase` → `KeywordData` (`id`, `name` in English, `aliases`,
+`color`/`has_color`, `description` in Portuguese). The 14 entries are the
+statuses (strength, weakness, poison, burn, stun, block, cleanse) and the
+trigger events (on_hit, on_death, on_kill, on_summon, on_move, on_attack,
+on_card_played). Descriptions state the rule as the code implements it
+(Poison ticks at end of turn and loses 1 stack, Burn is consumed whole,
+Block never expires...). An invalid `color` warns and leaves the keyword
+uncolored. `KeywordDatabase.get_keywords(ids)` skips unknown ids silently,
+so new content without a glossary entry degrades gracefully.
+
+Keywords come from the **data, never the description text**:
+`CardData.keywords_of_effect(effect)` (static) maps an effect to ids
+(`apply_status`/`remove_status`/`double_status` → their `status`,
+`detonate_poison` → poison, `block`/`shield_bash` → block, `cleanse` →
+cleanse); `CardData.get_keyword_ids(unit_database)` walks the card's
+effects and, for `summon` with a `UnitDatabase`, also the unit's
+`initial_statuses` and each trigger's event id + effect keywords,
+deduplicated in first-appearance order. `ArtifactData.get_keyword_ids()`
+reuses the same mapping. This is domain code; nothing in it touches UI.
+
+`KeywordTooltip` (`keyword_tooltip.tscn`, a `VBoxContainer`) is the
+presentation: one block per keyword (bold title in its color, explanation
+below), preceded by a unit block for summon cards (`set_unit()`: name,
+ATK/HP, `TargetSystem.describe_pattern()` and the unit description).
+`Card.setup(card_data, unit_database = null, keyword_database = null)`:
+with a `keyword_database` the card owns a tooltip child, shown on hover
+and hidden on exit, when pending, when leaving and on `_exit_tree`.
+`show_beside(target)` places it right of the target (left if it would
+cross the viewport edge), top-aligned and clamped to the viewport; with no
+content it shows nothing. It is `top_level` (doesn't inherit the card's
+hover scale/position and isn't clipped by a `ScrollContainer`) with a very
+high `z_index` and `z_as_relative = false`, so it draws over hovered
+neighbours (`HOVERED_Z_INDEX = 100`). Its size is only right after the
+autowrapping `RichTextLabel`s lay out, so it stays transparent for a
+couple of frames and repositions at the end. Used by the hand (`Game`
+loads a `KeywordDatabase` for `render_hand()`), the merchant and the
+DeckBuilder.
+
+Highlighting: `KeywordText.to_bbcode(text, keyword_database)` wraps each
+colored keyword (name + aliases) found in a description with
+`[b][color]`, in a single pass, case-insensitive, accent-aware at word
+boundaries and including a following number ("Poison 3"). Its patterns are
+cached per database. The card description (`DescriptionLabel`, now a
+`RichTextLabel` with BBCode, centered), `KeywordTooltip` texts and
+`ArtifactCard` descriptions all go through it. Highlighting is independent
+of the tooltip: it paints any description that names the term, even if the
+effect doesn't derive it.
 
 ### Deck, hand, discard, graveyard
 

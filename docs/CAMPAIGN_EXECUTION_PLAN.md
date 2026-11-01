@@ -644,7 +644,9 @@ e então registrar a decisão neste documento:
   o jogador começa só com o que o deck invoca?
 - Cartas de summon vão para o cemitério (`Deck.bury()`) e saem do combate.
   Isso continua igual, mas vale reavaliar quando decks forem montados à mão.
-- `ALLY_STAT_MULTIPLIER` (aliados nascem com 2× ATK/HP) e o loop de waves
+- `ALLY_STAT_MULTIPLIER` (aliados nascem com 2× ATK/HP; substituído por
+  `ENEMY_STAT_DIVISOR`, que divide os inimigos — ver
+  MERCHANT_CARDS_EXECUTION_PLAN.md Passo 1) e o loop de waves
   são compensações temporárias do sandbox. Revisar quando encontros
   definirem sua própria dificuldade.
 

@@ -93,6 +93,12 @@ setup_enemies()
 
 Prefer JSON for configurable game content.
 
+Content language: player-facing text is Portuguese, but mechanic terms
+stay in English using the exact glossary names from `data/keywords/`
+(Strength, Poison, Block, On Hit...). Card and unit names stay as authored;
+ids are always English. Unit `attack`/`max_hp` in JSON are player-scale
+(enemies are halved in combat).
+
 Do not put faction into `UnitData` unless the architecture is explicitly
 changed — battle/spawn context determines whether a `Unit` instance is
 `ALLY` or `ENEMY`.
@@ -197,6 +203,12 @@ in the main menu) are implemented; Etapa 9 is the user's integration
 playtest. Follow the plan one passo/etapa at a time, and stop for the user
 to test in the editor before the next. The plan lists open design questions
 to settle with the user when each etapa comes up.
+
+`docs/MERCHANT_CARDS_EXECUTION_PLAN.md` is implemented: the merchant and
+the DeckBuilder show real `Card`/`ArtifactCard` grids, cards and artifacts
+have keyword tooltips (glossary in `data/keywords/`, derived from effects)
+and colored highlighting in descriptions, and unit stats are at player
+scale (`ENEMY_STAT_DIVISOR` halves enemies).
 
 In parallel, `docs/CARDS_EXECUTION_PLAN.md` adds cards for 4 deck
 archetypes: Passos 1–4 are implemented (new spells, `on_card_played`
