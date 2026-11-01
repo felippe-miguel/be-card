@@ -189,11 +189,19 @@ merchant screen with fixed infinite stock from `data/merchants/`) is
 implemented. Etapa 5 (DeckBuilder screen opened from the overworld deck
 panel: create/edit/rename/delete decks on a working copy) is implemented.
 Etapa 6 (artifacts as a per-deck collectible, max 1 per deck; generic
-`Merchant` screen selling cards and/or artifacts) is implemented. Next is
-Etapa 7 (events). Follow
-the plan one passo/etapa at a time, and stop for the user to test in the
-editor before the next. The plan lists open design questions to settle
-with the user when each etapa comes up.
+`Merchant` screen selling cards and/or artifacts) is implemented. Etapa 7
+(events from `data/events/`, unique or repeatable, choices with
+gold/card/artifact/battle effects) and Etapa 8 (autosave of `CampaignState`
+ids to `user://campaign_save.json`, tolerant load, Continuar/Nova campanha
+in the main menu) are implemented; Etapa 9 is the user's integration
+playtest. Follow the plan one passo/etapa at a time, and stop for the user
+to test in the editor before the next. The plan lists open design questions
+to settle with the user when each etapa comes up.
+
+In parallel, `docs/CARDS_EXECUTION_PLAN.md` adds cards for 4 deck
+archetypes: Passos 1–4 are implemented (new spells, `on_card_played`
+combo units with the `card_type: spell` condition, and the new effects
+`double_status`, `detonate_poison`, `shield_bash`, `raise_dead`).
 
 ## General rule
 

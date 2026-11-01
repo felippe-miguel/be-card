@@ -33,12 +33,14 @@ grown along a branching path and lost at the end of the run) was
 run", "run deck", run-scoped relics).
 
 The roadmap lives in `docs/CAMPAIGN_EXECUTION_PLAN.md`. Its Etapa 1
-(raw overworld) is implemented: the game opens on a main menu, and "Jogar"
-leads to an overworld that draws the world map graph from JSON, where
-the player travels between connected points (see Scene flow and Overworld
-below). Entering a combat point opens the battle, which returns to the map
-when it ends. Merchant and event points exist on the map but only open a
-"coming soon" placeholder for now.
+(raw overworld) is implemented: the game opens on a main menu, and
+"Continuar"/"Nova campanha" lead to an overworld that draws the world map
+graph from JSON, where the player travels between connected points (see
+Scene flow and Overworld below). Entering a combat point opens the battle,
+which returns to the map when it ends. Merchant and event points open
+their own screens (see Gold and merchants, Events); the campaign autosaves
+to disk (see Save and load). A point whose merchant/event data is missing
+falls back to a "coming soon" placeholder.
 
 ## Architecture layers
 
@@ -66,7 +68,7 @@ Keep these clearly separated, especially once the campaign layer exists:
   once and never mutated.
 - **Campaign state** (`CampaignState`): what is specific to this player
   and survives the whole campaign. Today it holds the current map point,
-  visited points, won combats and the card collection (`card_id ->
+  visited points, won combats, resolved unique events and the card collection (`card_id ->
   copies`) and the player's deck lists plus which one is active.
   gold and owned artifacts. Store ids, not catalog objects, so it serializes
   cleanly to a save file.
@@ -81,7 +83,8 @@ Nodes (presentation/input):
   screen (see Scene flow).
 - `MainMenu` (`Control`, `main_menu.tscn`), `Overworld` (`Control`,
   `overworld.tscn`), `Merchant` (`Control`, `merchant.tscn`),
-  `DeckBuilder` (`Control`, `deck_builder.tscn`), `PointPlaceholder` (`Control`, `point_placeholder.tscn`): screens
+  `DeckBuilder` (`Control`, `deck_builder.tscn`), `Event` (`Control`,
+  `event.tscn`), `PointPlaceholder` (`Control`, `point_placeholder.tscn`): screens
   instantiated by `Main`.
 - `Game` (`Control`, `game.tscn`): the battle scene. It orchestrates one
   combat plus the debug sandbox UI. Opened by `Main` from a combat point,
@@ -103,6 +106,8 @@ Nodes (presentation/input):
 - `CombatMath` (shared block-absorption math)
 - `MerchantData`, `MerchantDatabase` (merchant stock catalog: cards and/or artifacts)
 - `ArtifactData`, `ArtifactDatabase` (artifact catalog)
+- `EventData`, `EventDatabase` (event catalog)
+- `CampaignSave` (reads/writes the save file)
 - `DeckList` (a campaign deck built from the collection)
 - `Deck` (in-combat draw pile / hand / discard / graveyard)
 - `Mana`
@@ -120,6 +125,7 @@ res://
 │   ├── world/     (overworld.json)
 │   ├── merchants/ (merchant stock: village_market.json, wandering_trader.json)
 │   ├── artifacts/ (4 artifacts)
+│   ├── events/    (ancient_shrine.json, abandoned_chest.json, deserter_duel.json)
 │   └── campaign/  (starting_collection.json, starting_decks.json, starting_resources.json)
 ├── resources/
 │   ├── audio/     (music, sfx + SfxSheet .tres)
@@ -147,24 +153,28 @@ Card art is resolved by convention, `res://resources/images/cards/<card_id>.png`
 
 ```text
 Main (main.tscn, run/main_scene)
- ├── MainMenu   — "Jogar" → Overworld, "Sair" → quit
+ ├── MainMenu   — "Continuar" (only with a save) / "Nova campanha" →
+ │                Overworld, "Sair" → quit
  ├── Overworld        — world map; enter current point → Game (combat),
- │                      Merchant (card/artifact merchant) or PointPlaceholder
- │                      (others); deck panel "Editar"/"Criar novo deck"
+ │                      Merchant (card/artifact merchant), Event, or
+ │                      PointPlaceholder (fallback); deck panel "Editar"/"Criar novo deck"
  │                      → DeckBuilder; "Voltar ao menu"/Esc → MainMenu
  ├── Game             — battle; battle_finished(victory) → Overworld
  ├── Merchant         — buy cards/artifacts; "Voltar ao mapa"/Esc → Overworld
  ├── DeckBuilder      — edit a deck; Salvar/Apagar/Cancelar/Esc → Overworld
- └── PointPlaceholder — "em breve"; "Voltar ao mapa"/Esc → Overworld
+ ├── Event            — choices; "Voltar"/Esc → Overworld; a battle choice
+ │                      → Game, then Overworld
+ └── PointPlaceholder — fallback "em breve"; "Voltar ao mapa"/Esc → Overworld
 ```
 
 `Main` holds exactly one screen at a time (`current_screen`,
 `switch_to()` frees the previous one with `queue_free()`, since the switch
 usually happens inside a signal emitted by that very screen). Screens never
-change scenes themselves. They only emit signals (`play_pressed`,
+change scenes themselves. They only emit signals (`new_campaign_pressed`,
 `quit_pressed`, `back_to_menu_pressed`), and `Main` decides what comes
-next. `Main` also owns the `CampaignState` (a fresh one on every "Jogar",
-since there's no save/continue yet), with no global autoload. `Main` only passes the battle a `battle_id` (`Game.setup_battle()`), not
+next. `Main` also owns the `CampaignState` (a fresh one on "Nova
+campanha", or one rebuilt from the save on "Continuar"), with no global
+autoload. `Main` only passes the battle a `battle_id` (`Game.setup_battle()`), not
 the whole `CampaignState`. The battle reports back through
 `battle_finished(victory)`. `Main` records it on the current point
 (`CampaignState.record_current_combat_result()`, which also pays the gold
@@ -367,14 +377,79 @@ combat point without fighting). Clicking the **current** point emits
 `point_entered(point_id)` if `WorldPointData.can_enter()` (`combat` with a
 `battle` id, or any merchant/event; shown with a "— entrar" hint). `Main`
 opens the battle for `combat`, the `Merchant` for a card/artifact merchant
-with a known `merchant` id, and a `PointPlaceholder` for everything else
-(today only `event`). `PointPlaceholder` only shows the point name and
-"<tipo> — em breve", and returns to the map without recording anything.
-Events get a real screen in Etapa 7.
+with a known `merchant` id, the `Event` screen for an `event` point whose
+`event` id exists (Etapa 7, see Events), and a `PointPlaceholder` for
+everything else (a merchant/event point with missing data).
+`PointPlaceholder` only shows the point name and "<tipo> — em breve", and
+returns to the map without recording anything.
 
 This is a deliberately raw clickable-graph map (no camera, scroll or art).
 If the map later becomes a free-walking character map, only this
 presentation should change, not the graph data or campaign state.
+
+## Events
+
+An `event` point has `"event": "<id>"` pointing at
+`data/events/<id>.json`: `{"id", "name", "text", "repeatable", "choices":
+[{"label", "result_text"?, "effects": [...]}]}`. `EventDatabase` loads them
+into `EventData` (same pattern as merchants). Effect types: `gold`
+(`amount`, negative = cost), `card` (`card_id`, `count`), `artifact`
+(`artifact_id`), `battle` (`battle_id`, `gold` paid on victory). Unknown
+card/artifact/battle ids and malformed effects are skipped with a warning
+(`EventData.parse_effect()`), a choice without a label too. No branching
+dialogue: choosing applies the effects and ends the event.
+
+- `CampaignState.apply_event_choice(event, index)` applies the effects
+  through the existing operations (`add_gold()`, `add_card()`,
+  `add_artifact()`) and returns `{"applied", "battle"}`. It refuses a choice
+  the player can't pay for or that grants an already owned artifact
+  (`can_choose_event_choice()`; the screen disables those buttons and says
+  why), and a unique event already resolved.
+- Unique events (`repeatable: false`, the default) are recorded in
+  `CampaignState.completed_event_ids` (by event id) **when a choice is
+  made**; repeatable events are never recorded. The overworld marks a
+  resolved event point with the same "✔" as a won combat, and re-entering it
+  shows "Você já resolveu este evento." with only "Voltar".
+- The `Event` screen shows the title, text and one button per choice; after
+  choosing it shows `result_text` (or a generated summary) and "Voltar"
+  (Esc = Voltar). A choice with a `battle` effect emits
+  `battle_requested(battle_id, gold)` instead: `Main` stores
+  `event_battle_gold` and opens the normal battle with the active deck.
+  `Main._on_battle_finished()` routes to `finish_event_battle()` while that
+  is set: victory pays the gold through `add_gold()`, defeat/flee pays
+  nothing, both return to the overworld, and the event point is **not**
+  marked as a won combat. The event counts as resolved at choice time even
+  if the battle is lost.
+
+## Save and load
+
+`CampaignState.to_dict()` serializes only ids and numbers (`"version"`
+(`CampaignState.SAVE_VERSION`, 1), `current_point`, `gold`, `collection`,
+`artifacts`, `decks` (`DeckList.to_dict()`: name, cards, optional artifact),
+`active_deck`, `visited_points`, `won_combats`, `completed_events`). The
+file is `user://campaign_save.json`; `CampaignSave` writes it atomically
+(temp file + rename) and `read()` returns `{}` for a missing, unparseable or
+unknown-version file, so a bad save simply counts as "no save".
+
+- `CampaignState.from_dict(data, world_map, card_db, artifact_db,
+  event_db, fallback_decks)` rebuilds the state tolerantly, warning with
+  `push_warning`: unknown card/artifact/point/event ids are dropped; deck
+  copies are clamped to the collection; a deck artifact that isn't owned is
+  unequipped; a deck that ends up empty is dropped; an unknown current point
+  becomes the start point; an invalid active deck becomes the first one; no
+  deck left means the starting decks (raising the collection to cover them).
+  Catalog changes therefore never break an old save.
+- **Autosave** is owned by `Main`: `set_campaign_state()` connects
+  `CampaignState.changed` to `save_campaign()` (travel, purchases, deck
+  save/delete/select, event choices and combat results all emit it), and
+  `show_overworld()` saves too. The battle never touches `CampaignState`, so
+  there is no mid-battle save (leaving mid-battle or an event battle loses
+  that battle, not earlier progress).
+- Main menu: "Continuar" is shown only when `CampaignSave.exists()`;
+  "Nova campanha" asks for confirmation (`ConfirmationDialog` in
+  `MainMenu`) when a save exists, then replaces it on the next autosave.
+  `Main.save_path` defaults to `CampaignSave.SAVE_PATH` and exists so tests
+  can use another file.
 
 ## Current battle flow
 
@@ -630,7 +705,8 @@ A third, separate vocabulary for trigger effects, resolved by
 `BattleState.resolve_trigger_targets()`: `self`, `trigger_target`,
 `lane_enemies`, `lane_allies`, `all_allies`, `all_enemies`,
 `adjacent_allies`. Targets come from the event context, not a player
-choice.
+choice. `lane_enemies` and `adjacent_allies` fall back to the owner's own
+lane/cell when the context has none (`on_card_played`, `on_summon`).
 
 ## Effects
 
@@ -639,7 +715,25 @@ selected_row)` handles card effects. Non-summon effects resolve targets
 via `TargetSystem`, then go through the static
 `EffectSystem.apply_basic_effect(type, targets, effect)`: `damage`,
 `block`, `heal`, `apply_status`, `remove_status`, `cleanse`,
-`modify_attack`. Trigger effects reuse the same `apply_basic_effect()`.
+`modify_attack`, `double_status` (doubles the stacks of `status`; 0 stacks
+does nothing) and `detonate_poison` (damage equal to the target's Poison
+through `take_damage()`, then removes the Poison). Trigger effects reuse
+the same `apply_basic_effect()`.
+
+`shield_bash` (Golpe de Escudo) needs a derived target, so
+`execute_effect()` routes it to `execute_shield_bash()`: the chosen ally
+deals damage equal to its current Block (not consumed) to the first enemy
+of its lane (`TargetSystem`/`BattleFloor.get_lane_units()`). It is plain
+`take_damage()`, not attributed to the ally, so the ally's `on_kill` does
+not fire.
+
+`raise_dead` (Reerguer) is a card flow, not an `EffectSystem` effect:
+`BattleState.dead_ally_ids` is a stack of ally `UnitData` ids pushed by
+`on_unit_died()` (copied into `clone_for_simulation()`). `Game` plays it
+like a summon (`PendingAction.SPAWN` on an empty **ally** cell), pops the
+stack and creates the unit through `create_unit()`, so the x2 multiplier,
+artifact bonuses and `on_summon` apply. With an empty stack the card is not
+played.
 
 `summon` is not a basic effect: `execute_summon_effect()` creates an ally
 via `BattleState.create_unit()` and places it at the chosen cell
@@ -652,15 +746,18 @@ via `BattleState.create_unit()` and places it at the chosen cell
 
 Each `Unit` carries `triggers` copied from `UnitData`.
 `BattleState.fire_event(unit, event, context)` runs every trigger of that
-unit listening to the event (if `trigger_condition_met()`, which today only
-knows a `row` key). `fire_event_all()` fires it for every unit on the
-floor.
+unit listening to the event (if `trigger_condition_met(unit, condition,
+context)`, which knows two keys: `row`, and `card_type` compared with
+`context["card_type"]`, where the special value `"spell"` means any card
+whose type is not `unit`). `fire_event_all(event, context, only_faction)`
+fires it for every unit on the floor, optionally only one faction.
 
 Events: `on_summon`, `on_move` (from `BattleFloor` signals, suppressed
 during simulation rebuild), `on_attack`, `on_hit` (context: `target`,
 `damage_dealt`), `on_kill`, `on_death` (context: lane/row/faction captured
 before removal), `on_turn_start`, `on_turn_end`, `on_card_played` (fired by
-`Game.finish_card_play()`).
+`Game.finish_card_play()` only for ALLY units, context `card_type` = the
+played card's `type`; never during simulation).
 
 `execute_trigger_effect()` special-cases `summon` (Death Spawn, into the
 dead unit's cell), `move` (Knockback, via `BattleFloor.move_unit()`), and
@@ -677,7 +774,9 @@ data/cards/*.json → CardDatabase → CardData → Card (visual)
 `CardData`: `id`, `name`, `description`, `cost`, `type`
 (`attack`/`skill`/`unit`, informational only, `Deck` ignores it),
 `effects`. `Game._on_card_played()` dispatches on the **first** effect's
-`type`. `CardData.get_summon_unit_id()` lets `Card` show the summoned
+`type`; `damage`/`heal`/`block`/`apply_status`/`cleanse`/`remove_status`/
+`modify_attack`/`double_status`/`detonate_poison`/`shield_bash` go through
+`begin_effect_card()` (click-a-unit or confirm-all). `CardData.get_summon_unit_id()` lets `Card` show the summoned
 unit's ATK/HP preview.
 
 ### Deck, hand, discard, graveyard
