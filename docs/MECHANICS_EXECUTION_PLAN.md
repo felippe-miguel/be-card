@@ -1,5 +1,11 @@
 # MECHANICS_EXECUTION_PLAN.md
 
+> **Status: concluído — documento histórico.** As Etapas 1 a 6 foram todas
+> implementadas (ver `git log`, commits "Etapa N do plano de mecanicas").
+> As seções "Estado atual"/"Não implementado" abaixo descrevem o projeto
+> de ANTES deste plano. Para o que existe hoje, ver `docs/ARCHITECTURE.md`.
+> A próxima fase é `docs/CAMPAIGN_EXECUTION_PLAN.md`.
+
 ## Objetivo
 
 Expandir o protótipo de combate 3x3 com um conjunto pequeno, mas combinável, de mecânicas fundamentais.

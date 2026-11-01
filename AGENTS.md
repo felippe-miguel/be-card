@@ -2,7 +2,12 @@
 
 ## Project
 
-This is a **Godot 4.7 / GDScript** project.
+This is a **Godot 4.7 / GDScript** project: a data-driven deckbuilder with
+automatic 3x3 grid combat, designed around a **persistent open-world
+campaign** (free world map exploration, a permanent card collection, and
+multiple player-built decks chosen per combat). It is **not** a roguelike
+with runs. Don't introduce run-based concepts. See `docs/ARCHITECTURE.md`'s
+Game design direction section.
 
 Read `docs/ARCHITECTURE.md` before architectural or structural changes — it
 is the technical reference (data flow, class responsibilities, current
@@ -50,10 +55,11 @@ This applies to every `.gd` file, including new files.
 - Godot Nodes represent presentation and input.
 - Domain code must not depend on UI Nodes.
 - `UnitData` describes a unit type; `Unit` is a live instance and owns faction.
-- `Pyre` is a separate battle entity, not a `Unit`.
-- `position_index = 0` means the front of a formation.
-- Visual orientation (which screen column a slot renders at) must not alter logical `position_index`.
-- Unit attack targeting and card targeting are separate systems.
+- Each faction has its own 3x3 grid; a unit occupies one cell (`lane`, `row`), `row = 0` is the Front. No formations, no push/compaction.
+- Unit attack patterns, card targeting and trigger targeting are separate systems.
+- Keep catalog (databases), campaign state (collection/decks/gold, planned) and battle state (`BattleState`, `Deck`, `Mana`) separate. The in-combat `Deck` is not the player's campaign deck list.
+- Multi-floor (`Battlefield.floors`, `BattleDefinition.floors`) is unused legacy shape; only floor 0 exists in practice. Don't build on it.
+- `Main` (`main.tscn`) is the main scene and owns the current screen; screens only emit signals and never change scenes themselves.
 
 See `docs/ARCHITECTURE.md` for the full explanation of each of these.
 
@@ -104,11 +110,12 @@ and emits the domain `Unit` when selected.
 
 ## Targeting
 
-Unit attack targeting (`TargetRule.Shape`) and card targeting
-(`TargetSystem.get_card_targets`) are separate systems — see
+Unit attack patterns (`TargetSystem.get_pattern_attack_targets`), card
+targeting (`TargetSystem.get_card_targets`) and trigger targeting
+(`BattleState.resolve_trigger_targets`) are separate systems — see
 `docs/ARCHITECTURE.md`'s Targeting architecture section for the current
-shapes and target types. Avoid hardcoding faction-specific names like
-`front_enemy`/`rear_enemy`/`selected_enemy` into either.
+patterns and target types. Avoid hardcoding faction-specific names like
+`front_enemy`/`rear_enemy`/`selected_enemy` into any of them.
 
 ## Incremental workflow
 
@@ -157,24 +164,26 @@ After meaningful changes:
 
 ## Current status
 
-The combat/card loop is implemented and stable: automatic combat turns,
-victory/defeat, deck/hand/discard with mana cost, automatic enemy spawning,
-summon-to-a-specific-slot with live preview, unit-targeted effect preview,
-and pending-card cancel/confirm. See `docs/ARCHITECTURE.md` for how each of
-these actually works, and `git log` for the history of how they got there.
+The single-combat sandbox is implemented and stable: 3x3 grid combat with
+attack patterns, statuses, events/triggers, movement and buff cards,
+deck/hand/discard/graveyard with mana cost, enemy waves, turn preview
+(simulation) and animated turn replay, card art and SFX, plus debug
+panels. `docs/playtest_3x3.md` and `docs/MECHANICS_EXECUTION_PLAN.md` are
+both fully implemented. See `docs/ARCHITECTURE.md` for how it works, and
+`git log` for the history.
 
-The project is now in a **gameplay-testing phase** — no specific feature is
-queued. Wait for the user's direction each session rather than assuming the
-next step.
-
-Possible future directions, not decided or prioritized — ask the user
-before picking one up:
-
-- Pyre-targeting effects (cards/attacks currently only ever target `Unit`s).
-- Per-battle deck composition (today every card in `CardDatabase` is the deck).
-- Card type (`attack`/`skill`/`unit`) affecting `Deck` behavior.
-- `TargetRule.Shape.RANDOM`/`SELECTED` for Unit attacks (declared, unimplemented).
-- Turn order within/across floors beyond current formation order.
+The current phase is the **campaign layer**, planned in
+`docs/CAMPAIGN_EXECUTION_PLAN.md` (raw overworld → collection → deck lists
+→ merchants → deck builder → artifacts → events → save/load). Etapa 1
+(raw overworld) is split into small passos (1.1 → 1.6). Passos 1.1 (main
+menu + `Main` root scene), 1.2 (world map graph from JSON drawn on the
+overworld), 1.3 (`CampaignState` + travel between connected points) and
+1.4 (entering a combat point opens the battle, which returns to the map)
+and 1.5 (visited/won point state, plus Esc menu behavior) are implemented.
+Next is 1.6 (placeholder merchant/event points). Follow
+the plan one passo/etapa at a time, and stop for the user to test in the
+editor before the next. The plan lists open design questions to settle
+with the user when each etapa comes up.
 
 ## General rule
 

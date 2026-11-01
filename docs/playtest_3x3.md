@@ -1,5 +1,13 @@
 # Implementar Sandbox de Combate 3x3 para Playtest
 
+> **Status: concluído — documento histórico.** Este é o pedido original
+> do sandbox 3x3, já implementado. Ele cita Monster Train/Slay the Spire
+> como inspiração estrutural, mas o desenho do jogo mudou desde então:
+> campanha persistente em mundo aberto com coleção de cartas e vários
+> decks, sem runs (ver `docs/ARCHITECTURE.md` e
+> `docs/CAMPAIGN_EXECUTION_PLAN.md`). Para o que existe hoje, confie no
+> código e no `ARCHITECTURE.md`, não neste texto.
+
 Quero fazer um playtest de game design no meu jogo Godot atual.
 
 ## Contexto do jogo
