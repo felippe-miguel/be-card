@@ -1,0 +1,10 @@
+{
+  "id": "summon_herald",
+  "name": "Invocar Arauto",
+  "description": "Invoca um Arauto numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "herald", "target": "selected_position" }
+  ]
+}

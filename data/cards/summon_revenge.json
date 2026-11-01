@@ -1,0 +1,10 @@
+{
+  "id": "summon_revenge",
+  "name": "Invocar Vingança",
+  "description": "Invoca uma Vingança numa célula vazia do grid aliado.",
+  "cost": 1,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "revenge", "target": "selected_position" }
+  ]
+}

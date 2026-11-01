@@ -1,0 +1,10 @@
+{
+  "id": "summon_elder_guardian",
+  "name": "Invocar Guardião Ancião",
+  "description": "Invoca um Guardião Ancião numa célula vazia do grid aliado.",
+  "cost": 3,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "elder_guardian", "target": "selected_position" }
+  ]
+}

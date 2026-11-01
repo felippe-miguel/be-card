@@ -1,0 +1,10 @@
+{
+  "id": "summon_duelist",
+  "name": "Invocar Duelista",
+  "description": "Invoca um Duelista numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "duelist", "target": "selected_position" }
+  ]
+}

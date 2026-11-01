@@ -1,0 +1,10 @@
+{
+  "id": "summon_sacrifice",
+  "name": "Invocar Sacrifício",
+  "description": "Invoca um Sacrifício numa célula vazia do grid aliado.",
+  "cost": 1,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "sacrifice", "target": "selected_position" }
+  ]
+}

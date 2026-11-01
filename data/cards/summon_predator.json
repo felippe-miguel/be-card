@@ -1,0 +1,10 @@
+{
+  "id": "summon_predator",
+  "name": "Invocar Predador",
+  "description": "Invoca um Predador numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "predator", "target": "selected_position" }
+  ]
+}

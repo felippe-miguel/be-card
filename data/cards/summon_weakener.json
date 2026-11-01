@@ -1,0 +1,10 @@
+{
+  "id": "summon_weakener",
+  "name": "Invocar Enfraquecedor",
+  "description": "Invoca um Enfraquecedor numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "weakener", "target": "selected_position" }
+  ]
+}

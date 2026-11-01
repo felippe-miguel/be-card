@@ -1,0 +1,10 @@
+{
+  "id": "summon_vanguard_recruit",
+  "name": "Invocar Recruta da Linha de Frente",
+  "description": "Invoca um Recruta da Linha de Frente numa célula vazia do grid aliado.",
+  "cost": 1,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "vanguard_recruit", "target": "selected_position" }
+  ]
+}

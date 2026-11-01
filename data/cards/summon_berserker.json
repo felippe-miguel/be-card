@@ -1,0 +1,10 @@
+{
+  "id": "summon_berserker",
+  "name": "Invocar Berserker",
+  "description": "Invoca um Berserker numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "berserker", "target": "selected_position" }
+  ]
+}

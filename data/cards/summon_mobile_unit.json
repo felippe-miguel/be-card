@@ -1,0 +1,10 @@
+{
+  "id": "summon_mobile_unit",
+  "name": "Invocar Unidade Móvel",
+  "description": "Invoca uma Unidade Móvel numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "mobile_unit", "target": "selected_position" }
+  ]
+}

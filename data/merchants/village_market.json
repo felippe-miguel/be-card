@@ -18,6 +18,26 @@
     "fireball": 40,
     "summon_assassin": 40,
     "summon_mage": 40,
-    "summon_guardian": 50
+    "summon_guardian": 50,
+    "summon_vanguard_recruit": 25,
+    "summon_explosive": 25,
+    "summon_revenge": 25,
+    "summon_sacrifice": 25,
+    "summon_mobile_unit": 40,
+    "summon_charger": 40,
+    "summon_sentinel": 40,
+    "summon_sniper": 40,
+    "summon_predator": 40,
+    "summon_knockback": 40,
+    "summon_berserker": 40,
+    "summon_death_spawn": 40,
+    "summon_venomous": 40,
+    "summon_weakener": 40,
+    "summon_duelist": 40,
+    "summon_herald": 40,
+    "summon_vampiric": 40,
+    "summon_venomous_assassin": 50,
+    "summon_executioner": 50,
+    "summon_elder_guardian": 50
   }
 }

@@ -1,0 +1,10 @@
+{
+  "id": "summon_venomous",
+  "name": "Invocar Venenoso",
+  "description": "Invoca um Venenoso numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "venomous", "target": "selected_position" }
+  ]
+}

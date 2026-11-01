@@ -1,0 +1,10 @@
+{
+  "id": "summon_knockback",
+  "name": "Invocar Empurrão",
+  "description": "Invoca um Empurrão numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "knockback", "target": "selected_position" }
+  ]
+}

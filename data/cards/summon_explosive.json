@@ -1,0 +1,10 @@
+{
+  "id": "summon_explosive",
+  "name": "Invocar Explosivo",
+  "description": "Invoca um Explosivo numa célula vazia do grid aliado.",
+  "cost": 1,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "explosive", "target": "selected_position" }
+  ]
+}
