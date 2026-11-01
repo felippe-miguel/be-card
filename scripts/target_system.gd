@@ -82,7 +82,7 @@ const PATTERN_DESCRIPTIONS = {
 	"front_or_rear_by_position": "Depende da PRÓPRIA posição: na Back, mira o inimigo mais distante da lane (como lane_rear); em Front/Middle, mira o mais próximo (como lane_front).",
 }
 
-func describe_pattern(pattern_id: String, count: int = 1) -> String:
+static func describe_pattern(pattern_id: String, count: int = 1) -> String:
 	var description: String = PATTERN_DESCRIPTIONS.get(pattern_id, "Padrão de ataque desconhecido: %s" % pattern_id)
 
 	if count > 1:

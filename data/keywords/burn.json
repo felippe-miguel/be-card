@@ -1,0 +1,7 @@
+{
+	"id": "burn",
+	"name": "Burn",
+	"aliases": [],
+	"color": "#c0560f",
+	"description": "No fim do turno, a unidade toma dano igual aos stacks de Burn, e aí o Burn some por inteiro. O dano é reduzido por Block."
+}

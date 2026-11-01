@@ -1,0 +1,7 @@
+{
+	"id": "on_summon",
+	"name": "On Summon",
+	"aliases": [],
+	"color": "#7d5a1e",
+	"description": "Dispara quando a unidade entra em campo. As unidades que já começam o combate no grid não ativam."
+}

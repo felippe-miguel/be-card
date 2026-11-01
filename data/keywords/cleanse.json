@@ -1,0 +1,7 @@
+{
+	"id": "cleanse",
+	"name": "Cleanse",
+	"aliases": [],
+	"color": "#138d75",
+	"description": "Remove todos os status da unidade de uma vez (Strength, Weakness, Poison, Burn e Stun), os bons e os ruins."
+}

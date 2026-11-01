@@ -1,0 +1,7 @@
+{
+	"id": "on_card_played",
+	"name": "On Card Played",
+	"aliases": [],
+	"color": "#7d5a1e",
+	"description": "Dispara nas unidades aliadas toda vez que você joga uma carta. Quando especifica spell, só vale para cartas que não invocam unidade."
+}

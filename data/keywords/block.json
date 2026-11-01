@@ -1,0 +1,7 @@
+{
+	"id": "block",
+	"name": "Block",
+	"aliases": [],
+	"color": "#1f6fb2",
+	"description": "Absorve dano antes de ele chegar no HP. O Block não expira com o turno: fica na unidade até ser gasto."
+}

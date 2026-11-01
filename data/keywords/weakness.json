@@ -1,0 +1,7 @@
+{
+	"id": "weakness",
+	"name": "Weakness",
+	"aliases": [],
+	"color": "#566573",
+	"description": "Cada stack de Weakness tira 1 de ATK da unidade (o ATK nunca fica abaixo de 0). Os stacks não decaem sozinhos."
+}

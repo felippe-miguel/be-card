@@ -1,0 +1,7 @@
+{
+	"id": "on_hit",
+	"name": "On Hit",
+	"aliases": [],
+	"color": "#7d5a1e",
+	"description": "Dispara cada vez que a unidade acerta um alvo com o ataque, mesmo que o Block absorva o dano todo."
+}

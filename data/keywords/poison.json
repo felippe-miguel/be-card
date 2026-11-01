@@ -1,0 +1,7 @@
+{
+	"id": "poison",
+	"name": "Poison",
+	"aliases": [],
+	"color": "#7b2fbf",
+	"description": "No fim do turno, a unidade toma dano igual aos stacks de Poison e perde 1 stack. Vale para aliados e inimigos, e o dano é reduzido por Block."
+}

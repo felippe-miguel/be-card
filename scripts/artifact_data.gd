@@ -41,3 +41,11 @@ static func from_dict(data: Dictionary) -> ArtifactData:
 ## precisar saber qual artefato está equipado.
 func get_bonus(type: String) -> int:
 	return amount if effect_type == type else 0
+
+## Palavras-chave do glossário que o efeito do artefato referencia. Hoje
+## devolve [] pros 4 efeitos existentes (max_mana/hand_size/ally_max_hp/
+## ally_attack não são mecânicas do glossário), mas já deixa pronto o
+## caminho pra um artefato futuro que aplique status/Block: reusa o mesmo
+## mapeamento das cartas.
+func get_keyword_ids() -> Array[String]:
+	return CardData.keywords_of_effect({"type": effect_type})

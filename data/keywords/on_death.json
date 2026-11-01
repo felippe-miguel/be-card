@@ -1,0 +1,7 @@
+{
+	"id": "on_death",
+	"name": "On Death",
+	"aliases": [],
+	"color": "#7d5a1e",
+	"description": "Dispara quando a unidade morre. A célula dela já está livre nessa hora, então dá para invocar algo no mesmo lugar."
+}

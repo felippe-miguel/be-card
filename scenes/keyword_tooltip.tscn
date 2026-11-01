@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/keyword_tooltip.gd" id="1_tooltip"]
+
+[node name="KeywordTooltip" type="VBoxContainer"]
+script = ExtResource("1_tooltip")

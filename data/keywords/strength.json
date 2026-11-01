@@ -1,0 +1,7 @@
+{
+	"id": "strength",
+	"name": "Strength",
+	"aliases": [],
+	"color": "#b03a2e",
+	"description": "Cada stack de Strength soma +1 de ATK na unidade. Os stacks não decaem, ficam até um Cleanse ou remoção."
+}

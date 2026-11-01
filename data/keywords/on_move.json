@@ -1,0 +1,7 @@
+{
+	"id": "on_move",
+	"name": "On Move",
+	"aliases": [],
+	"color": "#7d5a1e",
+	"description": "Dispara sempre que a unidade muda de posição no grid, por carta ou por efeito, exceto no posicionamento inicial."
+}

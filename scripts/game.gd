@@ -91,6 +91,11 @@ var deck_card_ids: Array[String] = []
 var battle_won: bool = false
 
 var unit_database: UnitDatabase
+
+## Glossário de palavras-chave (data/keywords/) — dá o tooltip de cada carta
+## da mão (Card.setup()). Carregado aqui, como o unit_database, porque o
+## Game também abre direto pelo editor, sem passar pelo Main.
+var keyword_database: KeywordDatabase
 var battle_database: BattleDatabase
 var card_database: CardDatabase
 
@@ -234,6 +239,9 @@ func get_battle_definition() -> BattleDefinition:
 func _ready() -> void:
 	unit_database = UnitDatabase.new()
 	unit_database.load_units()
+
+	keyword_database = KeywordDatabase.new()
+	keyword_database.load_keywords()
 
 	battle_database = BattleDatabase.new()
 	battle_database.load_battles()
@@ -391,7 +399,7 @@ func render_hand() -> void:
 			card = preload("res://scenes/card.tscn").instantiate()
 
 			card_container.add_child(card)
-			card.setup(card_data, unit_database)
+			card.setup(card_data, unit_database, keyword_database)
 			card.played.connect(_on_card_played)
 
 			new_cards[card] = true
@@ -921,7 +929,7 @@ func show_pattern_info(unit: Unit) -> void:
 	if unit.description != "":
 		body += unit.description + "\n\n"
 
-	body += battle_state.target_system.describe_pattern(unit.attack_pattern, unit.attack_pattern_count)
+	body += TargetSystem.describe_pattern(unit.attack_pattern, unit.attack_pattern_count)
 
 	if unit.aura_adjacent_ally_max_hp_bonus > 0:
 		body += "\n\nPassiva: aliados ortogonalmente adjacentes recebem +%d de HP máximo enquanto esta unidade estiver viva e posicionada aqui." % unit.aura_adjacent_ally_max_hp_bonus

@@ -30,7 +30,7 @@ const UNAFFORDABLE_COST_COLOR = Color(1, 0.4, 0.4, 1)
 @onready var background: Panel = $Background
 @onready var art: TextureRect = $Art
 @onready var name_label: Label = $NameLabel
-@onready var description_label: Label = $DescriptionLabel
+@onready var description_label: RichTextLabel = $DescriptionLabel
 @onready var cost_label: Label = $CostLabel
 @onready var target_label: Label = $TargetLabel
 @onready var summon_preview_label: Label = $SummonPreviewLabel
@@ -82,6 +82,13 @@ var is_leaving: bool = false
 
 var hover_tween: Tween
 
+## Tooltip de palavras-chave/unidade invocada (Passos 5 e 6 de docs/
+## MERCHANT_CARDS_EXECUTION_PLAN.md). Só existe se setup() recebeu um
+## KeywordDatabase; sem ele a carta se comporta como antes.
+var keyword_tooltip: KeywordTooltip
+
+const KEYWORD_TOOLTIP_SCENE = preload("res://scenes/keyword_tooltip.tscn")
+
 signal played(card: Card)
 
 func _ready() -> void:
@@ -119,15 +126,21 @@ func build_style(border_color: Color, border_width: int) -> StyleBoxFlat:
 
 	return style
 
-func setup(card_data: CardData, unit_database: UnitDatabase = null) -> void:
+func setup(card_data: CardData, unit_database: UnitDatabase = null, keyword_database: KeywordDatabase = null) -> void:
 	data = card_data
 	name_label.text = data.name
-	description_label.text = data.description
+	set_description_bbcode(KeywordText.to_bbcode(data.get_display_description(unit_database), keyword_database))
 	cost_label.text = str(data.cost)
 	target_label.text = "Alvo: " + data.get_target_description()
 
 	update_summon_preview(unit_database)
 	update_art()
+	update_keyword_tooltip(unit_database, keyword_database)
+
+## Único lugar que escreve a descrição: recebe BBCode já pronto (destacado
+## por KeywordText, ou só escapado quando não há KeywordDatabase).
+func set_description_bbcode(bbcode: String) -> void:
+	description_label.text = "[center]%s[/center]" % bbcode
 
 ## Carrega res://resources/images/cards/<CardData.id>.png, se existir —
 ## ver ART_PATH_FORMAT acima.
@@ -159,6 +172,40 @@ func update_summon_preview(unit_database: UnitDatabase) -> void:
 
 	summon_preview_label.text = "ATK %d / HP %d" % [unit_data.attack, unit_data.max_hp]
 	summon_preview_label.visible = true
+
+## Resolve uma vez (no setup) o que o tooltip mostra: o bloco da unidade
+## invocada (se a carta invoca e unit_database veio) e as palavras-chave
+## derivadas dos efeitos. Sem keyword_database, não há tooltip nenhum.
+func update_keyword_tooltip(unit_database: UnitDatabase, keyword_database: KeywordDatabase) -> void:
+	if keyword_tooltip != null:
+		keyword_tooltip.hide_tooltip()
+
+	if keyword_database == null:
+		return
+
+	if keyword_tooltip == null:
+		keyword_tooltip = KEYWORD_TOOLTIP_SCENE.instantiate()
+		add_child(keyword_tooltip)
+
+	keyword_tooltip.keyword_database = keyword_database
+
+	var unit_data: UnitData = null
+
+	if unit_database != null:
+		unit_data = unit_database.units.get(data.get_summon_unit_id())
+
+	if unit_data != null:
+		## Sem description própria, a face da carta já mostra a descrição da
+		## unidade (get_display_description()); o tooltip não a repete.
+		keyword_tooltip.set_unit(unit_data, TargetSystem.describe_pattern(unit_data.attack_pattern, unit_data.attack_pattern_count), data.description != "")
+	else:
+		keyword_tooltip.set_unit(null)
+
+	keyword_tooltip.set_keywords(keyword_database.get_keywords(data.get_keyword_ids(unit_database)))
+
+func hide_keyword_tooltip() -> void:
+	if keyword_tooltip != null:
+		keyword_tooltip.hide_tooltip()
 
 ## Destaca o custo em vermelho quando o jogador não tem mana suficiente
 ## para jogar esta carta agora. CostLabel tem um LabelSettings próprio (ver
@@ -215,6 +262,7 @@ func play_draw_entrance(from_position: Vector2, new_position: Vector2, z: int) -
 func play_discard_exit(to_position: Vector2) -> void:
 	is_leaving = true
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hide_keyword_tooltip()
 
 	if hover_tween != null:
 		hover_tween.kill()
@@ -245,6 +293,9 @@ func set_pending(pending: bool) -> void:
 	is_pending = pending
 	any_card_pending = pending
 
+	if pending:
+		hide_keyword_tooltip()
+
 	apply_resting_style()
 
 	if pending:
@@ -271,7 +322,12 @@ func _on_mouse_entered() -> void:
 
 	animate_to(rest_position - Vector2(0, HOVER_LIFT), HOVER_SCALE)
 
+	if keyword_tooltip != null:
+		keyword_tooltip.show_beside(self)
+
 func _on_mouse_exited() -> void:
+	hide_keyword_tooltip()
+
 	if any_card_pending or is_leaving:
 		return
 
@@ -280,6 +336,11 @@ func _on_mouse_exited() -> void:
 	z_index = rest_z_index
 
 	animate_to(rest_position, 1.0)
+
+## top_level desacopla o desenho do tooltip da carta; por segurança, ele
+## nunca fica na tela se a carta sair da árvore.
+func _exit_tree() -> void:
+	hide_keyword_tooltip()
 
 func animate_to(target_position: Vector2, target_scale: float, duration: float = HOVER_ANIMATION_DURATION) -> void:
 	if hover_tween != null:

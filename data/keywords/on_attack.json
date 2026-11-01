@@ -1,0 +1,7 @@
+{
+	"id": "on_attack",
+	"name": "On Attack",
+	"aliases": [],
+	"color": "#7d5a1e",
+	"description": "Dispara quando a unidade ataca, mesmo sem alvo. Se ela estiver com Stun e perder o ataque, não dispara."
+}

@@ -1,0 +1,7 @@
+{
+	"id": "stun",
+	"name": "Stun",
+	"aliases": [],
+	"color": "#9a7d0a",
+	"description": "A unidade perde o próximo ataque e gasta 1 stack de Stun. Stun 1 pula exatamente um ataque."
+}

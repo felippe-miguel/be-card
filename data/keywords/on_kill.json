@@ -1,0 +1,7 @@
+{
+	"id": "on_kill",
+	"name": "On Kill",
+	"aliases": [],
+	"color": "#7d5a1e",
+	"description": "Dispara quando o ataque da unidade mata o alvo."
+}
