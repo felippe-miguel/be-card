@@ -90,16 +90,9 @@ func can_place_at(faction: Unit.Faction, lane: int, row: int) -> bool:
 func has_empty_cell(faction: Unit.Faction) -> bool:
 	return get_grid(faction).has(null)
 
-## Alias mantido para compatibilidade com código que ainda pensa em "tem
-## espaço pra mais uma unidade" (ex: EnemySpawner) — equivale a
-## has_empty_cell() já que não existe mais limite separado de "unidades
-## na formação" vs "células do grid".
-func can_add_unit(faction: Unit.Faction) -> bool:
-	return has_empty_cell(faction)
-
 ## Primeira célula vazia, varrendo row por row (Front..Back) e, dentro de
 ## cada row, lane por lane (esquerda a direita). Usado por quem não se
-## importa com a célula exata (add_unit(), EnemySpawner).
+## importa com a célula exata (add_unit()).
 func find_first_empty_cell(faction: Unit.Faction) -> Vector2i:
 	for row in range(ROWS):
 		for lane in range(LANES):
@@ -109,9 +102,9 @@ func find_first_empty_cell(faction: Unit.Faction) -> Vector2i:
 	return Vector2i(-1, -1)
 
 ## Coloca a unidade na primeira célula vazia disponível, sem escolher
-## onde. Equivalente ao antigo "adicionar no fim da formação" — usado
-## quando quem chama não oferece escolha de célula (EnemySpawner, fallback
-## de summon sem posição escolhida).
+## onde — usado quando quem chama não oferece escolha de célula (fallback
+## de summon sem posição escolhida, unidades de BattleDefinition sem
+## lane/row).
 func add_unit(unit: Unit) -> bool:
 	var cell = find_first_empty_cell(unit.faction)
 

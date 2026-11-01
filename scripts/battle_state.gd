@@ -2,7 +2,6 @@ class_name BattleState
 extends RefCounted
 
 var battlefield: Battlefield
-var pyre: Pyre
 var unit_database: UnitDatabase
 var target_system: TargetSystem
 
@@ -40,8 +39,6 @@ func _init(battle_definition: BattleDefinition, database: UnitDatabase) -> void:
 	unit_database = database
 	
 	battlefield = Battlefield.new(battle_definition.floors.size())
-	
-	pyre = Pyre.new("Pyre", 50)
 
 	for floor_index in range(battle_definition.floors.size()):
 		var floor_definition = battle_definition.floors[floor_index]
@@ -281,21 +278,10 @@ func execute_unit_attack(unit: Unit) -> void:
 		if target.is_dead():
 			fire_event(unit, "on_kill", {"target": target})
 
-## Fase de combate automática: cada Unit viva (aliada ou inimiga) ataca uma
-## vez, andar por andar. Usa um snapshot de get_units() por andar para não
-## ser afetado por remoções de unidades derrotadas durante a própria fase.
-func execute_combat_phase() -> void:
-	for battle_floor in battlefield.floors:
-		var units = battle_floor.get_units()
-
-		for unit in units:
-			if unit.is_dead():
-				continue
-
-			execute_unit_attack(unit)
-
-## Só a facção pedida ataca. Mesmo cuidado de snapshot que
-## execute_combat_phase(). Base de execute_full_turn() logo abaixo.
+## Só a facção pedida ataca, andar por andar. Usa um snapshot de
+## get_units_for_faction() por andar para não ser afetado por remoções de
+## unidades derrotadas durante a própria fase. Base de execute_full_turn()
+## logo abaixo.
 func execute_faction_turn(faction: Unit.Faction) -> void:
 	for battle_floor in battlefield.floors:
 		var units = battle_floor.get_units_for_faction(faction)
@@ -329,7 +315,7 @@ func execute_full_turn() -> void:
 ## formas diferentes (docs/MECHANICS_EXECUTION_PLAN.md Etapa 1): Poison
 ## reduz 1 stack por vez, Burn é consumido por completo numa única
 ## aplicação. Snapshot via get_units() de propósito (mesmo cuidado que
-## execute_combat_phase()): unidades que morrem de Poison/Burn são
+## execute_faction_turn()): unidades que morrem de Poison/Burn são
 ## removidas do grid na hora (Unit.changed -> BattleFloor._on_unit_
 ## changed()), o que não pode bagunçar este loop.
 func process_end_of_turn_statuses() -> void:
@@ -642,8 +628,7 @@ func count_units_for_faction(faction: Unit.Faction) -> int:
 
 	return count
 
-## Derrota: nenhum aliado restou vivo em nenhum andar. O Pyre ainda não
-## participa dessa conta — cartas/ataques ainda não conseguem miná-lo.
+## Derrota: nenhum aliado restou vivo em nenhum andar.
 func is_defeat() -> bool:
 	return count_units_for_faction(Unit.Faction.ALLY) == 0
 

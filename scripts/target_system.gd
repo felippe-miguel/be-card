@@ -11,11 +11,9 @@ func _init(state: BattleState) -> void:
 # ==========================================
 ## Ponto de entrada usado por BattleState.execute_unit_attack(). Cada
 ## padrão é identificado por uma string (Unit.attack_pattern, copiada de
-## UnitData) em vez de um TargetRule.Shape — os padrões deste sandbox são
-## algorítmicos (dependem de varrer a lane do atacante, achar o alvo mais
-## distante, espelhar a row de um alvo já encontrado nas lanes vizinhas
-## etc.), não simples formas fixas. TargetRule.Shape continua existindo
-## para o uso mais simples de get_attack_targets() logo abaixo.
+## UnitData) — os padrões são algorítmicos (dependem de varrer a lane do
+## atacante, achar o alvo mais distante, espelhar a row de um alvo já
+## encontrado nas lanes vizinhas etc.), não simples formas fixas.
 func get_pattern_attack_targets(attacker: Unit) -> Array[Unit]:
 	var target_faction = get_opposite_faction(attacker.faction)
 	var count = max(1, attacker.attack_pattern_count)
@@ -128,58 +126,11 @@ func get_primary_plus_adjacent_row(faction: Unit.Faction, lane: int) -> Array[Un
 
 	return targets
 
-# ==========================================
-# UNIT ATTACK TARGETING (legado, TargetRule.Shape)
-# ==========================================
-## FRONT/REAR/ALL, já com escopo de lane — reaproveitado por
-## get_pattern_attack_targets() acima só indiretamente (cada padrão
-## consulta BattleFloor diretamente); mantido para qualquer efeito futuro
-## que precise de uma forma simples sem passar pelo vocabulário de
-## padrões.
-func get_attack_targets(attacker: Unit, shape: TargetRule.Shape) -> Array[Unit]:
-	var target_faction = get_opposite_faction(
-		attacker.faction
-	)
-
-	match shape:
-		TargetRule.Shape.FRONT:
-			return get_front_units(target_faction, attacker.lane)
-
-		TargetRule.Shape.REAR:
-			return get_rear_units(target_faction, attacker.lane)
-
-		TargetRule.Shape.ALL:
-			return get_lane_targets(target_faction, attacker.lane)
-
-		_:
-			return []
-
 func get_opposite_faction(faction: Unit.Faction) -> Unit.Faction:
 	if faction == Unit.Faction.ALLY:
 		return Unit.Faction.ENEMY
 
 	return Unit.Faction.ALLY
-
-func get_front_units(faction: Unit.Faction, lane: int) -> Array[Unit]:
-	var targets: Array[Unit] = []
-	var lane_units = get_battle_floor().get_lane_units(faction, lane)
-
-	if not lane_units.is_empty():
-		targets.append(lane_units.front())
-
-	return targets
-
-func get_rear_units(faction: Unit.Faction, lane: int) -> Array[Unit]:
-	var targets: Array[Unit] = []
-	var lane_units = get_battle_floor().get_lane_units(faction, lane)
-
-	if not lane_units.is_empty():
-		targets.append(lane_units.back())
-
-	return targets
-
-func get_lane_targets(faction: Unit.Faction, lane: int) -> Array[Unit]:
-	return get_battle_floor().get_lane_units(faction, lane)
 
 ## O sandbox só tem um andar (ver docs/playtest_3x3.md) — atalho para não
 ## espalhar battle_state.battlefield.get_floor(0) por todo lugar.
