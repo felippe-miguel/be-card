@@ -1,0 +1,10 @@
+{
+  "id": "raise_dead",
+  "name": "Reerguer",
+  "description": "Revive o último aliado morto numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "skill",
+  "effects": [
+    { "type": "raise_dead", "target": "selected_position" }
+  ]
+}

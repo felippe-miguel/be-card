@@ -1,0 +1,10 @@
+{
+  "id": "detonate_toxin",
+  "name": "Detonar Toxina",
+  "description": "Causa dano igual ao Poison de uma unidade inimiga e remove o Poison.",
+  "cost": 1,
+  "type": "attack",
+  "effects": [
+    { "type": "detonate_poison", "target": "selected_unit", "target_faction": "enemy" }
+  ]
+}

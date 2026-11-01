@@ -1,0 +1,11 @@
+{
+  "id": "cultist",
+  "name": "Cultista",
+  "description": "Sempre que você joga um feitiço, ganha 2 de Block.",
+  "max_hp": 12,
+  "attack": 3,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_card_played", "condition": { "card_type": "spell" }, "effect": { "type": "block", "target": "self", "amount": 2 } }
+  ]
+}

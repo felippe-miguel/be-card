@@ -43,6 +43,12 @@ var simulation_origin_map: Dictionary = {}
 var ally_max_hp_bonus: int = 0
 var ally_attack_bonus: int = 0
 
+## Pilha dos ids de UnitData dos aliados que morreram nesta batalha (o
+## último morto fica no fim) — usada pela carta Reerguer (docs/
+## CARDS_EXECUTION_PLAN.md Passo 4.4). Só o id, não a Unit: revivê-lo cria
+## uma unidade nova pelo mesmo create_unit() de qualquer invocação.
+var dead_ally_ids: Array[String] = []
+
 func _init(battle_definition: BattleDefinition, database: UnitDatabase, max_hp_bonus: int = 0, attack_bonus: int = 0) -> void:
 	unit_database = database
 	ally_max_hp_bonus = max_hp_bonus
@@ -201,6 +207,9 @@ func on_unit_died(unit: Unit) -> void:
 	}
 
 	battlefield.get_floor(0).remove_unit(unit)
+
+	if unit.faction == Unit.Faction.ALLY:
+		dead_ally_ids.append(unit.id)
 
 	fire_event(unit, "on_death", context)
 
@@ -368,7 +377,7 @@ func fire_event(unit: Unit, event_name: String, context: Dictionary = {}) -> voi
 		if trigger.get("event", "") != event_name:
 			continue
 
-		if not trigger_condition_met(unit, trigger.get("condition", {})):
+		if not trigger_condition_met(unit, trigger.get("condition", {}), context):
 			continue
 
 		print(unit.name, " disparou trigger '", event_name, "'.")
@@ -377,23 +386,45 @@ func fire_event(unit: Unit, event_name: String, context: Dictionary = {}) -> voi
 
 ## Combinação "Summon + Posição" (docs/MECHANICS_EXECUTION_PLAN.md Etapa 5:
 ## "ao ser invocado na Front, ganha Strength") — não um motor de condições
-## genérico, só a ÚNICA chave que existe necessidade real agora ("row").
+## genérico, só as chaves que existe necessidade real agora:
+## - "row": a unidade dona está nessa row.
+## - "card_type" (docs/CARDS_EXECUTION_PLAN.md Passo 3): compara com
+##   context["card_type"] do evento (ON_CARD_PLAYED). "spell" é o valor
+##   especial "qualquer carta que não seja de invocar" (type != "unit");
+##   qualquer outro valor é comparação direta. Sem card_type no contexto,
+##   a condição falha.
 ## condition vazio (a grande maioria dos triggers) sempre passa.
-func trigger_condition_met(unit: Unit, condition: Dictionary) -> bool:
+func trigger_condition_met(unit: Unit, condition: Dictionary, context: Dictionary = {}) -> bool:
 	if condition.is_empty():
 		return true
 
 	if condition.has("row") and unit.row != int(condition["row"]):
 		return false
 
+	if condition.has("card_type"):
+		var played_type: String = context.get("card_type", "")
+		var wanted_type: String = condition["card_type"]
+
+		if wanted_type == "spell":
+			if played_type == "" or played_type == "unit":
+				return false
+		elif played_type != wanted_type:
+			return false
+
 	return true
 
 ## Dispara event_name pra toda unidade viva no andar — usado pelos eventos
 ## sem uma unidade "dona" natural (ON_TURN_START/ON_TURN_END/ON_CARD_
 ## PLAYED). Snapshot via get_units(), mesmo cuidado de sempre: nenhuma
-## unidade que morrer durante o disparo bagunça o loop.
-func fire_event_all(event_name: String, context: Dictionary = {}) -> void:
+## unidade que morrer durante o disparo bagunça o loop. only_faction
+## restringe a uma facção (ON_CARD_PLAYED só dispara pros aliados — quem
+## joga a carta é o jogador, ver docs/CARDS_EXECUTION_PLAN.md Passo 3);
+## -1 (default) = todas.
+func fire_event_all(event_name: String, context: Dictionary = {}, only_faction: int = -1) -> void:
 	for unit in battlefield.get_floor(0).get_units():
+		if only_faction >= 0 and unit.faction != only_faction:
+			continue
+
 		if not unit.is_dead():
 			fire_event(unit, event_name, context)
 
@@ -408,6 +439,8 @@ func fire_event_all(event_name: String, context: Dictionary = {}) -> void:
 ## - "lane_enemies": inimigos (facção oposta à de context["faction"]) na
 ##   mesma lane de context["lane"] — usado por ON_DEATH (Explosive), cuja
 ##   posição vem de on_unit_died() (capturada antes da remoção do grid).
+##   Sem lane no context (ON_CARD_PLAYED — Alquimista), usa a lane atual
+##   de effect_owner, igual "adjacent_allies" abaixo.
 ## - "lane_allies": mesma ideia, mas aliados (mesma facção de context
 ##   ["faction"]) na mesma lane — usado por ON_DEATH (Sacrifice). Mira
 ##   TODOS os aliados da lane, não escolhe "o" aliado — mesma simplificação
@@ -442,7 +475,7 @@ func resolve_trigger_targets(target_key: String, effect_owner: Unit, context: Di
 			return []
 
 		"lane_enemies":
-			var lane: int = context.get("lane", -1)
+			var lane: int = context.get("lane", effect_owner.lane)
 
 			if lane < 0:
 				return []
@@ -589,6 +622,7 @@ func clone_for_simulation() -> BattleState:
 	## ON_MOVE enquanto isto roda, senão o preview do turno dispararia esses
 	## triggers de novo só por causa da reconstrução.
 	clone.suppress_events = true
+	clone.dead_ally_ids = dead_ally_ids.duplicate()
 
 	for source_unit in source_units:
 		## source_unit.attack já inclui position_attack_bonus "assado" nele

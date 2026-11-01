@@ -1,0 +1,10 @@
+{
+  "id": "ritual",
+  "name": "Ritual",
+  "description": "Mata uma unidade aliada (dispara o on_death dela).",
+  "cost": 0,
+  "type": "skill",
+  "effects": [
+    { "type": "damage", "target": "selected_unit", "target_faction": "ally", "amount": 99 }
+  ]
+}

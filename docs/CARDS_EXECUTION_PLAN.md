@@ -139,6 +139,14 @@ já existentes no mercador).
 
 # PASSO 2 — Feitiços só com JSON
 
+**Status: implementado, aguardando teste do usuário no editor.**
+
+Feito: 8 cartas em `data/cards/` + `village_market.json` (custo 0–1 → 20,
+custo 2 → 35). Tipos: `toxic_cloud`/`curse`/`spreading_flames` = `attack`,
+o resto `skill`. Verificado por teste headless do fluxo de `Game`: Ritual
+(clique, morte, `on_death`, remoção do grid) e `apply_status` em
+`all_enemies` com `CONFIRM` e preview funcionam sem mudança de código.
+
 Todos usam efeitos e alvos já roteados por `Game._on_card_played()`; não
 precisa de código. Tipo `"attack"` para dano/debuff ofensivo, `"skill"`
 para o resto (mesmo critério das cartas atuais). Adicionar também ao
@@ -176,6 +184,18 @@ Pontos a verificar ao implementar:
 ---
 
 # PASSO 3 — Combo com feitiço (`on_card_played`) + Desarmar
+
+**Status: implementado, aguardando teste do usuário no editor.**
+
+Feito: `trigger_condition_met(unit, condition, context)` com chave
+`card_type` (`"spell"` = tipo != `unit`); `fire_event_all()` ganhou
+`only_faction` e `finish_card_play()` dispara só para aliados com
+`{"card_type": card.data.type}`; `remove_status`/`modify_attack` roteados em
+`_on_card_played()`/`confirm_pending_card()`; `lane_enemies` passou a usar a
+lane do dono quando o contexto não traz lane (necessário pro Alquimista).
+Unidades `battle_apprentice` 14/3, `cultist` 12/3, `alchemist` 14/3,
+`cleric` 14/2 (antes do x2), cartas de invocar (custo 2, preço 40) e
+`disarm` (custo 1, preço 20).
 
 **Aprovado pelo usuário.** Mudança pequena de código, depois conteúdo.
 
@@ -235,6 +255,15 @@ preço 40). Stats sugeridos na faixa das unidades de mecânica (antes do ×2:
 ---
 
 # PASSO 4 — Efeitos novos (um de cada vez, parando para teste entre eles)
+
+**Status: 4.1–4.4 implementados, aguardando teste do usuário no editor.**
+Cartas custo 1 (`double_strength`, `detonate_toxin`, `shield_bash`) preço
+20; `raise_dead` custo 2, preço 35. Efeitos: `double_status`,
+`detonate_poison` (com preview de dano no `UnitView`), `shield_bash`
+(dano comum, sem atribuição ao aliado, Block não consumido) e `raise_dead`
+(pilha `BattleState.dead_ally_ids`, fluxo de célula como o summon, só em
+célula aliada, carta não jogável sem aliado morto). Ver
+`docs/ARCHITECTURE.md` (Effects).
 
 Cada um é um efeito novo em `EffectSystem.apply_basic_effect()` (ou caso
 especial, se precisar de estado do `BattleState`), roteado em

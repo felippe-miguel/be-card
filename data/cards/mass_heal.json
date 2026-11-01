@@ -1,0 +1,10 @@
+{
+  "id": "mass_heal",
+  "name": "Cura em Massa",
+  "description": "Todos os aliados recuperam 4 de HP.",
+  "cost": 2,
+  "type": "skill",
+  "effects": [
+    { "type": "heal", "target": "all_allies", "amount": 4 }
+  ]
+}

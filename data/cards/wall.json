@@ -1,0 +1,10 @@
+{
+  "id": "wall",
+  "name": "Muralha",
+  "description": "Todos os aliados ganham 4 de Block.",
+  "cost": 2,
+  "type": "skill",
+  "effects": [
+    { "type": "block", "target": "all_allies", "amount": 4 }
+  ]
+}

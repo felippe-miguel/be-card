@@ -1,0 +1,10 @@
+{
+  "id": "toxic_cloud",
+  "name": "Nuvem Tóxica",
+  "description": "Aplica Poison 2 a todos os inimigos.",
+  "cost": 2,
+  "type": "attack",
+  "effects": [
+    { "type": "apply_status", "target": "all_enemies", "status": "poison", "stacks": 2 }
+  ]
+}

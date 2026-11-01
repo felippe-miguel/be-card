@@ -37,6 +37,13 @@ func execute_effect(
 		execute_summon_effect(effect, selected_lane, selected_row)
 		return
 
+	## Golpe de Escudo precisa de um alvo derivado (o inimigo da lane do
+	## aliado escolhido), que só o TargetSystem desta instância sabe achar —
+	## por isso não é um "efeito básico" estático (ver apply_basic_effect()).
+	if type == "shield_bash":
+		execute_shield_bash(targets)
+		return
+
 	apply_basic_effect(type, targets, effect)
 
 func execute_summon_effect(effect: Dictionary, selected_lane: int, selected_row: int) -> void:
@@ -70,8 +77,29 @@ func execute_summon_effect(effect: Dictionary, selected_lane: int, selected_row:
 		" Row ", unit.row
 	)
 
+## Golpe de Escudo (docs/CARDS_EXECUTION_PLAN.md Passo 4.3): cada aliado
+## escolhido causa dano igual ao próprio Block ao primeiro inimigo da lane
+## dele (mesma varredura Front -> Back de "lane_front"). O Block não é
+## consumido. Dano comum (take_damage), sem atribuição ao aliado — então
+## ON_KILL/ON_HIT dele não disparam; sem inimigo na lane ou sem Block, nada
+## acontece (a carta é gasta mesmo assim).
+func execute_shield_bash(targets: Array[Unit]) -> void:
+	for ally in targets:
+		if ally.block <= 0:
+			continue
+
+		var lane_enemies = target_system.get_battle_floor().get_lane_units(
+			target_system.get_opposite_faction(ally.faction),
+			ally.lane
+		)
+
+		if lane_enemies.is_empty():
+			continue
+
+		lane_enemies.front().take_damage(ally.block)
+
 ## Aplica um efeito básico (damage/heal/block/apply_status/cleanse/
-## remove_status/modify_attack) já resolvido numa lista de alvos —
+## remove_status/modify_attack/double_status/detonate_poison) já resolvido numa lista de alvos —
 ## reaproveitado tanto por execute_effect()
 ## acima (alvos vêm do vocabulário de CARTA: selected_unit/all_enemies/
 ## all_allies) quanto por BattleState.execute_trigger_effect() (alvos vêm
@@ -129,6 +157,28 @@ static func apply_basic_effect(type: String, targets: Array[Unit], effect: Dicti
 
 			for target in targets:
 				target.modify_attack(amount)
+
+		## Fúria Dobrada (docs/CARDS_EXECUTION_PLAN.md Passo 4.1): soma de
+		## novo os stacks atuais do status. Sem o status, nada acontece.
+		"double_status":
+			var status_id: String = effect.get("status", "")
+
+			for target in targets:
+				target.apply_status(status_id, target.get_status_stacks(status_id))
+
+		## Detonar Toxina (Passo 4.2): dano normal (respeita Block) igual
+		## aos stacks de Poison, e o Poison some. Sem Poison, nada acontece.
+		## Remove antes de causar o dano pra não mexer no status de uma
+		## unidade que o dano acabou de matar.
+		"detonate_poison":
+			for target in targets:
+				var poison_stacks = target.get_status_stacks("poison")
+
+				if poison_stacks <= 0:
+					continue
+
+				target.remove_status("poison")
+				target.take_damage(poison_stacks)
 
 		_:
 			print("Efeito desconhecido: ", type)

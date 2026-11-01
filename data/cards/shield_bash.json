@@ -1,0 +1,10 @@
+{
+  "id": "shield_bash",
+  "name": "Golpe de Escudo",
+  "description": "Uma unidade aliada causa dano igual ao próprio Block ao primeiro inimigo da lane dela (o Block não é consumido).",
+  "cost": 1,
+  "type": "attack",
+  "effects": [
+    { "type": "shield_bash", "target": "selected_unit", "target_faction": "ally" }
+  ]
+}

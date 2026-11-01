@@ -765,7 +765,7 @@ func confirm_pending_card() -> void:
 		"frontline":
 			apply_frontline()
 
-		"damage", "heal", "block", "apply_status", "cleanse":
+		"damage", "heal", "block", "apply_status", "cleanse", "remove_status", "modify_attack":
 			effect_system.execute_effect(effect)
 
 	finish_card_play(card)
@@ -1001,14 +1001,33 @@ func is_orthogonally_adjacent(lane_a: int, row_a: int, lane_b: int, row_b: int) 
 	return (lane_diff + row_diff) == 1
 
 func spawn_unit_at(faction: Unit.Faction, lane: int, row: int) -> void:
+	## Reerguer só vale em célula aliada; o aliado morto sai da pilha ANTES
+	## de entrar em campo (o on_summon dele pode, em tese, matar alguém e
+	## empilhar outro morto) e volta pra ela se a colocação falhar.
+	var reviving: bool = pending_card != null and pending_card.data.effects[0].get("type", "") == "raise_dead"
+
+	if reviving:
+		if faction != Unit.Faction.ALLY:
+			status_label.text = "Reerguer só vale numa célula do grid aliado."
+			cancel_pending_action()
+			return
+
+		battle_state.dead_ally_ids.pop_back()
+
 	var unit = battle_state.create_unit(pending_spawn_unit_id, faction)
 
 	if unit == null:
+		if reviving:
+			battle_state.dead_ally_ids.append(pending_spawn_unit_id)
+
 		cancel_pending_action()
 		return
 
 	if not get_main_floor().place_unit_at(unit, lane, row):
 		print("Célula ocupada!")
+
+		if reviving:
+			battle_state.dead_ally_ids.append(pending_spawn_unit_id)
 	elif pending_card != null:
 		finish_card_play(pending_card)
 
@@ -1090,7 +1109,19 @@ func _on_card_played(card: Card) -> void:
 			begin_pending_card(card)
 			arm_frontline_preview()
 
-		"damage", "heal", "block", "apply_status", "cleanse":
+		## Reerguer (docs/CARDS_EXECUTION_PLAN.md Passo 4.4): mesmo fluxo de
+		## clique de célula da invocação, mas só se houver um aliado morto
+		## pra reviver — senão a carta nem entra em espera (nada é gasto).
+		"raise_dead":
+			if battle_state.dead_ally_ids.is_empty():
+				status_label.text = "Nenhum aliado morto para reerguer."
+				return
+
+			pending_spawn_unit_id = battle_state.dead_ally_ids.back()
+			pending_action = PendingAction.SPAWN
+			begin_pending_card(card)
+
+		"damage", "heal", "block", "apply_status", "cleanse", "remove_status", "modify_attack", "double_status", "detonate_poison", "shield_bash":
 			begin_effect_card(card, effect)
 
 		_:
@@ -1182,9 +1213,11 @@ func finish_card_play(card: Card) -> void:
 		deck.discard(card.data)
 
 	## ON_CARD_PLAYED (docs/MECHANICS_EXECUTION_PLAN.md Etapa 2) — sem uma
-	## unidade "dona" natural da jogada, dispara pra toda unidade viva no
-	## campo (ver BattleState.fire_event_all()).
-	battle_state.fire_event_all("on_card_played")
+	## unidade "dona" natural da jogada, dispara pras unidades vivas ALIADAS
+	## (quem joga a carta é o jogador; inimigos nunca reagem). O contexto
+	## leva o tipo da carta pra condição "card_type" (ver BattleState.
+	## trigger_condition_met()).
+	battle_state.fire_event_all("on_card_played", {"card_type": card.data.type}, Unit.Faction.ALLY)
 
 	## A maioria dos efeitos de carta já dispara battlefield_changed
 	## sozinha (dano/cura/bloqueio/ATK emitem Unit.changed; mover/invocar/

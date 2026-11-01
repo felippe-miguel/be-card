@@ -38,6 +38,23 @@
     "summon_vampiric": 40,
     "summon_venomous_assassin": 50,
     "summon_executioner": 50,
-    "summon_elder_guardian": 50
+    "summon_elder_guardian": 50,
+    "war_cry": 35,
+    "ritual": 20,
+    "toxic_cloud": 35,
+    "curse": 35,
+    "spreading_flames": 35,
+    "wall": 35,
+    "fortify": 35,
+    "mass_heal": 35,
+    "disarm": 20,
+    "double_strength": 20,
+    "detonate_toxin": 20,
+    "shield_bash": 20,
+    "raise_dead": 35,
+    "summon_battle_apprentice": 40,
+    "summon_cultist": 40,
+    "summon_alchemist": 40,
+    "summon_cleric": 40
   }
 }

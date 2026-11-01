@@ -1,0 +1,10 @@
+{
+  "id": "curse",
+  "name": "Maldição",
+  "description": "Aplica Weakness 1 a todos os inimigos.",
+  "cost": 2,
+  "type": "attack",
+  "effects": [
+    { "type": "apply_status", "target": "all_enemies", "status": "weakness", "stacks": 1 }
+  ]
+}

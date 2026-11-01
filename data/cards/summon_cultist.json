@@ -1,0 +1,10 @@
+{
+  "id": "summon_cultist",
+  "name": "Invocar Cultista",
+  "description": "Invoca um Cultista numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "cultist", "target": "selected_position" }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "id": "fortify",
+  "name": "Fortificar",
+  "description": "Uma unidade aliada ganha 12 de Block.",
+  "cost": 2,
+  "type": "skill",
+  "effects": [
+    { "type": "block", "target": "selected_unit", "target_faction": "ally", "amount": 12 }
+  ]
+}

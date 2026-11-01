@@ -1,0 +1,10 @@
+{
+  "id": "spreading_flames",
+  "name": "Chamas Alastrantes",
+  "description": "Aplica Burn 2 a todos os inimigos.",
+  "cost": 2,
+  "type": "attack",
+  "effects": [
+    { "type": "apply_status", "target": "all_enemies", "status": "burn", "stacks": 2 }
+  ]
+}

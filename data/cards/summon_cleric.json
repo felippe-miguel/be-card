@@ -1,0 +1,10 @@
+{
+  "id": "summon_cleric",
+  "name": "Invocar Clérigo",
+  "description": "Invoca um Clérigo numa célula vazia do grid aliado.",
+  "cost": 2,
+  "type": "unit",
+  "effects": [
+    { "type": "summon", "unit": "cleric", "target": "selected_position" }
+  ]
+}

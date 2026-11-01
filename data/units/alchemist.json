@@ -1,0 +1,11 @@
+{
+  "id": "alchemist",
+  "name": "Alquimista",
+  "description": "Sempre que você joga um feitiço, aplica Poison 1 aos inimigos da própria lane.",
+  "max_hp": 14,
+  "attack": 3,
+  "attack_pattern": "lane_front",
+  "triggers": [
+    { "event": "on_card_played", "condition": { "card_type": "spell" }, "effect": { "type": "apply_status", "target": "lane_enemies", "status": "poison", "stacks": 1 } }
+  ]
+}

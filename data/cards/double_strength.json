@@ -1,0 +1,10 @@
+{
+  "id": "double_strength",
+  "name": "Fúria Dobrada",
+  "description": "Dobra os stacks de Strength de uma unidade aliada.",
+  "cost": 1,
+  "type": "skill",
+  "effects": [
+    { "type": "double_status", "target": "selected_unit", "target_faction": "ally", "status": "strength" }
+  ]
+}

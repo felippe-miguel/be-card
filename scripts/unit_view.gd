@@ -304,6 +304,14 @@ func show_effect_preview() -> void:
 			"block":
 				preview_block += amount
 
+			## Detonar Toxina: dano = stacks de Poison atuais.
+			"detonate_poison":
+				var poison_damage = unit.get_status_stacks("poison")
+				var detonate_result = CombatMath.apply_block(poison_damage, preview_block)
+
+				preview_block = detonate_result.remaining_block
+				preview_hp = max(0, preview_hp - detonate_result.remaining_damage)
+
 	render_display(preview_hp, preview_block)
 
 func _pressed() -> void:

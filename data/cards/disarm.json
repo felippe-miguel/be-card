@@ -1,0 +1,10 @@
+{
+  "id": "disarm",
+  "name": "Desarmar",
+  "description": "Remove toda a Strength de uma unidade inimiga.",
+  "cost": 1,
+  "type": "skill",
+  "effects": [
+    { "type": "remove_status", "target": "selected_unit", "target_faction": "enemy", "status": "strength" }
+  ]
+}
