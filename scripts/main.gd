@@ -44,6 +44,13 @@ var starting_artifacts: Array[String] = []
 ## Catálogo de artefatos (data/artifacts/*.json) — Etapa 6.
 var artifact_database: ArtifactDatabase
 
+## Catálogo de unidades e glossário de palavras-chave, carregados uma vez
+## aqui (o Game continua carregando o próprio UnitDatabase, porque também
+## abre direto pelo editor). Servem às telas que mostram cartas de verdade
+## (Merchant, DeckBuilder): preview de ATK/HP da invocação e tooltips.
+var unit_database: UnitDatabase
+var keyword_database: KeywordDatabase
+
 ## Estoques dos mercadores (data/merchants/*.json), por id.
 var merchant_database: MerchantDatabase
 
@@ -73,6 +80,12 @@ func _ready() -> void:
 
 	artifact_database = ArtifactDatabase.new()
 	artifact_database.load_artifacts()
+
+	unit_database = UnitDatabase.new()
+	unit_database.load_units()
+
+	keyword_database = KeywordDatabase.new()
+	keyword_database.load_keywords()
 
 	starting_collection = CampaignState.load_starting_collection(card_database)
 	starting_decks = CampaignState.load_starting_decks(card_database, artifact_database)
@@ -161,7 +174,7 @@ func show_point_placeholder(point: WorldPointData) -> void:
 func show_deck_builder(deck_index: int) -> void:
 	var builder: DeckBuilder = DECK_BUILDER_SCENE.instantiate()
 
-	builder.setup(campaign_state, card_database, artifact_database, deck_index)
+	builder.setup(campaign_state, card_database, artifact_database, unit_database, keyword_database, deck_index)
 	builder.closed.connect(show_overworld)
 
 	switch_to(builder)
@@ -171,7 +184,7 @@ func show_deck_builder(deck_index: int) -> void:
 func show_merchant(point: WorldPointData, merchant: MerchantData) -> void:
 	var screen: Merchant = MERCHANT_SCENE.instantiate()
 
-	screen.setup(point, merchant, campaign_state, card_database, artifact_database)
+	screen.setup(point, merchant, campaign_state, card_database, artifact_database, unit_database, keyword_database)
 	screen.back_pressed.connect(show_overworld)
 
 	switch_to(screen)

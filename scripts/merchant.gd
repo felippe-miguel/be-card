@@ -2,13 +2,27 @@ class_name Merchant
 extends Control
 
 ## Tela de um mercador (docs/CAMPAIGN_EXECUTION_PLAN.md, Etapas 4 e 6) — o
-## mesmo para cartas e artefatos: uma linha por item à venda (nome, detalhe,
-## o que o jogador já tem, preço) e um botão de compra. Mostra a seção de
+## mesmo para cartas e artefatos: um grid de cartas de verdade por seção, cada
+## uma com o que o jogador já tem e um botão de compra com o preço. Mostra a seção de
 ## cartas e/ou a de artefatos conforme o estoque do MerchantData. A regra de
 ## compra (ouro, coleção, artefato único) é do CampaignState; aqui só se
 ## reflete isso na tela.
 
 signal back_pressed
+
+const CARD_SCENE: PackedScene = preload("res://scenes/card.tscn")
+const ARTIFACT_CARD_SCENE: PackedScene = preload("res://scenes/artifact_card.tscn")
+
+## Folga ao redor do grid de cartas: o ScrollContainer corta o que sair da
+## área dele, e a carta sob o mouse sobe Card.HOVER_LIFT e cresce
+## Card.HOVER_SCALE ao redor do centro (ver Card). Sem esta margem, a
+## primeira linha seria cortada no topo e as colunas das pontas, nas laterais.
+const GRID_MARGIN_TOP = 40
+const GRID_MARGIN_SIDE = 24
+const GRID_MARGIN_BOTTOM = 16
+const GRID_SEPARATION_H = 24
+const GRID_SEPARATION_V = 32
+const GRID_COLUMNS = 3
 
 @onready var title_label: Label = $Margin/Layout/TopBar/TitleLabel
 @onready var gold_label: Label = $Margin/Layout/TopBar/GoldLabel
@@ -21,6 +35,8 @@ var merchant: MerchantData
 var campaign_state: CampaignState
 var card_database: CardDatabase
 var artifact_database: ArtifactDatabase
+var unit_database: UnitDatabase
+var keyword_database: KeywordDatabase
 
 ## Botão de compra e label de "o que você tem" por item, pra atualizar só o
 ## estado a cada mudança em vez de recriar as linhas. Chaves separadas por
@@ -30,12 +46,14 @@ var card_owned_labels: Dictionary = {}
 var artifact_buy_buttons: Dictionary = {}
 var artifact_owned_labels: Dictionary = {}
 
-func setup(entered_point: WorldPointData, merchant_data: MerchantData, state: CampaignState, cards: CardDatabase, artifacts: ArtifactDatabase) -> void:
+func setup(entered_point: WorldPointData, merchant_data: MerchantData, state: CampaignState, cards: CardDatabase, artifacts: ArtifactDatabase, units: UnitDatabase, keywords: KeywordDatabase) -> void:
 	point = entered_point
 	merchant = merchant_data
 	campaign_state = state
 	card_database = cards
 	artifact_database = artifacts
+	unit_database = units
+	keyword_database = keywords
 
 func _ready() -> void:
 	title_label.text = point.name
@@ -72,14 +90,22 @@ func render_rows() -> void:
 	if not merchant.artifact_prices.is_empty():
 		rows_container.add_child(create_section_title("Artefatos"))
 
+		var grid = create_grid()
+
 		for artifact_id in sort_by_price(merchant.artifact_prices, func(id): return artifact_database.artifacts[id].name):
-			rows_container.add_child(create_artifact_row(artifact_id))
+			grid.add_child(create_artifact_tile(artifact_id))
+
+		rows_container.add_child(wrap_with_hover_margin(grid))
 
 	if not merchant.card_prices.is_empty():
 		rows_container.add_child(create_section_title("Cartas"))
 
+		var grid = create_grid()
+
 		for card_id in sort_by_price(merchant.card_prices, func(id): return card_database.cards[id].name):
-			rows_container.add_child(create_card_row(card_id))
+			grid.add_child(create_card_tile(card_id))
+
+		rows_container.add_child(wrap_with_hover_margin(grid))
 
 func create_section_title(text: String) -> Label:
 	var label = Label.new()
@@ -89,50 +115,102 @@ func create_section_title(text: String) -> Label:
 
 	return label
 
-## Linha genérica: texto (expande) + label de "o que você tem" + botão.
-func create_row(info_text: String, price: int) -> Dictionary:
-	var row = HBoxContainer.new()
-	var info = Label.new()
+func create_grid() -> GridContainer:
+	var grid = GridContainer.new()
+
+	grid.columns = GRID_COLUMNS
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	grid.add_theme_constant_override("h_separation", GRID_SEPARATION_H)
+	grid.add_theme_constant_override("v_separation", GRID_SEPARATION_V)
+
+	return grid
+
+## Margem em volta do grid pra o hover da carta não ser cortado pelo
+## ScrollContainer (ver GRID_MARGIN_*). Centraliza o grid na horizontal.
+func wrap_with_hover_margin(content: Control) -> MarginContainer:
+	var margin = MarginContainer.new()
+
+	margin.add_theme_constant_override("margin_top", GRID_MARGIN_TOP)
+	margin.add_theme_constant_override("margin_left", GRID_MARGIN_SIDE)
+	margin.add_theme_constant_override("margin_right", GRID_MARGIN_SIDE)
+	margin.add_theme_constant_override("margin_bottom", GRID_MARGIN_BOTTOM)
+	margin.add_child(content)
+
+	return margin
+
+## Tile genérico (carta ou artefato): o item (Card/ArtifactCard) dentro de
+## um holder + rodapé com "o que você tem" e o botão de compra. A Card se
+## posiciona sozinha (position animada no hover), o que brigaria com o
+## layout de um Container — por isso ela fica num holder (Control comum, que
+## não reposiciona filhos) do tamanho dela, com rest_position ZERO. O
+## holder ignora o mouse e o item usa PASS: o hover funciona e a roda do
+## mouse ainda rola o ScrollContainer. Sem clique de compra na carta: só
+## pelo botão, pra não comprar sem querer.
+func create_tile(item: Control, price: int) -> Dictionary:
+	var tile = VBoxContainer.new()
+	var holder = Control.new()
+	var footer = HBoxContainer.new()
 	var owned = Label.new()
 	var buy = Button.new()
 
-	row.add_theme_constant_override("separation", 16)
+	tile.add_theme_constant_override("separation", 8)
 
-	info.text = info_text
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	holder.custom_minimum_size = item.custom_minimum_size
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	owned.custom_minimum_size = Vector2(110, 0)
+	## O rodapé (Você tem + botão) pode ser mais largo que a carta e alargar o
+	## tile; sem isto o holder esticaria e a carta ficaria colada à esquerda.
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	item.mouse_filter = Control.MOUSE_FILTER_PASS
+	holder.add_child(item)
+	item.position = Vector2.ZERO
+	item.rest_position = Vector2.ZERO
+	tile.add_child(holder)
+
+	owned.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	owned.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
-	buy.custom_minimum_size = Vector2(180, 44)
+	buy.custom_minimum_size = Vector2(150, 44)
 	buy.text = "Comprar — %d ouro" % price
 
-	row.add_child(info)
-	row.add_child(owned)
-	row.add_child(buy)
+	footer.add_theme_constant_override("separation", 8)
+	footer.add_child(owned)
+	footer.add_child(buy)
+	tile.add_child(footer)
 
-	return {"row": row, "owned": owned, "buy": buy}
+	return {"tile": tile, "owned": owned, "buy": buy}
 
-func create_card_row(card_id: String) -> Control:
+## O custo de mana fica sempre na cor normal (set_affordable() é sobre mana
+## em combate, não sobre ouro).
+func create_card_tile(card_id: String) -> Control:
 	var card_data: CardData = card_database.cards[card_id]
-	var parts = create_row("%s  (mana %d)\n%s" % [card_data.name, card_data.cost, card_data.description], merchant.get_card_price(card_id))
+	var card: Card = CARD_SCENE.instantiate()
+	var parts = create_tile(card, merchant.get_card_price(card_id))
+
+	## setup() usa os @onready da Card, que só existem quando ela entra na
+	## árvore; o tile ainda não está nela aqui, então o setup espera o sinal
+	## ready (emitido depois do _ready() da própria Card).
+	card.ready.connect(card.setup.bind(card_data, unit_database, keyword_database))
 
 	parts.buy.pressed.connect(_on_buy_card_pressed.bind(card_id))
 	card_buy_buttons[card_id] = parts.buy
 	card_owned_labels[card_id] = parts.owned
 
-	return parts.row
+	return parts.tile
 
-func create_artifact_row(artifact_id: String) -> Control:
+func create_artifact_tile(artifact_id: String) -> Control:
 	var artifact: ArtifactData = artifact_database.artifacts[artifact_id]
-	var parts = create_row("%s\n%s" % [artifact.name, artifact.description], merchant.get_artifact_price(artifact_id))
+	var artifact_card: ArtifactCard = ARTIFACT_CARD_SCENE.instantiate()
+	var parts = create_tile(artifact_card, merchant.get_artifact_price(artifact_id))
+
+	artifact_card.ready.connect(artifact_card.setup.bind(artifact, keyword_database))
 
 	parts.buy.pressed.connect(_on_buy_artifact_pressed.bind(artifact_id))
 	artifact_buy_buttons[artifact_id] = parts.buy
 	artifact_owned_labels[artifact_id] = parts.owned
 
-	return parts.row
+	return parts.tile
 
 ## Carta: compra quantas quiser enquanto tiver ouro. Artefato: um de cada —
 ## já possuído fica desabilitado com "Já possui".

@@ -1,0 +1,106 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/artifact_card.gd" id="1_artifact_card"]
+[ext_resource type="Texture2D" uid="uid://c2if82ctl3mji" path="res://resources/images/frames/default-card-shadow.png" id="2_frame"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_name"]
+font_size = 15
+font_color = Color(0.012617188, 0.012617188, 0.012617188, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_marker"]
+font_size = 11
+font_color = Color(1, 0.85, 0.4, 1)
+outline_size = 3
+outline_color = Color(0.1, 0.07, 0.02, 0.9)
+
+[sub_resource type="SystemFont" id="SystemFont_normal"]
+subpixel_positioning = 0
+
+[sub_resource type="SystemFont" id="SystemFont_bold"]
+font_weight = 700
+subpixel_positioning = 0
+
+[sub_resource type="FontVariation" id="FontVariation_bold"]
+base_font = SubResource("SystemFont_bold")
+variation_embolden = 0.5
+
+[node name="ArtifactCard" type="Control"]
+custom_minimum_size = Vector2(220, 335)
+layout_mode = 3
+anchors_preset = 0
+offset_right = 220.0
+offset_bottom = 335.0
+script = ExtResource("1_artifact_card")
+
+[node name="Art" type="TextureRect" parent="."]
+layout_mode = 1
+offset_left = 24.0
+offset_top = 23.0
+offset_right = 194.0
+offset_bottom = 181.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Frame" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_frame")
+expand_mode = 1
+
+[node name="NameLabel" type="Label" parent="."]
+layout_mode = 1
+offset_left = 44.0
+offset_top = 168.0
+offset_right = 184.0
+offset_bottom = 196.0
+theme_override_colors/font_color = Color(0.012617188, 0.012617188, 0.012617188, 1)
+theme_override_font_sizes/font_size = 17
+text = "artefato"
+label_settings = SubResource("LabelSettings_name")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="DescriptionLabel" type="RichTextLabel" parent="."]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 21.0
+offset_top = 82.5
+offset_right = 201.0
+offset_bottom = 82.5
+grow_vertical = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.012617188, 0.012617188, 0.012617188, 1)
+theme_override_constants/line_separation = -3
+theme_override_fonts/normal_font = SubResource("SystemFont_normal")
+theme_override_fonts/bold_font = SubResource("FontVariation_bold")
+theme_override_font_sizes/normal_font_size = 10
+theme_override_font_sizes/bold_font_size = 10
+bbcode_enabled = true
+text = "[center]descrição[/center]"
+fit_content = true
+scroll_active = false
+
+[node name="MarkerLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 74.0
+offset_top = -44.0
+offset_right = -72.0
+offset_bottom = -25.0
+grow_horizontal = 2
+grow_vertical = 0
+text = "Artefato"
+label_settings = SubResource("LabelSettings_marker")
+horizontal_alignment = 1
+vertical_alignment = 1
