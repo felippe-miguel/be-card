@@ -69,8 +69,9 @@ const DISABLED_TYPE_COLOR_ALPHA = 0.45
 var world_map: WorldMapData
 var campaign_state: CampaignState
 
-## Só pra mostrar o nome das cartas da coleção (o CampaignState guarda ids).
+## Só pra mostrar nomes de cartas e artefatos (o CampaignState guarda ids).
 var card_database: CardDatabase
+var artifact_database: ArtifactDatabase
 
 ## id do ponto -> Button desenhado pra ele.
 var point_buttons: Dictionary = {}
@@ -80,10 +81,11 @@ var point_buttons: Dictionary = {}
 ## nenhuma. Fica até a tela ser trocada; sem timer, de propósito (cru).
 var notice: String = ""
 
-func setup(map: WorldMapData, state: CampaignState, cards: CardDatabase, arrival_notice: String = "") -> void:
+func setup(map: WorldMapData, state: CampaignState, cards: CardDatabase, artifacts: ArtifactDatabase, arrival_notice: String = "") -> void:
 	world_map = map
 	campaign_state = state
 	card_database = cards
+	artifact_database = artifacts
 	notice = arrival_notice
 
 func _ready() -> void:
@@ -173,11 +175,12 @@ func create_deck_option(index: int) -> HBoxContainer:
 	var button = Button.new()
 	var edit_button = Button.new()
 
-	button.text = "%s%s (%d cartas)%s" % [
+	button.text = "%s%s (%d cartas)%s\nArtefato: %s" % [
 		"✔ " if is_active else "",
 		deck_list.name,
 		deck_list.get_total_card_count(),
-		"" if is_valid else " — inválido"
+		"" if is_valid else " — inválido",
+		get_artifact_name(deck_list.artifact_id) if deck_list.artifact_id != "" else "nenhum"
 	]
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -200,7 +203,30 @@ func refresh_collection_panel() -> void:
 	for card_id in get_sorted_collection_ids():
 		lines.append("%s ×%d" % [get_card_name(card_id), campaign_state.get_copies(card_id)])
 
-	collection_list.text = "\n".join(lines) if not lines.is_empty() else "Nenhuma carta."
+	if lines.is_empty():
+		lines.append("Nenhuma carta.")
+
+	## Artefatos na mesma lista, numa seção própria (Etapa 6) — painel cru,
+	## só leitura, igual às cartas.
+	lines.append("")
+	lines.append("Artefatos:")
+
+	var artifact_ids = campaign_state.artifacts.keys()
+
+	artifact_ids.sort_custom(func(a, b): return get_artifact_name(a).naturalnocasecmp_to(get_artifact_name(b)) < 0)
+
+	for artifact_id in artifact_ids:
+		lines.append(get_artifact_name(artifact_id))
+
+	if artifact_ids.is_empty():
+		lines.append("Nenhum artefato.")
+
+	collection_list.text = "\n".join(lines)
+
+func get_artifact_name(artifact_id: String) -> String:
+	var artifact: ArtifactData = artifact_database.artifacts.get(artifact_id)
+
+	return artifact.name if artifact != null else artifact_id
 
 ## Ordem alfabética pelo nome exibido, não pelo id — é o que o jogador lê.
 func get_sorted_collection_ids() -> Array:

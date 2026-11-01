@@ -4,8 +4,8 @@ extends RefCounted
 ## Estado de campanha (docs/CAMPAIGN_EXECUTION_PLAN.md, Passos 1.3/1.5 e
 ## Etapa 2): o que é específico DESTE jogador e sobrevive à campanha
 ## inteira — onde ele está no overworld, o que já fez em cada ponto, quais
-## cartas possui, os decks que montou (Etapa 3) e quanto ouro tem (Etapa
-## 4). Artefatos entram nas próximas etapas. Guarda só ids (nunca WorldPointData/CardData), pra
+## cartas e artefatos possui (Etapas 2 e 6), os decks que montou (Etapa 3)
+## e quanto ouro tem (Etapa 4). Guarda só ids (nunca WorldPointData/CardData), pra
 ## serializar direto num save no futuro (Etapa 8) e pra uma mudança no
 ## JSON de uma carta valer na hora.
 
@@ -41,6 +41,11 @@ var active_deck_index: int = -1
 ## Ouro (Etapa 4): ganho vencendo combates, gasto em mercadores.
 var gold: int = 0
 
+## Coleção de artefatos (Etapa 6): artifact_id -> true (Dictionary como
+## set). Cada artefato se possui uma vez só, e o MESMO artefato pode ser
+## equipado em vários decks ao mesmo tempo — equipar não "gasta" nada.
+var artifacts: Dictionary = {}
+
 ## Conjuntos de ids de ponto (point_id -> true) — Dictionary usado como set.
 var visited_point_ids: Dictionary = {}
 
@@ -53,11 +58,16 @@ var won_combat_point_ids: Dictionary = {}
 ## load_starting_collection()/load_starting_decks() (já validados contra o
 ## catálogo). Os decks são duplicados aqui — a campanha nunca altera os
 ## dados de partida. O deck ativo inicial é o primeiro válido da lista.
-func _init(start_point_id: String, starting_collection: Dictionary = {}, starting_decks: Array[DeckList] = [], starting_gold: int = 0) -> void:
+func _init(start_point_id: String, starting_collection: Dictionary = {}, starting_decks: Array[DeckList] = [], starting_gold: int = 0, starting_artifacts: Array[String] = []) -> void:
 	current_point_id = start_point_id
 	visited_point_ids[start_point_id] = true
 	collection = starting_collection.duplicate()
 	gold = max(0, starting_gold)
+
+	## Antes dos decks: um deck inicial com artefato só é válido se o
+	## artefato já estiver na coleção (ver is_deck_valid()).
+	for artifact_id in starting_artifacts:
+		artifacts[artifact_id] = true
 
 	for deck_list in starting_decks:
 		deck_lists.append(deck_list.duplicate_list())
@@ -71,7 +81,7 @@ func _init(start_point_id: String, starting_collection: Dictionary = {}, startin
 ## "cards": {...}}]}) — o primeiro da lista vira o deck ativo de uma
 ## campanha nova (se for válido). Cada deck valida as próprias cartas em
 ## DeckList.from_dict().
-static func load_starting_decks(card_database: CardDatabase, path: String = STARTING_DECKS_PATH) -> Array[DeckList]:
+static func load_starting_decks(card_database: CardDatabase, artifact_database: ArtifactDatabase, path: String = STARTING_DECKS_PATH) -> Array[DeckList]:
 	var result: Array[DeckList] = []
 	var file = FileAccess.open(path, FileAccess.READ)
 
@@ -86,7 +96,7 @@ static func load_starting_decks(card_database: CardDatabase, path: String = STAR
 		return result
 
 	for deck_data in data.get("decks", []):
-		result.append(DeckList.from_dict(deck_data, card_database))
+		result.append(DeckList.from_dict(deck_data, card_database, artifact_database))
 
 	print("Decks iniciais carregados: ", result.size())
 
@@ -115,6 +125,32 @@ static func load_starting_gold(path: String = STARTING_RESOURCES_PATH) -> int:
 		return 0
 
 	return int(raw_gold)
+
+## Artefatos iniciais de uma campanha nova, do mesmo STARTING_RESOURCES_PATH
+## ({"artifacts": ["<artifact_id>", ...]}). Id desconhecido é ignorado com
+## aviso.
+static func load_starting_artifacts(artifact_database: ArtifactDatabase, path: String = STARTING_RESOURCES_PATH) -> Array[String]:
+	var result: Array[String] = []
+	var file = FileAccess.open(path, FileAccess.READ)
+
+	if file == null:
+		print("Não consegui abrir: ", path)
+		return result
+
+	var data = JSON.parse_string(file.get_as_text())
+
+	if data == null or not data is Dictionary:
+		print("JSON inválido: ", path)
+		return result
+
+	for artifact_id in data.get("artifacts", []):
+		if not artifact_database.artifacts.has(artifact_id):
+			print("Artefato inicial desconhecido ignorado: ", artifact_id)
+			continue
+
+		result.append(artifact_id)
+
+	return result
 
 ## Lê a coleção inicial de uma campanha nova de STARTING_COLLECTION_PATH
 ## ({"cards": {"<card_id>": <cópias>}}). Carta que não existe no catálogo
@@ -199,6 +235,30 @@ func record_current_combat_result(victory: bool, gold_reward: int = 0) -> int:
 
 	return max(0, earned)
 
+func owns_artifact(artifact_id: String) -> bool:
+	return artifacts.has(artifact_id)
+
+## Única forma de ganhar um artefato — mercador, recompensa e evento devem
+## passar por aqui, igual add_card() pras cartas. Já possuído = nada muda.
+func add_artifact(artifact_id: String) -> void:
+	if owns_artifact(artifact_id):
+		return
+
+	artifacts[artifact_id] = true
+
+	changed.emit()
+
+## Mercador de artefatos (Etapa 6): recusa sem ouro ou se já possui (só dá
+## pra ter um de cada).
+func buy_artifact(artifact_id: String, price: int) -> bool:
+	if owns_artifact(artifact_id) or not can_afford(price):
+		return false
+
+	gold -= price
+	add_artifact(artifact_id)
+
+	return true
+
 func can_afford(price: int) -> bool:
 	return price >= 0 and gold >= price
 
@@ -235,11 +295,15 @@ func get_total_card_count() -> int:
 
 	return total
 
-## Válido = tem ao menos uma carta e não usa mais cópias de nenhuma carta
-## do que a coleção possui. Hoje a coleção só cresce, então um deck válido
-## continua válido — isso muda se um dia der pra vender/perder carta.
+## Válido = tem ao menos uma carta, não usa mais cópias de nenhuma carta
+## do que a coleção possui, e o artefato equipado (se houver) é um que o
+## jogador possui. Hoje coleção e artefatos só crescem, então um deck válido
+## continua válido — isso muda se um dia der pra vender/perder algo.
 func is_deck_valid(deck_list: DeckList) -> bool:
 	if deck_list.get_total_card_count() == 0:
+		return false
+
+	if deck_list.artifact_id != "" and not owns_artifact(deck_list.artifact_id):
 		return false
 
 	for card_id in deck_list.cards:

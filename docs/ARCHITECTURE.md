@@ -68,7 +68,7 @@ Keep these clearly separated, especially once the campaign layer exists:
   and survives the whole campaign. Today it holds the current map point,
   visited points, won combats and the card collection (`card_id ->
   copies`) and the player's deck lists plus which one is active.
-  and gold. Planned: artifacts. Store ids, not catalog objects, so it serializes
+  gold and owned artifacts. Store ids, not catalog objects, so it serializes
   cleanly to a save file.
 - **Battle state** (`BattleState`, `Battlefield`, `BattleFloor`, `Unit`,
   plus `Deck`/`Mana` owned by `Game`): exists only during one combat.
@@ -80,7 +80,7 @@ Nodes (presentation/input):
 - `Main` (`Node`, `main.tscn`): the project's main scene. Owns the current
   screen (see Scene flow).
 - `MainMenu` (`Control`, `main_menu.tscn`), `Overworld` (`Control`,
-  `overworld.tscn`), `CardMerchant` (`Control`, `card_merchant.tscn`),
+  `overworld.tscn`), `Merchant` (`Control`, `merchant.tscn`),
   `DeckBuilder` (`Control`, `deck_builder.tscn`), `PointPlaceholder` (`Control`, `point_placeholder.tscn`): screens
   instantiated by `Main`.
 - `Game` (`Control`, `game.tscn`): the battle scene. It orchestrates one
@@ -101,7 +101,8 @@ Nodes (presentation/input):
 - `Battlefield`, `BattleFloor`
 - `EffectSystem`, `TargetSystem`
 - `CombatMath` (shared block-absorption math)
-- `MerchantData`, `MerchantDatabase` (card merchant stock catalog)
+- `MerchantData`, `MerchantDatabase` (merchant stock catalog: cards and/or artifacts)
+- `ArtifactData`, `ArtifactDatabase` (artifact catalog)
 - `DeckList` (a campaign deck built from the collection)
 - `Deck` (in-combat draw pile / hand / discard / graveyard)
 - `Mana`
@@ -117,12 +118,13 @@ res://
 │   ├── units/     (38 unit types)
 │   ├── battles/   (test_battle.json)
 │   ├── world/     (overworld.json)
-│   ├── merchants/ (card merchant stock, e.g. village_market.json)
+│   ├── merchants/ (merchant stock: village_market.json, wandering_trader.json)
+│   ├── artifacts/ (4 artifacts)
 │   └── campaign/  (starting_collection.json, starting_decks.json, starting_resources.json)
 ├── resources/
 │   ├── audio/     (music, sfx + SfxSheet .tres)
 │   └── images/    (cards/<card_id>.png art, frames)
-├── scenes/        (main, main_menu, overworld, card_merchant, deck_builder, point_placeholder, game, battle_floor, unit_view, card, card_pile_view, sfx_player)
+├── scenes/        (main, main_menu, overworld, merchant, deck_builder, point_placeholder, game, battle_floor, unit_view, card, card_pile_view, sfx_player)
 ├── scripts/
 └── docs/
     ├── ARCHITECTURE.md              (this file)
@@ -147,11 +149,11 @@ Card art is resolved by convention, `res://resources/images/cards/<card_id>.png`
 Main (main.tscn, run/main_scene)
  ├── MainMenu   — "Jogar" → Overworld, "Sair" → quit
  ├── Overworld        — world map; enter current point → Game (combat),
- │                      CardMerchant (card_merchant) or PointPlaceholder
+ │                      Merchant (card/artifact merchant) or PointPlaceholder
  │                      (others); deck panel "Editar"/"Criar novo deck"
  │                      → DeckBuilder; "Voltar ao menu"/Esc → MainMenu
  ├── Game             — battle; battle_finished(victory) → Overworld
- ├── CardMerchant     — buy cards; "Voltar ao mapa"/Esc → Overworld
+ ├── Merchant         — buy cards/artifacts; "Voltar ao mapa"/Esc → Overworld
  ├── DeckBuilder      — edit a deck; Salvar/Apagar/Cancelar/Esc → Overworld
  └── PointPlaceholder — "em breve"; "Voltar ao mapa"/Esc → Overworld
 ```
@@ -300,40 +302,75 @@ Apagar deck.
   `Game.setup_battle(battle_id, card_ids)`. With no valid active deck, the
   battle isn't started (console warning).
 
-## Gold and card merchant
+## Gold and merchants
 
 `CampaignState.gold` starts from `data/campaign/starting_resources.json`
-(`{"gold": N}`, `CampaignState.load_starting_gold()`; a separate file from
-the collection because it's where non-card starting resources go).
+(`{"gold": N, "artifacts": [...]}`, `CampaignState.load_starting_gold()`/
+`load_starting_artifacts()`; a separate file from the collection because
+it's where non-card starting resources go).
 
 - Earning: each `combat` point has a `gold` value in the map JSON
   (`WorldPointData.gold_reward`). `record_current_combat_result(victory,
   gold_reward)` pays the full value on the first win and
   `REPEAT_COMBAT_GOLD_FACTOR` (0.5, rounded down) on repeats, and returns
   the amount earned. Defeat/flee pays nothing.
-- Spending: `card_merchant` points have a `merchant` id pointing at
-  `data/merchants/<file>.json` (`{"id": ..., "cards": {"<card_id>":
-  <price>}}`), loaded by `MerchantDatabase` into `MerchantData.prices`
-  (unknown cards/invalid prices skipped with a warning). Stock is fixed and
-  infinite in this raw version: always the same cards, buy as many as you
-  like.
+- Spending: `card_merchant`/`artifact_merchant` points have a `merchant`
+  id pointing at `data/merchants/<file>.json` (`{"id": ..., "cards":
+  {"<card_id>": <price>}, "artifacts": {"<artifact_id>": <price>}}`, both
+  sections optional), loaded by `MerchantDatabase` into
+  `MerchantData.card_prices`/`artifact_prices` (unknown ids/invalid prices
+  skipped with a warning). Stock is fixed and infinite in this raw version.
+  Cards can be bought repeatedly; an artifact only once, since you own one
+  of each.
 - `CampaignState.buy_card(card_id, price)` refuses without enough gold,
   otherwise subtracts the price and calls `add_card()` (the single way to
   grow the collection), which emits `changed` once.
-- `CardMerchant` shows one row per card (name, mana cost, description,
-  "Você tem: N", "Comprar — P ouro"), sorted by price then name. Buy
-  buttons are disabled when unaffordable. It refreshes on
-  `CampaignState.changed`. The overworld top bar shows "Ouro: N".
+- `CampaignState.buy_artifact(id, price)` also refuses an already owned
+  artifact, then calls `add_artifact()` (the single way to gain one).
+- One `Merchant` screen serves both merchant types: an "Artefatos" section
+  and/or a "Cartas" section depending on the stock, one row per item
+  (name, details, "Você tem: N" / "Já possui", "Comprar — P ouro"), sorted
+  by price then name. Buy buttons are disabled when unaffordable (or the
+  artifact is owned). It refreshes on `CampaignState.changed`. The
+  overworld top bar shows "Ouro: N".
+
+## Artifacts
+
+Artifacts are a separate collectible (user decision: **per deck**, max 1
+equipped per deck), not global passives.
+
+- Catalog: `data/artifacts/*.json` (`{"id", "name", "description",
+  "effect": {"type", "amount"}}`) → `ArtifactDatabase` → `ArtifactData`.
+  Effect types (`ArtifactData.EFFECT_TYPES`) each map onto something the
+  battle already does: `max_mana` (added to `Mana.max_mana`), `hand_size`
+  (added to cards drawn at start and every turn, `Game.get_hand_size()`),
+  `ally_max_hp`/`ally_attack` (added to every ally created in the battle,
+  roster and summons, in `BattleState.create_unit()`, **after**
+  `ALLY_STAT_MULTIPLIER` so "+6 HP" isn't doubled).
+- Ownership: `CampaignState.artifacts` (`id -> true` set). The same
+  artifact can be equipped in several decks at once. A new campaign starts
+  with `starting_resources.json`'s `artifacts`.
+- Equipping: `DeckList.artifact_id` ("" = none; a single field because the
+  rule is max 1). `is_deck_valid()` also requires the artifact to be
+  owned. Starting decks can set `"artifact"` in `starting_decks.json`. The
+  DeckBuilder has an "Artefato:" `OptionButton` (Nenhum + owned artifacts,
+  with description), and the overworld deck panel shows each deck's
+  artifact. The collection panel lists owned artifacts too.
+- Into battle: `Main.show_battle()` passes the active deck's
+  `ArtifactData` (or null) to `Game.setup_battle()`. `Game` only reads
+  bonuses via `get_artifact_bonus(type)` and passes the ally bonuses into
+  `BattleState.new(...)`, which also copies them into simulation clones.
+  The equipped artifact is shown next to the turn counter.
 
 Entering: arriving at a point never enters it (you can pass through a
 combat point without fighting). Clicking the **current** point emits
 `point_entered(point_id)` if `WorldPointData.can_enter()` (`combat` with a
 `battle` id, or any merchant/event; shown with a "— entrar" hint). `Main`
-opens the battle for `combat`, the `CardMerchant` for a `card_merchant`
-with a known `merchant` id, and a `PointPlaceholder` for everything else.
-`PointPlaceholder` only shows the point name and "<tipo> — em breve", and
-returns to the map without recording anything. The remaining types swap it
-for a real screen in their plan etapa (artifacts: 6, events: 7).
+opens the battle for `combat`, the `Merchant` for a card/artifact merchant
+with a known `merchant` id, and a `PointPlaceholder` for everything else
+(today only `event`). `PointPlaceholder` only shows the point name and
+"<tipo> — em breve", and returns to the map without recording anything.
+Events get a real screen in Etapa 7.
 
 This is a deliberately raw clickable-graph map (no camera, scroll or art).
 If the map later becomes a free-walking character map, only this

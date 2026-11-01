@@ -35,8 +35,18 @@ var suppress_events: bool = false
 ## direta não depende de posição nenhuma.
 var simulation_origin_map: Dictionary = {}
 
-func _init(battle_definition: BattleDefinition, database: UnitDatabase) -> void:
+## Bônus de artefato (docs/CAMPAIGN_EXECUTION_PLAN.md, Etapa 6 — efeitos
+## "ally_max_hp"/"ally_attack") somados a TODA unidade aliada criada nesta
+## batalha (create_unit()), inclusive o roster inicial e invocações. Recebido
+## no construtor porque o roster inicial nasce dentro do próprio _init().
+## BattleState não sabe de onde o bônus vem — só o valor.
+var ally_max_hp_bonus: int = 0
+var ally_attack_bonus: int = 0
+
+func _init(battle_definition: BattleDefinition, database: UnitDatabase, max_hp_bonus: int = 0, attack_bonus: int = 0) -> void:
 	unit_database = database
+	ally_max_hp_bonus = max_hp_bonus
+	ally_attack_bonus = attack_bonus
 	
 	battlefield = Battlefield.new(battle_definition.floors.size())
 
@@ -135,6 +145,11 @@ func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 	if faction == Unit.Faction.ALLY:
 		max_hp *= ALLY_STAT_MULTIPLIER
 		attack *= ALLY_STAT_MULTIPLIER
+
+		## Depois do multiplicador: o bônus do artefato é um valor fixo
+		## ("+6 de HP"), não deve ser dobrado junto.
+		max_hp += ally_max_hp_bonus
+		attack += ally_attack_bonus
 
 	var unit = Unit.new(
 		unit_data.id,
@@ -562,7 +577,9 @@ func simulate_full_turn() -> Dictionary:
 ## clone (via simulate_full_turn() acima) nunca afeta o original. Usado
 ## só para simulação; nunca deve ser exposto fora dela.
 func clone_for_simulation() -> BattleState:
-	var clone = BattleState.new(BattleDefinition.empty(), unit_database)
+	## Mesmos bônus de aliado: uma invocação dentro da simulação (ex: Death
+	## Spawn) precisa nascer igual nasceria de verdade.
+	var clone = BattleState.new(BattleDefinition.empty(), unit_database, ally_max_hp_bonus, ally_attack_bonus)
 	var source_units = battlefield.get_floor(0).get_units()
 	var clone_floor = clone.battlefield.get_floor(0)
 	var unit_clones: Array[Unit] = []

@@ -1,0 +1,6 @@
+{
+  "id": "war_banner",
+  "name": "Estandarte de Guerra",
+  "description": "Unidades aliadas entram em campo com +2 de ATK.",
+  "effect": { "type": "ally_attack", "amount": 2 }
+}

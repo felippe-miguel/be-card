@@ -11,18 +11,32 @@ extends RefCounted
 
 var name: String = ""
 
+## Artefato equipado neste deck (Etapa 6) — no máximo 1 por deck, por
+## decisão do usuário (por isso um campo só, não uma lista). "" = nenhum.
+## Precisa ser um artefato que o jogador possui (ver CampaignState.
+## is_deck_valid()).
+var artifact_id: String = ""
+
 ## card_id -> cópias no deck (sempre >= 1). Mesmo formato da coleção do
 ## CampaignState, pra comparar uma com a outra direto (ver
 ## CampaignState.is_deck_valid()).
 var cards: Dictionary = {}
 
-## Mesmo formato do JSON da coleção inicial: {"name": ..., "cards":
-## {"<card_id>": <cópias>}}. Ids/quantidades inválidos são descartados com
-## aviso, igual a CampaignState.load_starting_collection().
-static func from_dict(data: Dictionary, card_database: CardDatabase) -> DeckList:
+## Mesmo formato do JSON da coleção inicial: {"name": ..., "artifact":
+## "<artifact_id>" (opcional), "cards": {"<card_id>": <cópias>}}. Ids/
+## quantidades inválidos são descartados com aviso, igual a
+## CampaignState.load_starting_collection().
+static func from_dict(data: Dictionary, card_database: CardDatabase, artifact_database: ArtifactDatabase) -> DeckList:
 	var deck_list = DeckList.new()
 
 	deck_list.name = data.get("name", "")
+
+	var raw_artifact: String = data.get("artifact", "")
+
+	if raw_artifact != "" and not artifact_database.artifacts.has(raw_artifact):
+		print("Deck \"", deck_list.name, "\": artefato desconhecido ignorado: ", raw_artifact)
+	else:
+		deck_list.artifact_id = raw_artifact
 
 	var raw_cards: Dictionary = data.get("cards", {})
 
@@ -48,6 +62,7 @@ func duplicate_list() -> DeckList:
 	var copy = DeckList.new()
 
 	copy.name = name
+	copy.artifact_id = artifact_id
 	copy.cards = cards.duplicate()
 
 	return copy

@@ -4,6 +4,7 @@ extends Control
 ## Tela de montagem de deck (docs/CAMPAIGN_EXECUTION_PLAN.md, Etapa 5),
 ## aberta pelo painel de decks do overworld ("Editar" ou "Criar novo deck").
 ## Coleção à esquerda, deck à direita: "+" põe uma cópia no deck, "−" tira.
+## Acima das colunas, o artefato equipado no deck (Etapa 6 — no máximo 1).
 ##
 ## Toda edição acontece numa CÓPIA do deck (working_deck): nada muda no
 ## CampaignState até "Salvar". "Cancelar"/Esc descartam a edição. A regra
@@ -24,10 +25,17 @@ const NEW_DECK_NAME = "Novo deck"
 @onready var delete_button: Button = $Margin/Layout/TopBar/DeleteButton
 @onready var collection_rows: VBoxContainer = $Margin/Layout/Columns/CollectionColumn/Scroll/Rows
 @onready var deck_rows: VBoxContainer = $Margin/Layout/Columns/DeckColumn/Scroll/Rows
+@onready var artifact_option: OptionButton = $Margin/Layout/ArtifactBar/ArtifactOption
+@onready var artifact_description: Label = $Margin/Layout/ArtifactBar/ArtifactDescription
 
 ## Recebidos de Main via setup(), antes de entrar na árvore.
 var campaign_state: CampaignState
 var card_database: CardDatabase
+var artifact_database: ArtifactDatabase
+
+## artifact_id de cada item do artifact_option, na mesma ordem dos itens
+## ("" = Nenhum).
+var artifact_option_ids: Array[String] = []
 
 ## Índice do deck sendo editado em campaign_state.deck_lists; -1 = deck
 ## novo (ainda não existe na campanha).
@@ -35,9 +43,10 @@ var deck_index: int = -1
 
 var working_deck: DeckList
 
-func setup(state: CampaignState, cards: CardDatabase, index: int) -> void:
+func setup(state: CampaignState, cards: CardDatabase, artifacts: ArtifactDatabase, index: int) -> void:
 	campaign_state = state
 	card_database = cards
+	artifact_database = artifacts
 	deck_index = index
 
 	if index >= 0 and index < state.deck_lists.size():
@@ -54,6 +63,9 @@ func _ready() -> void:
 	save_button.pressed.connect(_on_save_pressed)
 	cancel_button.pressed.connect(_on_cancel_pressed)
 	delete_button.pressed.connect(_on_delete_pressed)
+
+	setup_artifact_option()
+	artifact_option.item_selected.connect(_on_artifact_selected)
 
 	## Deck novo não tem o que apagar; o último deck da campanha também não
 	## pode ser apagado (ver CampaignState.can_delete_deck()).
@@ -95,6 +107,50 @@ func refresh_save_state() -> void:
 
 	name_warning_label.visible = name_taken
 	save_button.disabled = name_taken or not campaign_state.is_deck_valid(working_deck)
+
+## "Nenhum" + os artefatos possuídos, por nome. Se o deck já vier com um
+## artefato que o jogador não possui (deck inválido vindo do JSON), ele
+## aparece marcado, pra ficar claro por que o deck não salva.
+func setup_artifact_option() -> void:
+	artifact_option.clear()
+	artifact_option_ids.clear()
+
+	artifact_option.add_item("Nenhum")
+	artifact_option_ids.append("")
+
+	var ids: Array = campaign_state.artifacts.keys()
+
+	if working_deck.artifact_id != "" and not ids.has(working_deck.artifact_id):
+		ids.append(working_deck.artifact_id)
+
+	ids.sort_custom(func(a, b): return get_artifact_name(a).naturalnocasecmp_to(get_artifact_name(b)) < 0)
+
+	for artifact_id in ids:
+		var label = get_artifact_name(artifact_id)
+
+		if not campaign_state.owns_artifact(artifact_id):
+			label += " (não possui)"
+
+		artifact_option.add_item(label)
+		artifact_option_ids.append(artifact_id)
+
+	artifact_option.select(artifact_option_ids.find(working_deck.artifact_id))
+	refresh_artifact_description()
+
+func get_artifact_name(artifact_id: String) -> String:
+	var artifact: ArtifactData = artifact_database.artifacts.get(artifact_id)
+
+	return artifact.name if artifact != null else artifact_id
+
+func refresh_artifact_description() -> void:
+	var artifact: ArtifactData = artifact_database.artifacts.get(working_deck.artifact_id)
+
+	artifact_description.text = artifact.description if artifact != null else ""
+
+func _on_artifact_selected(item_index: int) -> void:
+	working_deck.artifact_id = artifact_option_ids[item_index]
+	refresh_artifact_description()
+	refresh_save_state()
 
 func sort_by_name(ids: Array) -> Array:
 	var result = ids.duplicate()

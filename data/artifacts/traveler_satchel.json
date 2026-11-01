@@ -1,0 +1,6 @@
+{
+  "id": "traveler_satchel",
+  "name": "Bolsa do Viajante",
+  "description": "Compra +1 carta a cada turno (inclusive na mão inicial).",
+  "effect": { "type": "hand_size", "amount": 1 }
+}

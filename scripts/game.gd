@@ -199,11 +199,28 @@ var enemy_waves_spawned: int = 0
 ## bloqueio geral de UI.
 var game_over: bool = false
 
+## Artefato equipado no deck desta batalha (docs/CAMPAIGN_EXECUTION_PLAN.md,
+## Etapa 6) — null = nenhum (inclusive aberta direto no editor). A batalha
+## só lê os bônus dele (get_artifact_bonus()); não sabe nada de coleção nem
+## de deck.
+var artifact: ArtifactData = null
+
 ## Chamado por Main antes de adicionar a cena à árvore (antes do _ready()).
-func setup_battle(id: String, card_ids: Array[String]) -> void:
+func setup_battle(id: String, card_ids: Array[String], equipped_artifact: ArtifactData = null) -> void:
 	battle_id = id
 	deck_card_ids = card_ids
+	artifact = equipped_artifact
 	in_campaign = true
+
+## Quanto o artefato equipado soma num efeito (ver ArtifactData.EFFECT_TYPES)
+## — 0 sem artefato ou se o efeito dele for outro.
+func get_artifact_bonus(effect_type: String) -> int:
+	return artifact.get_bonus(effect_type) if artifact != null else 0
+
+## Cartas compradas no início do combate e a cada turno — base +
+## artefato "hand_size".
+func get_hand_size() -> int:
+	return STARTING_HAND_SIZE + get_artifact_bonus("hand_size")
 
 ## BattleDefinition de battle_id, ou a de DEFAULT_BATTLE_ID (com aviso) se o
 ## id não existir — um id errado no JSON do mapa não deve travar o jogo.
@@ -252,7 +269,7 @@ func setup_deck_and_mana() -> void:
 	deck.changed.connect(_on_deck_changed)
 	deck.reshuffled.connect(_on_deck_reshuffled)
 
-	mana = Mana.new(STARTING_MANA)
+	mana = Mana.new(STARTING_MANA + get_artifact_bonus("max_mana"))
 	mana.changed.connect(_on_mana_changed)
 	_on_mana_changed()
 
@@ -260,7 +277,7 @@ func setup_deck_and_mana() -> void:
 	discard_pile_view.setup("Descarte")
 	graveyard_pile_view.setup("Cemitério")
 
-	draw_cards(STARTING_HAND_SIZE)
+	draw_cards(get_hand_size())
 
 ## Cartas do Deck deste combate: as do deck escolhido (deck_card_ids), ou o
 ## catálogo inteiro se aberta direto no editor. Sempre uma instância de
@@ -454,7 +471,12 @@ func layout_hand(card_views: Array[Card], new_cards: Dictionary) -> void:
 ## BattleDefinition.empty() (random, populado depois por
 ## spawn_random_units()).
 func start_new_battle_state(battle_definition: BattleDefinition) -> void:
-	battle_state = BattleState.new(battle_definition, unit_database)
+	battle_state = BattleState.new(
+		battle_definition,
+		unit_database,
+		get_artifact_bonus("ally_max_hp"),
+		get_artifact_bonus("ally_attack")
+	)
 	effect_system = EffectSystem.new(battle_state)
 
 	## battle_state é recriado aqui a cada reset/random (objeto novo, sem
@@ -848,8 +870,13 @@ func select_unit(unit: Unit) -> void:
 	attack_button.text = "Atacar com %s" % unit.name
 	remove_button.disabled = false
 
+## O artefato equipado aparece junto do turno — lugar sempre visível que não
+## mexe no layout da BottomBar (ver HAND_AREA_WIDTH).
 func update_turn_label() -> void:
 	turn_label.text = "Turno: %d" % current_turn
+
+	if artifact != null:
+		turn_label.text += "   |   Artefato: %s (%s)" % [artifact.name, artifact.description]
 
 func clear_selection() -> void:
 	selected_unit = null
@@ -1319,7 +1346,7 @@ func _on_run_turn_button_pressed() -> void:
 
 	mana.refill()
 	deck.discard_hand()
-	draw_cards(STARTING_HAND_SIZE)
+	draw_cards(get_hand_size())
 
 	status_label.text = "Turno resolvido — inimigos e aliados atacaram (turno %d)." % current_turn
 

@@ -7,7 +7,7 @@
     { "id": "river_ford", "name": "Vau do Rio", "type": "combat", "battle": "test_battle", "gold": 25, "position": [520, 740] },
     { "id": "shrine", "name": "Santuário Antigo", "type": "event", "position": [860, 160] },
     { "id": "old_mill", "name": "Moinho Velho", "type": "combat", "battle": "test_battle", "gold": 30, "position": [860, 520] },
-    { "id": "wandering_trader", "name": "Mascate Errante", "type": "artifact_merchant", "position": [860, 860] },
+    { "id": "wandering_trader", "name": "Mascate Errante", "type": "artifact_merchant", "merchant": "wandering_trader", "position": [860, 860] },
     { "id": "watchtower", "name": "Torre de Vigia", "type": "combat", "battle": "bandit_camp", "gold": 40, "position": [1180, 260] },
     { "id": "swamp", "name": "Pântano", "type": "combat", "battle": "test_battle", "gold": 35, "position": [1180, 780] },
     { "id": "ruins", "name": "Ruínas", "type": "combat", "battle": "ruins_guardians", "gold": 60, "position": [1520, 520] }

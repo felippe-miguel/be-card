@@ -403,7 +403,7 @@ comprar cartas.
 - Comprar sem ouro suficiente é bloqueado.
 - A carta comprada aparece na coleção e pode ser colocada num deck.
 
-Feito: 1 mercador (Feira da Vila) com 18 cartas, tela `CardMerchant`, ouro
+Feito: 1 mercador (Feira da Vila) com 18 cartas, tela `CardMerchant` (hoje `Merchant`), ouro
 no topo do overworld e aviso "Vitória em X: +N ouro" ao voltar do combate.
 Um segundo mercador e recompensa em carta ficam pra quando fizerem falta.
 
@@ -456,10 +456,9 @@ de um combate único).
 - `ArtifactData`/`ArtifactDatabase` no mesmo padrão data-driven de
   `UnitData`/`CardData`: id, nome, descrição, efeito.
 - `CampaignState` guarda os artefatos possuídos.
-- Global vs. por deck: **decidir com o usuário** se todo artefato possuído
-  vale em todo combate ou se o jogador escolhe quais artefatos acompanham
-  cada deck (o que conversa bem com "decks diferentes para combates
-  diferentes").
+- **Decidido: por deck.** Artefato é uma categoria própria de objeto, com
+  coleção própria (um de cada), e cada deck equipa no máximo 1 artefato.
+  O mesmo artefato pode estar em vários decks.
 - Efeitos iniciais simples que reaproveitam o que já existe: "+1 mana
   inicial", "+1 carta na mão inicial", "+X HP máximo nas unidades aliadas
   ao iniciar o combate". Cada efeito deve mapear para algo que
@@ -476,7 +475,14 @@ de um combate único).
 
 - Um artefato ativo tem efeito em todo combate em que estiver ativo, não
   só no combate em que foi obtido.
-- Múltiplos artefatos acumulam corretamente (2× "+1 mana" = +2).
+- ~~Múltiplos artefatos acumulam corretamente~~ (não se aplica com 1
+  artefato por deck).
+
+Feito: 4 artefatos (Cristal de Mana +1 mana, Bolsa do Viajante +1 carta
+por turno, Amuleto do Guardião +6 HP em aliados, Estandarte de Guerra +2
+ATK em aliados), o Mascate Errante vendendo artefatos (a tela de mercador
+virou genérica, `Merchant`), seletor de artefato no DeckBuilder, e a
+campanha começando com o Cristal de Mana equipado no deck "Inicial".
 
 ---
 
@@ -576,7 +582,7 @@ e então registrar a decisão neste documento:
   Revisitar se virar farm.
 - Regras de deck mais rígidas (tamanho mínimo/máximo, limite de cópias)
   podem voltar a ser discutidas depois. Hoje são permissivas (Etapa 3).
-- Artefatos globais ou equipados por deck (Etapa 6).
+- Limite de artefatos por deck: hoje 1 (Etapa 6). Pode crescer depois.
 - De onde vêm as unidades aliadas iniciais de um combate. Hoje
   `test_battle.json` já pré-posiciona aliados, e unidades também entram via
   cartas de summon. Na campanha, o encontro define os aliados iniciais, ou

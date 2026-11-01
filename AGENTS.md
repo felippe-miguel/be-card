@@ -188,7 +188,9 @@ implemented. Etapa 4 (gold from combat points, half on repeats; card
 merchant screen with fixed infinite stock from `data/merchants/`) is
 implemented. Etapa 5 (DeckBuilder screen opened from the overworld deck
 panel: create/edit/rename/delete decks on a working copy) is implemented.
-Next is Etapa 6 (artifacts + artifact merchant). Follow
+Etapa 6 (artifacts as a per-deck collectible, max 1 per deck; generic
+`Merchant` screen selling cards and/or artifacts) is implemented. Next is
+Etapa 7 (events). Follow
 the plan one passo/etapa at a time, and stop for the user to test in the
 editor before the next. The plan lists open design questions to settle
 with the user when each etapa comes up.

@@ -1,0 +1,6 @@
+{
+  "id": "guardian_amulet",
+  "name": "Amuleto do Guardião",
+  "description": "Unidades aliadas entram em campo com +6 de HP máximo.",
+  "effect": { "type": "ally_max_hp", "amount": 6 }
+}

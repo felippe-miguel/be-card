@@ -2,6 +2,7 @@
   "decks": [
     {
       "name": "Inicial",
+      "artifact": "mana_crystal",
       "cards": {
         "strike": 3,
         "defend": 3,

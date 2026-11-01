@@ -40,8 +40,9 @@ var battle_id: String = ""
 ## record_current_combat_result()).
 var gold_reward: int = 0
 
-## Só pra type "card_merchant" (Etapa 4): id de data/merchants/*.json, o
-## estoque deste mercador. "" = sem estoque definido (abre o placeholder).
+## Só pra type "card_merchant"/"artifact_merchant" (Etapas 4 e 6): id de
+## data/merchants/*.json, o estoque deste mercador. "" = sem estoque
+## definido (abre o placeholder).
 var merchant_id: String = ""
 
 static func from_dict(data: Dictionary) -> WorldPointData:

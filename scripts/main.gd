@@ -10,7 +10,7 @@ const MAIN_MENU_SCENE: PackedScene = preload("res://scenes/main_menu.tscn")
 const OVERWORLD_SCENE: PackedScene = preload("res://scenes/overworld.tscn")
 const BATTLE_SCENE: PackedScene = preload("res://scenes/game.tscn")
 const POINT_PLACEHOLDER_SCENE: PackedScene = preload("res://scenes/point_placeholder.tscn")
-const CARD_MERCHANT_SCENE: PackedScene = preload("res://scenes/card_merchant.tscn")
+const MERCHANT_SCENE: PackedScene = preload("res://scenes/merchant.tscn")
 const DECK_BUILDER_SCENE: PackedScene = preload("res://scenes/deck_builder.tscn")
 
 ## Tela atualmente instanciada como filha de Main — liberada a cada troca
@@ -35,10 +35,15 @@ var starting_collection: Dictionary
 ## data/campaign/starting_decks.json — cada campanha nova recebe cópias.
 var starting_decks: Array[DeckList] = []
 
-## Ouro inicial, lido uma vez de data/campaign/starting_resources.json.
+## Ouro e artefatos iniciais, lidos uma vez de
+## data/campaign/starting_resources.json.
 var starting_gold: int = 0
+var starting_artifacts: Array[String] = []
 
-## Estoques dos mercadores de cartas (data/merchants/*.json), por id.
+## Catálogo de artefatos (data/artifacts/*.json) — Etapa 6.
+var artifact_database: ArtifactDatabase
+
+## Estoques dos mercadores (data/merchants/*.json), por id.
 var merchant_database: MerchantDatabase
 
 ## Campanha em andamento — criada do zero a cada "Jogar" (não existe save
@@ -52,12 +57,16 @@ func _ready() -> void:
 	card_database = CardDatabase.new()
 	card_database.load_cards()
 
+	artifact_database = ArtifactDatabase.new()
+	artifact_database.load_artifacts()
+
 	starting_collection = CampaignState.load_starting_collection(card_database)
-	starting_decks = CampaignState.load_starting_decks(card_database)
+	starting_decks = CampaignState.load_starting_decks(card_database, artifact_database)
 	starting_gold = CampaignState.load_starting_gold()
+	starting_artifacts = CampaignState.load_starting_artifacts(artifact_database)
 
 	merchant_database = MerchantDatabase.new()
-	merchant_database.load_merchants(card_database)
+	merchant_database.load_merchants(card_database, artifact_database)
 
 	show_main_menu()
 
@@ -74,15 +83,16 @@ func show_main_menu() -> void:
 func show_overworld(notice: String = "") -> void:
 	var overworld: Overworld = OVERWORLD_SCENE.instantiate()
 
-	overworld.setup(world_map, campaign_state, card_database, notice)
+	overworld.setup(world_map, campaign_state, card_database, artifact_database, notice)
 	overworld.back_to_menu_pressed.connect(show_main_menu)
 	overworld.point_entered.connect(_on_point_entered)
 	overworld.deck_edit_requested.connect(show_deck_builder)
 
 	switch_to(overworld)
 
-## A batalha recebe só os ids do deck ativo (um por cópia), não o
-## CampaignState — ela não precisa saber nada da campanha além disso.
+## A batalha recebe só os ids do deck ativo (um por cópia) e o artefato
+## equipado nele (ArtifactData ou null), não o CampaignState — ela não
+## precisa saber nada da campanha além disso.
 func show_battle(battle_id: String) -> void:
 	var active_deck = campaign_state.get_active_deck()
 
@@ -94,7 +104,7 @@ func show_battle(battle_id: String) -> void:
 
 	var battle: Game = BATTLE_SCENE.instantiate()
 
-	battle.setup_battle(battle_id, active_deck.get_card_ids())
+	battle.setup_battle(battle_id, active_deck.get_card_ids(), artifact_database.artifacts.get(active_deck.artifact_id))
 	battle.battle_finished.connect(_on_battle_finished)
 
 	switch_to(battle)
@@ -114,15 +124,17 @@ func show_point_placeholder(point: WorldPointData) -> void:
 func show_deck_builder(deck_index: int) -> void:
 	var builder: DeckBuilder = DECK_BUILDER_SCENE.instantiate()
 
-	builder.setup(campaign_state, card_database, deck_index)
+	builder.setup(campaign_state, card_database, artifact_database, deck_index)
 	builder.closed.connect(show_overworld)
 
 	switch_to(builder)
 
-func show_card_merchant(point: WorldPointData, merchant: MerchantData) -> void:
-	var screen: CardMerchant = CARD_MERCHANT_SCENE.instantiate()
+## Mesma tela pra mercador de cartas e de artefatos — ela mostra as seções
+## que o estoque (MerchantData) tiver.
+func show_merchant(point: WorldPointData, merchant: MerchantData) -> void:
+	var screen: Merchant = MERCHANT_SCENE.instantiate()
 
-	screen.setup(point, merchant, campaign_state, card_database)
+	screen.setup(point, merchant, campaign_state, card_database, artifact_database)
 	screen.back_pressed.connect(show_overworld)
 
 	switch_to(screen)
@@ -138,7 +150,7 @@ func switch_to(screen: Node) -> void:
 	add_child(screen)
 
 func _on_play_pressed() -> void:
-	campaign_state = CampaignState.new(world_map.start_point_id, starting_collection, starting_decks, starting_gold)
+	campaign_state = CampaignState.new(world_map.start_point_id, starting_collection, starting_decks, starting_gold, starting_artifacts)
 
 	show_overworld()
 
@@ -146,9 +158,9 @@ func _on_quit_pressed() -> void:
 	get_tree().quit()
 
 ## Só chegam aqui pontos com WorldPointData.can_enter(). Combate abre a
-## batalha; mercador de cartas com estoque definido abre a loja (Etapa 4).
-## O resto (mercador de artefatos, evento, mercador sem estoque) ainda abre
-## o placeholder — cada um troca por uma tela de verdade na sua etapa.
+## batalha; mercador (de cartas ou de artefatos) com estoque definido abre a
+## loja (Etapas 4 e 6). O resto (evento, mercador sem estoque) ainda abre o
+## placeholder.
 func _on_point_entered(point_id: String) -> void:
 	var point: WorldPointData = world_map.points[point_id]
 
@@ -156,11 +168,11 @@ func _on_point_entered(point_id: String) -> void:
 		"combat":
 			show_battle(point.battle_id)
 
-		"card_merchant":
+		"card_merchant", "artifact_merchant":
 			var merchant: MerchantData = merchant_database.merchants.get(point.merchant_id)
 
 			if merchant != null:
-				show_card_merchant(point, merchant)
+				show_merchant(point, merchant)
 			else:
 				print("Mercador sem estoque definido: ", point.merchant_id)
 				show_point_placeholder(point)

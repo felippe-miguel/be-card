@@ -80,6 +80,25 @@ custom_minimum_size = Vector2(140, 44)
 layout_mode = 2
 text = "Apagar deck"
 
+[node name="ArtifactBar" type="HBoxContainer" parent="Margin/Layout"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="ArtifactLabel" type="Label" parent="Margin/Layout/ArtifactBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Artefato:"
+
+[node name="ArtifactOption" type="OptionButton" parent="Margin/Layout/ArtifactBar"]
+custom_minimum_size = Vector2(280, 40)
+layout_mode = 2
+
+[node name="ArtifactDescription" type="Label" parent="Margin/Layout/ArtifactBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+text = ""
+
 [node name="Columns" type="HBoxContainer" parent="Margin/Layout"]
 layout_mode = 2
 size_flags_vertical = 3

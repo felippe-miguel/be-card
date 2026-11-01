@@ -1,0 +1,9 @@
+{
+  "id": "wandering_trader",
+  "artifacts": {
+    "mana_crystal": 40,
+    "guardian_amulet": 50,
+    "traveler_satchel": 60,
+    "war_banner": 70
+  }
+}

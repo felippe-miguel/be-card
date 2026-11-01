@@ -1,0 +1,6 @@
+{
+  "id": "mana_crystal",
+  "name": "Cristal de Mana",
+  "description": "+1 de mana máxima em todo turno.",
+  "effect": { "type": "max_mana", "amount": 1 }
+}
