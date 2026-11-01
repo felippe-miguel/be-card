@@ -130,12 +130,15 @@ func _init(battle_definition: BattleDefinition, database: UnitDatabase, max_hp_b
 	recalculate_auras()
 	recalculate_position_modifiers()
 
-## Toda unidade aliada nasce com o dobro de ATK/HP — compensação
-## temporária e propositalmente grosseira pro loop de 4 waves de
-## inimigos (Game.MAX_ENEMY_WAVES): a cada turno mais um inimigo entra
-## no campo, então o lado aliado nunca cresce em número, só em força.
-## "Por enquanto", pra facilitar o playtest — não é balanceamento final.
-const ALLY_STAT_MULTIPLIER = 2
+## Os JSONs de unidade guardam ATK/HP na escala do jogador (o valor que um
+## aliado tem em combate), pra que o preview da carta de invocação bata com
+## o que aparece no UnitView. Já o inimigo nasce com a METADE desses
+## valores — compensação temporária e propositalmente grosseira pro loop
+## de 4 waves de inimigos (Game.MAX_ENEMY_WAVES): a cada turno mais um
+## inimigo entra no campo, então o lado aliado nunca cresce em número, só
+## em força. "Por enquanto", pra facilitar o playtest — não é balanceamento
+## final. Valor ímpar arredonda pra baixo (mínimo 1).
+const ENEMY_STAT_DIVISOR = 2
 
 func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 	var unit_data = unit_database.units.get(unit_id)
@@ -145,15 +148,17 @@ func create_unit(unit_id: String, faction: Unit.Faction) -> Unit:
 
 		return null
 
-	var max_hp = unit_data.max_hp
-	var attack = unit_data.attack
+	var max_hp: int = unit_data.max_hp
+	var attack: int = unit_data.attack
 
-	if faction == Unit.Faction.ALLY:
-		max_hp *= ALLY_STAT_MULTIPLIER
-		attack *= ALLY_STAT_MULTIPLIER
-
-		## Depois do multiplicador: o bônus do artefato é um valor fixo
-		## ("+6 de HP"), não deve ser dobrado junto.
+	if faction == Unit.Faction.ENEMY:
+		@warning_ignore("integer_division")
+		max_hp = maxi(1, max_hp / ENEMY_STAT_DIVISOR)
+		@warning_ignore("integer_division")
+		attack = maxi(1, attack / ENEMY_STAT_DIVISOR)
+	else:
+		## O bônus do artefato é somado só nos aliados (o inimigo não o
+		## recebe, nem é dividido junto).
 		max_hp += ally_max_hp_bonus
 		attack += ally_attack_bonus
 

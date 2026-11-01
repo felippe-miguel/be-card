@@ -2,8 +2,8 @@
   "id": "cleric",
   "name": "Clérigo",
   "description": "Sempre que você joga um feitiço, cura 2 de HP dos aliados adjacentes.",
-  "max_hp": 14,
-  "attack": 2,
+  "max_hp": 28,
+  "attack": 4,
   "attack_pattern": "lane_front",
   "triggers": [
     { "event": "on_card_played", "condition": { "card_type": "spell" }, "effect": { "type": "heal", "target": "adjacent_allies", "amount": 2 } }

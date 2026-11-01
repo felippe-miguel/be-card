@@ -2,6 +2,6 @@
   "id": "skeleton",
   "name": "Skeleton",
   "description": "Esqueleto simples: ataca o primeiro inimigo da própria lane. Sem passivas ou triggers.",
-  "max_hp": 20,
-  "attack": 6
+  "max_hp": 40,
+  "attack": 12
 }

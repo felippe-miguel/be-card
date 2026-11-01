@@ -2,8 +2,8 @@
   "id": "lancer",
   "name": "Lanceiro",
   "description": "Perfurante: ataca os 2 primeiros inimigos da própria lane, não só o primeiro.",
-  "max_hp": 14,
-  "attack": 4,
+  "max_hp": 28,
+  "attack": 8,
   "attack_pattern": "lane_front",
   "attack_pattern_count": 2
 }

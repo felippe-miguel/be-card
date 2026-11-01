@@ -2,8 +2,8 @@
   "id": "knockback",
   "name": "Empurrão",
   "description": "Ao acertar um ataque, empurra o alvo 1 célula pra trás (aumenta a row dele), se houver espaço livre — senão não acontece nada.",
-  "max_hp": 15,
-  "attack": 4,
+  "max_hp": 30,
+  "attack": 8,
   "attack_pattern": "lane_front",
   "triggers": [
     { "event": "on_hit", "effect": { "type": "move", "target": "trigger_target", "row_delta": 1 } }

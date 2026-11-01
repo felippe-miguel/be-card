@@ -2,8 +2,8 @@
   "id": "venomous",
   "name": "Venenoso",
   "description": "Ao acertar um ataque, aplica Poison 2 no alvo atingido.",
-  "max_hp": 14,
-  "attack": 4,
+  "max_hp": 28,
+  "attack": 8,
   "attack_pattern": "lane_front",
   "triggers": [
     { "event": "on_hit", "effect": { "type": "apply_status", "target": "trigger_target", "status": "poison", "stacks": 2 } }
