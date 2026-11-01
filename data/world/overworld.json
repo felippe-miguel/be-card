@@ -1,0 +1,24 @@
+{
+  "start_point": "camp",
+  "points": [
+    { "id": "camp", "name": "Acampamento", "type": "camp", "position": [220, 520] },
+    { "id": "forest_road", "name": "Estrada da Floresta", "type": "combat", "battle": "bandit_camp", "position": [520, 300] },
+    { "id": "river_ford", "name": "Vau do Rio", "type": "combat", "battle": "test_battle", "position": [520, 740] },
+    { "id": "old_mill", "name": "Moinho Velho", "type": "combat", "battle": "test_battle", "position": [860, 520] },
+    { "id": "watchtower", "name": "Torre de Vigia", "type": "combat", "battle": "bandit_camp", "position": [1180, 260] },
+    { "id": "swamp", "name": "Pântano", "type": "combat", "battle": "test_battle", "position": [1180, 780] },
+    { "id": "ruins", "name": "Ruínas", "type": "combat", "battle": "ruins_guardians", "position": [1520, 520] }
+  ],
+  "connections": [
+    ["camp", "forest_road"],
+    ["camp", "river_ford"],
+    ["forest_road", "old_mill"],
+    ["river_ford", "old_mill"],
+    ["forest_road", "watchtower"],
+    ["old_mill", "watchtower"],
+    ["old_mill", "swamp"],
+    ["river_ford", "swamp"],
+    ["watchtower", "ruins"],
+    ["swamp", "ruins"]
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "floors": [
+    {
+      "units": [
+        { "id": "warrior", "faction": "ally", "lane": 0, "row": 0 },
+        { "id": "guardian", "faction": "ally", "lane": 1, "row": 0 },
+        { "id": "assassin", "faction": "ally", "lane": 2, "row": 0 },
+        { "id": "archer", "faction": "ally", "lane": 0, "row": 2 },
+        { "id": "mage", "faction": "ally", "lane": 2, "row": 2 },
+
+        { "id": "troll", "faction": "enemy", "lane": 0, "row": 0 },
+        { "id": "orc", "faction": "enemy", "lane": 1, "row": 0 },
+        { "id": "troll", "faction": "enemy", "lane": 2, "row": 0 },
+        { "id": "skeleton", "faction": "enemy", "lane": 0, "row": 1 },
+        { "id": "skeleton", "faction": "enemy", "lane": 2, "row": 1 },
+        { "id": "enemy_mage", "faction": "enemy", "lane": 1, "row": 2 }
+      ]
+    }
+  ]
+}

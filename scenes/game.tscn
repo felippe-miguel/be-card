@@ -58,6 +58,11 @@ text = "Resetar combate"
 layout_mode = 2
 text = "Random"
 
+[node name="ReturnToMapButton" type="Button" parent="Layout/MainColumn/GlobalControls" unique_id=300111740]
+visible = false
+layout_mode = 2
+text = "Voltar ao mapa"
+
 [node name="StatusLabel" type="Label" parent="Layout/MainColumn" unique_id=300111777]
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
@@ -168,23 +173,72 @@ offset_bottom = 40.0
 grow_horizontal = 0
 text = "Menu"
 
-[node name="MenuPanel" type="PanelContainer" parent="." unique_id=300120010]
+[node name="MenuOverlay" type="Control" parent="." unique_id=300120050]
 visible = false
+z_index = 1000
 layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
+anchors_preset = 15
 anchor_right = 1.0
-offset_left = -140.0
-offset_top = 45.0
-offset_right = -10.0
-offset_bottom = 85.0
-grow_horizontal = 0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="MenuPanelVBox" type="VBoxContainer" parent="MenuPanel" unique_id=300120020]
+[node name="Dim" type="ColorRect" parent="MenuOverlay" unique_id=300120060]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.6)
+
+[node name="Center" type="CenterContainer" parent="MenuOverlay" unique_id=300120070]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MenuPanel" type="PanelContainer" parent="MenuOverlay/Center" unique_id=300120010]
+custom_minimum_size = Vector2(420, 0)
 layout_mode = 2
 
-[node name="ExitButton" type="Button" parent="MenuPanel/MenuPanelVBox" unique_id=300120030]
+[node name="MenuMargin" type="MarginContainer" parent="MenuOverlay/Center/MenuPanel" unique_id=300120100]
 layout_mode = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 32
+
+[node name="MenuPanelVBox" type="VBoxContainer" parent="MenuOverlay/Center/MenuPanel/MenuMargin" unique_id=300120020]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="MenuTitle" type="Label" parent="MenuOverlay/Center/MenuPanel/MenuMargin/MenuPanelVBox" unique_id=300120080]
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "Menu"
+horizontal_alignment = 1
+
+[node name="ResumeButton" type="Button" parent="MenuOverlay/Center/MenuPanel/MenuMargin/MenuPanelVBox" unique_id=300120090]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Continuar"
+
+[node name="FleeButton" type="Button" parent="MenuOverlay/Center/MenuPanel/MenuMargin/MenuPanelVBox" unique_id=300120040]
+visible = false
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Fugir pro mapa"
+
+[node name="ExitButton" type="Button" parent="MenuOverlay/Center/MenuPanel/MenuMargin/MenuPanelVBox" unique_id=300120030]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
 text = "Sair do Jogo"
 
 [node name="SpawnSidebar" type="VBoxContainer" parent="Layout" unique_id=300111999]

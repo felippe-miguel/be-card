@@ -1,6 +1,10 @@
+class_name Game
 extends Control
 
-## Sandbox de playtest do grid 3x3 (docs/playtest_3x3.md). Duas formas de
+## Cena de batalha. Aberta pela campanha (Main, a partir de um ponto de
+## combate do overworld — docs/CAMPAIGN_EXECUTION_PLAN.md Passo 1.4) ou
+## direto no editor (F6), como sandbox de playtest do grid 3x3
+## (docs/playtest_3x3.md). Duas formas de
 ## disparar a mesma coisa convivem de propósito: o painel de debug (spawn
 ## livre, botões de ação, sem custo — bom pra testar rápido) e agora
 ## também as cartas de verdade (Deck/Mana/hand, com custo e descarte —
@@ -51,9 +55,35 @@ enum PendingAction {
 @onready var graveyard_pile_view: CardPileView = $Layout/MainColumn/BottomBar/GraveyardPileView
 @onready var mana_label: Label = $Layout/MainColumn/BottomBar/ManaLabel
 @onready var menu_button: Button = $MenuButton
-@onready var menu_panel: PanelContainer = $MenuPanel
-@onready var exit_button: Button = $MenuPanel/MenuPanelVBox/ExitButton
+@onready var menu_overlay: Control = $MenuOverlay
+@onready var resume_button: Button = $MenuOverlay/Center/MenuPanel/MenuMargin/MenuPanelVBox/ResumeButton
+@onready var exit_button: Button = $MenuOverlay/Center/MenuPanel/MenuMargin/MenuPanelVBox/ExitButton
+@onready var flee_button: Button = $MenuOverlay/Center/MenuPanel/MenuMargin/MenuPanelVBox/FleeButton
+@onready var return_to_map_button: Button = $Layout/MainColumn/GlobalControls/ReturnToMapButton
 @onready var sfx_player: SfxPlayer = $SfxPlayer
+
+## Emitido só quando a batalha foi aberta pela campanha (in_campaign) —
+## pelo botão "Voltar ao mapa" depois do fim (victory = resultado real) ou
+## por "Fugir pro mapa" no menu (sempre derrota). Main decide o que fazer
+## com o resultado; a batalha nunca troca de tela sozinha.
+signal battle_finished(victory: bool)
+
+## Batalha carregada quando a cena é aberta direto no editor (sem
+## setup_battle()) — e também o fallback se o id pedido não existir.
+const DEFAULT_BATTLE_ID = "test_battle"
+
+## id de data/battles/*.json desta batalha — usado no início e no
+## "Resetar combate". Definido por setup_battle() antes de entrar na árvore.
+var battle_id: String = DEFAULT_BATTLE_ID
+
+## true quando aberta pela campanha (setup_battle()). Só neste caso existem
+## os botões de voltar ao mapa — aberta direto no editor, não há mapa pra
+## onde voltar.
+var in_campaign: bool = false
+
+## Resultado da partida atual, válido só depois de game_over — o que
+## "Voltar ao mapa" reporta em battle_finished.
+var battle_won: bool = false
 
 var unit_database: UnitDatabase
 var battle_database: BattleDatabase
@@ -164,6 +194,20 @@ var enemy_waves_spawned: int = 0
 ## bloqueio geral de UI.
 var game_over: bool = false
 
+## Chamado por Main antes de adicionar a cena à árvore (antes do _ready()).
+func setup_battle(id: String) -> void:
+	battle_id = id
+	in_campaign = true
+
+## BattleDefinition de battle_id, ou a de DEFAULT_BATTLE_ID (com aviso) se o
+## id não existir — um id errado no JSON do mapa não deve travar o jogo.
+func get_battle_definition() -> BattleDefinition:
+	if not battle_database.battles.has(battle_id):
+		print("Batalha não encontrada: ", battle_id, " — usando ", DEFAULT_BATTLE_ID)
+		battle_id = DEFAULT_BATTLE_ID
+
+	return battle_database.battles[battle_id]
+
 func _ready() -> void:
 	unit_database = UnitDatabase.new()
 	unit_database.load_units()
@@ -183,7 +227,7 @@ func _ready() -> void:
 	floor_view.unit_hover_started.connect(_on_unit_hover_started)
 	floor_view.unit_hover_ended.connect(_on_unit_hover_ended)
 
-	start_new_battle_state(battle_database.battles["test_battle"])
+	start_new_battle_state(get_battle_definition())
 	setup_deck_and_mana()
 
 	setup_spawn_panel()
@@ -385,7 +429,7 @@ func layout_hand(card_views: Array[Card], new_cards: Dictionary) -> void:
 ## poder ser chamado de novo em _on_reset_button_pressed()/_on_random_
 ## button_pressed() sem duplicar as conexões dos sinais do próprio
 ## floor_view (essas são feitas uma única vez acima). battle_definition
-## já vem pronta de quem chama — test_battle.json (reset) ou
+## já vem pronta de quem chama — a de battle_id (início/reset) ou
 ## BattleDefinition.empty() (random, populado depois por
 ## spawn_random_units()).
 func start_new_battle_state(battle_definition: BattleDefinition) -> void:
@@ -416,7 +460,7 @@ func start_new_battle_state(battle_definition: BattleDefinition) -> void:
 	battle_floor.battlefield_changed.connect(refresh_turn_preview_if_active)
 	battle_floor.battlefield_changed.connect(check_battle_end)
 
-	## O roster inicial (test_battle.json) é populado dentro de
+	## O roster inicial (da BattleDefinition) é populado dentro de
 	## BattleState.new() acima, antes da conexão logo acima existir —
 	## sem isto, um reset com o checkbox já ligado deixaria o preview
 	## defasado (mostrando a batalha anterior) até a próxima mudança.
@@ -426,7 +470,9 @@ func start_new_battle_state(battle_definition: BattleDefinition) -> void:
 	## ainda entregues, sem fim de jogo, com "Rodar turno" liberado.
 	enemy_waves_spawned = 0
 	game_over = false
+	battle_won = false
 	run_turn_button.disabled = false
+	return_to_map_button.visible = false
 
 ## Um botão por UnitData carregada (todo data/units/*.json) — clicar
 ## arma pending_spawn_unit_id. Não distingue "unidade de aliado" de
@@ -456,18 +502,41 @@ func setup_global_controls() -> void:
 	random_button.pressed.connect(_on_random_button_pressed)
 	menu_button.pressed.connect(_on_menu_button_pressed)
 	exit_button.pressed.connect(_on_exit_button_pressed)
+	flee_button.pressed.connect(_on_flee_button_pressed)
+	resume_button.pressed.connect(toggle_menu)
+	return_to_map_button.pressed.connect(_on_return_to_map_button_pressed)
 
-## Botão único no canto superior direito (docs/playtest_3x3.md não cobre
-## isto — pedido à parte, "não tem um jeito fácil de fechar o jogo hoje"):
-## só abre/fecha o MenuPanel, sem nenhum estado de jogo envolvido.
+	flee_button.visible = in_campaign
+
+## Botão "Menu" no canto superior direito, ou Esc sem nada pendente (ver
+## _input()). Abre/fecha o menu modal: o Dim de MenuOverlay cobre a tela
+## inteira (mouse_filter STOP), então enquanto ele está aberto nenhum
+## clique chega no tabuleiro/mão — sem precisar de nenhum outro estado de
+## "pausado". MenuOverlay tem z_index = 1000 na cena: as cartas da mão usam
+## z_index próprio (índice na mão, Card.HOVERED_Z_INDEX no hover), e sem
+## isso seriam desenhadas por cima do modal (o clique já era bloqueado pela
+## ordem na árvore — só o desenho ficava errado).
 func _on_menu_button_pressed() -> void:
-	menu_panel.visible = not menu_panel.visible
+	toggle_menu()
 
-## Única opção do menu por enquanto. get_tree().quit() fecha a janela —
-## equivalente a clicar no X, mas acessível sem o jogo estar em modo
-## janela/com decoração.
+func toggle_menu() -> void:
+	menu_overlay.visible = not menu_overlay.visible
+
+	if menu_overlay.visible:
+		resume_button.grab_focus()
+
+## get_tree().quit() fecha a janela — equivalente a clicar no X, mas
+## acessível sem o jogo estar em modo janela/com decoração.
 func _on_exit_button_pressed() -> void:
 	get_tree().quit()
+
+## Sair no meio do combate conta como derrota (Passo 1.4) — só existe
+## quando a batalha veio da campanha (ver in_campaign).
+func _on_flee_button_pressed() -> void:
+	battle_finished.emit(false)
+
+func _on_return_to_map_button_pressed() -> void:
+	battle_finished.emit(battle_won)
 
 func _on_preview_checkbox_toggled(_pressed: bool) -> void:
 	update_turn_preview()
@@ -589,13 +658,22 @@ func update_action_status() -> void:
 ## por isso isto usa _input() e não _gui_input(): roda antes do sistema
 ## de GUI despachar o clique pro que estiver sob o mouse (outra carta,
 ## uma unidade), então funciona em qualquer lugar da tela.
+##
+## Esc tem prioridade em camadas: menu aberto → fecha o menu (ele pode ter
+## sido aberto pelo botão "Menu" com uma carta ainda pendente); senão, com
+## algo pendente (carta ou ação de debug) → cancela isso; sem nada pra
+## cancelar → abre o menu.
 func _input(event: InputEvent) -> void:
-	if pending_action == PendingAction.NONE:
+	if event.is_action_pressed("ui_cancel"):
+		if not menu_overlay.visible and pending_action != PendingAction.NONE:
+			cancel_pending_action()
+		else:
+			toggle_menu()
+
+		get_viewport().set_input_as_handled()
 		return
 
-	if event.is_action_pressed("ui_cancel"):
-		cancel_pending_action()
-		get_viewport().set_input_as_handled()
+	if pending_action == PendingAction.NONE:
 		return
 
 	if pending_action == PendingAction.CONFIRM and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -1288,22 +1366,26 @@ func play_turn_replay(pre_turn_snapshot: Dictionary) -> void:
 ## inimigo restou, mas só depois que as MAX_ENEMY_WAVES já entraram —
 ## zerar o campo antes disso não conta, ainda tem reforço chegando.
 ## Qualquer um dos dois trava "Rodar turno" (game_over) até
-## Resetar/Random começarem uma partida nova.
+## Resetar/Random começarem uma partida nova — e, se a batalha veio da
+## campanha, mostra "Voltar ao mapa" (ver end_battle()).
 func check_battle_end() -> void:
 	var battle_floor = get_main_floor()
 
 	if battle_floor.get_units_for_faction(Unit.Faction.ALLY).is_empty():
-		game_over = true
-		run_turn_button.disabled = true
-		status_label.text = "Derrota — todas as unidades aliadas foram destruídas."
+		end_battle(false, "Derrota — todas as unidades aliadas foram destruídas.")
 		return
 
 	if enemy_waves_spawned >= MAX_ENEMY_WAVES and battle_floor.get_units_for_faction(Unit.Faction.ENEMY).is_empty():
-		game_over = true
-		run_turn_button.disabled = true
-		status_label.text = "Vitória — as %d waves de inimigos foram derrotadas!" % MAX_ENEMY_WAVES
+		end_battle(true, "Vitória — as %d waves de inimigos foram derrotadas!" % MAX_ENEMY_WAVES)
 
-## Recria o BattleState do zero a partir de test_battle.json, descartando
+func end_battle(victory: bool, message: String) -> void:
+	game_over = true
+	battle_won = victory
+	run_turn_button.disabled = true
+	status_label.text = message
+	return_to_map_button.visible = in_campaign
+
+## Recria o BattleState do zero a partir de battle_id, descartando
 ## qualquer spawn/movimento/dano feito até aqui — cancela qualquer ação
 ## pendente e limpa a seleção antes, pra não referenciar uma Unit de uma
 ## batalha que não existe mais. Também recria Deck/Mana do zero (nova
@@ -1312,7 +1394,7 @@ func _on_reset_button_pressed() -> void:
 	cancel_pending_action()
 	clear_selection()
 
-	start_new_battle_state(battle_database.battles["test_battle"])
+	start_new_battle_state(get_battle_definition())
 	setup_deck_and_mana()
 
 	current_turn = 1
@@ -1321,7 +1403,7 @@ func _on_reset_button_pressed() -> void:
 	status_label.text = "Combate resetado."
 
 ## Igual "Resetar combate" (baralho novo embaralhado, mão inicial, mana
-## cheia, turno 1), mas troca a formação fixa de test_battle.json por um
+## cheia, turno 1), mas troca a formação fixa de battle_id por um
 ## andar vazio (BattleDefinition.empty()) e sorteia RANDOM_UNITS_PER_
 ## FACTION unidades pra cada lado, em células aleatórias.
 func _on_random_button_pressed() -> void:
