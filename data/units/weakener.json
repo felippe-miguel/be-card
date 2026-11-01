@@ -1,7 +1,7 @@
 {
   "id": "weakener",
-  "name": "Enfraquecedor",
-  "description": "Ao acertar um ataque, aplica Weakness 2 no alvo atingido (análogo ao Venenoso, mas com debuff em vez de dano ao longo do tempo).",
+  "name": "Bruxo",
+  "description": "On Hit: aplica Weakness 2 no alvo.",
   "max_hp": 28,
   "attack": 8,
   "attack_pattern": "lane_front",

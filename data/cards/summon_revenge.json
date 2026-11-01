@@ -1,7 +1,7 @@
 {
   "id": "summon_revenge",
-  "name": "Invocar Vingança",
-  "description": "Invoca uma Vingança numa célula vazia do grid aliado.",
+  "name": "Invocar Porta-Estandarte",
+  "description": "",
   "cost": 1,
   "type": "unit",
   "effects": [

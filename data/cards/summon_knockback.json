@@ -1,7 +1,7 @@
 {
   "id": "summon_knockback",
-  "name": "Invocar Empurrão",
-  "description": "Invoca um Empurrão numa célula vazia do grid aliado.",
+  "name": "Invocar Brutamontes",
+  "description": "",
   "cost": 2,
   "type": "unit",
   "effects": [

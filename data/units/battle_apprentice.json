@@ -1,7 +1,7 @@
 {
   "id": "battle_apprentice",
   "name": "Aprendiz de Batalha",
-  "description": "Sempre que você joga um feitiço, ganha Strength 1.",
+  "description": "On Card Played: ao jogar um feitiço, ganha Strength 1.",
   "max_hp": 28,
   "attack": 6,
   "attack_pattern": "lane_front",

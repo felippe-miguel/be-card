@@ -1,7 +1,7 @@
 {
   "id": "berserker",
   "name": "Berserker",
-  "description": "Nasce com Strength 2 (ATK efetivo +2 desde o início). Ataca o primeiro inimigo da própria lane.",
+  "description": "Entra em campo com Strength 2.",
   "max_hp": 36,
   "attack": 12,
   "attack_pattern": "lane_front",

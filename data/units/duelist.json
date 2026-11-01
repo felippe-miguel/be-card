@@ -1,7 +1,7 @@
 {
   "id": "duelist",
   "name": "Duelista",
-  "description": "Ao atacar, ganha 2 de Block — mesmo se não houver alvo válido.",
+  "description": "On Attack: ganha 2 de Block, mesmo sem alvo.",
   "max_hp": 32,
   "attack": 10,
   "attack_pattern": "lane_front",

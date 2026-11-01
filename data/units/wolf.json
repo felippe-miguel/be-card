@@ -1,7 +1,7 @@
 {
   "id": "wolf",
   "name": "Lobo",
-  "description": "Mira o inimigo mais distante da própria lane (varre de Back pra Front), não o mais próximo.",
+  "description": "Ataca o inimigo mais distante da própria lane.",
   "max_hp": 44,
   "attack": 14,
   "attack_pattern": "lane_rear"

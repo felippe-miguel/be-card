@@ -1,7 +1,7 @@
 {
   "id": "summon_sentinel",
   "name": "Invocar Sentinela",
-  "description": "Invoca uma Sentinela numa célula vazia do grid aliado.",
+  "description": "",
   "cost": 2,
   "type": "unit",
   "effects": [

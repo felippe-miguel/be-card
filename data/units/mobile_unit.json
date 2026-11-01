@@ -1,7 +1,7 @@
 {
   "id": "mobile_unit",
-  "name": "Unidade Móvel",
-  "description": "Toda vez que se move (por qualquer motivo — carta, empurrão, troca), ganha Strength 1.",
+  "name": "Batedor",
+  "description": "On Move: ganha Strength 1 (qualquer movimento conta: carta, empurrão ou troca).",
   "max_hp": 28,
   "attack": 8,
   "attack_pattern": "lane_front",

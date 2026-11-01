@@ -1,7 +1,7 @@
 {
   "id": "explosive",
-  "name": "Explosivo",
-  "description": "Ao morrer, causa 3 de dano a todos os inimigos da mesma lane em que estava.",
+  "name": "Sapador",
+  "description": "On Death: causa 3 de dano em todos os inimigos da própria lane.",
   "max_hp": 24,
   "attack": 8,
   "attack_pattern": "lane_front",

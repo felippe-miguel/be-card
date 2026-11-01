@@ -1,7 +1,7 @@
 {
   "id": "charger",
-  "name": "Investida",
-  "description": "Causa +3 de dano no ataque se tiver avançado (movido pra uma row menor) neste turno.",
+  "name": "Cavaleiro",
+  "description": "Causa +3 de dano no ataque se avançou (foi para uma row mais à frente) neste turno.",
   "max_hp": 32,
   "attack": 10,
   "attack_pattern": "lane_front",

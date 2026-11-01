@@ -1,7 +1,7 @@
 {
   "id": "summon_death_spawn",
   "name": "Invocar Ovo de Esqueleto",
-  "description": "Invoca um Ovo de Esqueleto numa célula vazia do grid aliado.",
+  "description": "",
   "cost": 2,
   "type": "unit",
   "effects": [

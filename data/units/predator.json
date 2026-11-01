@@ -1,7 +1,7 @@
 {
   "id": "predator",
   "name": "Predador",
-  "description": "Ao matar um inimigo com seu ataque, avança 1 célula (row -1), se houver espaço livre.",
+  "description": "On Kill: avança 1 célula, se houver espaço.",
   "max_hp": 30,
   "attack": 12,
   "attack_pattern": "lane_front",

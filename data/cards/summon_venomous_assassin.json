@@ -1,7 +1,7 @@
 {
   "id": "summon_venomous_assassin",
   "name": "Invocar Assassino Venenoso",
-  "description": "Invoca um Assassino Venenoso numa célula vazia do grid aliado.",
+  "description": "",
   "cost": 3,
   "type": "unit",
   "effects": [

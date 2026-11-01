@@ -1,7 +1,7 @@
 {
   "id": "summon_executioner",
   "name": "Invocar Executor",
-  "description": "Invoca um Executor numa célula vazia do grid aliado.",
+  "description": "",
   "cost": 3,
   "type": "unit",
   "effects": [

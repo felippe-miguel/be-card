@@ -1,7 +1,7 @@
 {
   "id": "enemy_archer",
-  "name": "Archer",
-  "description": "Mira o inimigo mais distante da própria lane (varre de Back pra Front), não o mais próximo.",
+  "name": "Arqueiro Bandido",
+  "description": "Ataca o inimigo mais distante da própria lane.",
   "max_hp": 24,
   "attack": 10,
   "attack_pattern": "lane_rear"

@@ -1,7 +1,7 @@
 {
   "id": "knockback",
-  "name": "Empurrão",
-  "description": "Ao acertar um ataque, empurra o alvo 1 célula pra trás (aumenta a row dele), se houver espaço livre — senão não acontece nada.",
+  "name": "Brutamontes",
+  "description": "On Hit: empurra o alvo 1 célula para trás, se houver espaço.",
   "max_hp": 30,
   "attack": 8,
   "attack_pattern": "lane_front",

@@ -1,7 +1,7 @@
 {
   "id": "venomous",
-  "name": "Venenoso",
-  "description": "Ao acertar um ataque, aplica Poison 2 no alvo atingido.",
+  "name": "Envenenador",
+  "description": "On Hit: aplica Poison 2 no alvo.",
   "max_hp": 28,
   "attack": 8,
   "attack_pattern": "lane_front",

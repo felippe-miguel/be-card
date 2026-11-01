@@ -1,7 +1,7 @@
 {
   "id": "elder_guardian",
   "name": "Guardião Ancião",
-  "description": "Segundo exemplo do critério de sucesso da Etapa 6 (docs/MECHANICS_EXECUTION_PLAN.md): ao ser invocado, ganha 5 de Block; enquanto vivo e posicionado, aliados ortogonalmente adjacentes recebem +3 de HP máximo (mesma passiva do Guardião comum); ao morrer, cura os aliados adjacentes à sua célula. (A redução de dano a aliados adjacentes do exemplo original do doc não foi implementada — não há necessidade de conteúdo real pra ela ainda, ver 'Regra para futuras mecânicas'.)",
+  "description": "On Summon: ganha 5 de Block. Aliados adjacentes ganham +3 de HP máximo enquanto ele estiver em campo. On Death: cura 6 de HP dos aliados adjacentes.",
   "max_hp": 44,
   "attack": 6,
   "attack_pattern": "lane_front",

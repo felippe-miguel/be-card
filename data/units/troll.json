@@ -1,7 +1,7 @@
 {
   "id": "troll",
   "name": "Troll",
-  "description": "HP altíssimo. Ataca o primeiro inimigo da própria lane e também quem estiver na mesma row nas lanes vizinhas.",
+  "description": "Ataca o primeiro inimigo da própria lane e quem estiver na mesma row das lanes vizinhas.",
   "max_hp": 100,
   "attack": 18,
   "attack_pattern": "primary_plus_adjacent_row"

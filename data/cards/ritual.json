@@ -1,7 +1,7 @@
 {
   "id": "ritual",
   "name": "Ritual",
-  "description": "Mata uma unidade aliada (dispara o on_death dela).",
+  "description": "Mata uma unidade aliada (dispara o On Death dela).",
   "cost": 0,
   "type": "skill",
   "effects": [

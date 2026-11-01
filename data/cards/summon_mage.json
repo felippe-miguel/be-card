@@ -1,7 +1,7 @@
 {
   "id": "summon_mage",
   "name": "Invocar Mago",
-  "description": "Invoca um Mago numa célula vazia do grid aliado.",
+  "description": "",
   "cost": 2,
   "type": "unit",
   "effects": [

@@ -1,7 +1,7 @@
 {
   "id": "summon_charger",
-  "name": "Invocar Investida",
-  "description": "Invoca uma Investida numa célula vazia do grid aliado.",
+  "name": "Invocar Cavaleiro",
+  "description": "",
   "cost": 2,
   "type": "unit",
   "effects": [
