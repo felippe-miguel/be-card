@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://10b3yat0mi0n"]
 
 [ext_resource type="Script" uid="uid://dlbabvpevoqh7" path="res://scripts/card.gd" id="1_d81rb"]
+[ext_resource type="Texture2D" uid="uid://c50xicdp0f6dc" path="res://resources/images/cards/summon_alchemist.png" id="2_kg30u"]
 [ext_resource type="Texture2D" uid="uid://m50agbyoybii" path="res://resources/images/frames/unity-frame-3.png" id="2_ktuci"]
 [ext_resource type="Texture2D" uid="uid://di1res6tpd51q" path="res://resources/images/frames/spell-frame-3.png" id="3_kg30u"]
 
@@ -67,11 +68,12 @@ mouse_filter = 2
 
 [node name="Art" type="TextureRect" parent="." unique_id=378276900]
 layout_mode = 1
-offset_left = 24.0
-offset_top = 23.0
-offset_right = 194.0
-offset_bottom = 181.0
+offset_left = 33.0
+offset_top = 33.0
+offset_right = 187.0
+offset_bottom = 172.0
 mouse_filter = 2
+texture = ExtResource("2_kg30u")
 expand_mode = 1
 stretch_mode = 6
 
